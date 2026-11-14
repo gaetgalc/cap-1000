@@ -40,8 +40,9 @@ async function load() {
   S.ai = (await dbGet('ai:' + S.user)) || {};
 }
 async function doImport(user) {
+  const first = !S.data;
   S.importing = { done: 0, total: 0, err: null };
-  render();
+  if (first) render(); else paintJob();
   try {
     const prev = user === S.user ? S.data : await dbGet('data:' + user);
     const d = await importPlayer(user, prev, (a, b) => { S.importing = { done: a, total: b, err: null }; paintJob(); const el = $('#imp'); if (el) el.textContent = b ? `Import des parties : ${a} mois sur ${b}` : 'Connexion à Chess.com'; });
@@ -51,12 +52,12 @@ async function doImport(user) {
     S.ai = (await dbGet('ai:' + d.user)) || {};
     S.importing = null;
     if (!d.games.some((g) => g.tc === S.f.tc) && S.f.tc !== 'all') { S.f = { tc: 'all', days: 0 }; ls.set('filter', S.f); }
-    render();
+    if (first) render(); else bgRender();
     const fresh = d.games.filter((g) => g.tc === targetTc()).slice(-20).filter((g) => !S.an[g.id]).length;
     if (fresh) runAnalysis(fresh);
   } catch (e) {
-    S.importing = { err: e.message || String(e) };
-    render();
+    if (first) { S.importing = { err: e.message || String(e) }; render(); }
+    else { S.importing = null; S.job.msg = 'Mise à jour impossible : ' + (e.message || String(e)); paintJob(); }
   }
 }
 
@@ -73,6 +74,12 @@ function streak() {
 const coach = (html, cls = '') => `<div class="coach ${cls}"><span class="coach-av" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="7" r="3.6" fill="currentColor"/><path d="M8 20c0-4 1.5-6 4-8.5 2.5 2.5 4 4.500 4 8.500z" fill="currentColor"/><rect x="6" y="19.500" width="12" height="2.500" rx="1" fill="currentColor"/></svg></span><div class="coach-b">${html}</div></div>`;
 const txt = (t) => esc(t).replace(/\n/g, '<br>');
 
+// Rendu déclenché en arrière-plan (fin d'analyse, import, cours généré) : n'interrompt jamais un exercice en cours.
+function bgRender() {
+  if ($('#pzb, #clb, #drb, #lib')) { paintJob(); header(); return; }
+  render(true);
+}
+
 // ---------- Analyse moteur en arrière-plan ----------
 async function runAnalysis(count, only) {
   if (S.job.running || !S.data) return;
@@ -81,30 +88,29 @@ async function runAnalysis(count, only) {
   const queue = only ? [only] : pool.filter((g) => !S.an[g.id]).sort((a, b) => b.t - a.t).slice(0, count);
   if (!queue.length) return;
   S.job = { running: true, done: 0, total: queue.length, stop: false, msg: '' };
+  const user = S.user, saveAn = () => (S.user === user ? dbSet('an:' + user, S.an) : null);
   paintJob();
   try {
     S.engine ||= new Engine();
     await S.engine.ready;
     for (const g of queue) {
-      if (S.job.stop) break;
+      if (S.job.stop || S.user !== user) break;
       const a = await analyzeGame(S.engine, g, DEPTH, () => !S.job.stop);
       S.an[g.id] = a || { ev: [], errs: [], nb: 0, acc: null, maxAdv: 0, last: 0, bad: true };
       if (S.job.stop && !a) { delete S.an[g.id]; break; }
       S.job.done++;
-      if (S.job.done % 3 === 0 || S.job.done === queue.length) await dbSet('an:' + S.user, S.an);
+      if (S.job.done % 3 === 0 || S.job.done === queue.length) await saveAn();
       paintJob();
       const r = route()[0];
-      if ((r === 'puzzles' && !S.pz?.cur) || (r === 'partie' && only)) render();
-      else if (r === 'accueil' && !only && (S.job.done === 3 || S.job.done % 5 === 0)) render(true);
+      if ((r === 'puzzles' && !$('#pzb')) || (r === 'partie' && only) || (r === 'accueil' && !only && (S.job.done === 3 || S.job.done % 5 === 0))) bgRender();
     }
-    await dbSet('an:' + S.user, S.an);
+    await saveAn();
   } catch (e) {
     S.job.msg = 'Le moteur d’analyse n’a pas pu démarrer sur ce navigateur. Les statistiques restent disponibles.';
     S.engine = null;
   }
   S.job.running = false;
-  paintJob();
-  render();
+  bgRender();
 }
 function paintJob() {
   const el = $('#job');
@@ -139,6 +145,7 @@ function lineChart(el, pts, o = {}) {
   const ys = pts.map((p) => p.y).concat(o.ref != null ? [o.ref] : []);
   let y0 = o.min ?? Math.min(...ys), y1 = o.max ?? Math.max(...ys);
   if (o.min == null) { const pad = Math.max(10, (y1 - y0) * 0.08); y0 -= pad; y1 += pad; }
+  if (y1 <= y0) y1 = y0 + 1;
   const x0 = pts[0].x, x1 = pts[pts.length - 1].x === x0 ? x0 + 1 : pts[pts.length - 1].x;
   const sx = (x) => m.l + ((x - x0) / (x1 - x0)) * (W - m.l - m.r), sy = (y) => H - m.b - ((y - y0) / (y1 - y0)) * (H - m.t - m.b);
   const step = o.step || niceStep((y1 - y0) / 4);
@@ -229,8 +236,9 @@ const pzTabs = (on) => `<div class="seg2 pztabs"><a class="${on === 'mine' ? 'on
 // ---------- Puzzles inédits (Lichess) ----------
 async function liLoad() {
   const L = S.li;
+  if (L.loading) return;
   L.loading = true; L.err = null; L.cur = null; render();
-  try { L.cur = await fetchPuzzle(L.angle, L.diff); L.step = 0; L.failed = false; L.done = false; }
+  try { L.cur = await fetchPuzzle(L.angle, L.diff); L.failed = false; L.counted = false; }
   catch (e) { L.err = e.message || String(e); }
   L.loading = false;
   if (route()[0] === 'inedits') render();
@@ -258,14 +266,15 @@ function mountInedits() {
   if (!el || !L?.cur) return;
   const P = L.cur, me = P.white ? 'w' : 'b', color = P.white ? 'white' : 'black', cap = $('#licap'), ch = new Chess(P.fen);
   let hinted = false;
+  L.step = 0; L.done = false; // l'échiquier repart toujours de la position initiale
   const mov = () => ({ free: false, color, dests: destsOf(ch), showDests: true, events: { after: onMove } });
   const cg = board(el, { fen: P.fen, orientation: color, turnColor: color, lastMove: P.last, movable: mov() });
   const say = (cls, html) => { cap.className = 'cap ' + cls; cap.innerHTML = `<p>${html}</p>`; };
   function finish(ok) {
     if (L.done) return;
     L.done = true;
-    const first = ok && !L.failed && !hinted, all = ls.get('listat', {}), stt = all[L.angle] || { n: 0, ok: 0 };
-    stt.n++; if (first) stt.ok++; all[L.angle] = stt; ls.set('listat', all); bump('li');
+    const first = ok && !L.failed && !hinted;
+    if (!L.counted) { const all = ls.get('listat', {}), stt = all[L.angle] || { n: 0, ok: 0 }; stt.n++; if (first) stt.ok++; all[L.angle] = stt; ls.set('listat', all); bump('li'); L.counted = true; }
     const steps = buildLine(P.fen, P.sol, me, true), ins = insight(P.fen, me, steps, []), x = { i: steps.length };
     const draw = () => {
       const i = Math.min(Math.max(x.i, 0), steps.length), s = steps[i - 1];
@@ -284,7 +293,7 @@ function mountInedits() {
   }
   function onMove(from, to) {
     const want = P.sol[L.step], m = ch.move({ from, to, promotion: want[4] || 'q' });
-    if (!m) return;
+    if (!m) { cg.set({ fen: ch.fen(), movable: mov() }); return; }
     if (from + to === want.slice(0, 4) || ch.in_checkmate()) {
       L.step++;
       if (L.step >= P.sol.length || ch.in_checkmate()) { cg.set({ fen: ch.fen() }); return finish(true); }
@@ -339,7 +348,7 @@ function viewPuzzles(force) {
   S.pz ||= { theme: '', free: false, cur: null };
   const prog = ls.get('pz', {});
   const q = pzQueue(S.pz.theme, S.pz.free);
-  if (!S.pz.cur || !q.some((p) => p.id === S.pz.cur.id)) S.pz.cur = q[0] ? { id: q[0].id, done: false } : null;
+  if (!S.pz.cur || !q.some((p) => p.id === S.pz.cur.id)) S.pz.cur = q[0] ? { id: q[0].id } : null;
   const themes = [...new Set(total.map((p) => p.e.theme))];
   const mastered = total.filter((p) => (prog[p.id]?.box || 0) >= 2).length, today = act()[dkey()]?.pz || 0;
   const head = pzTabs('mine') + `<div class="pzhead"><h1>Puzzles sur tes erreurs</h1>
@@ -391,7 +400,7 @@ function explainUI(o) {
     // Faire prédire avant d'expliquer : la punition de ton coup, ou ta suite dans la bonne ligne.
     const nx = L[i], guess = i >= 1 && nx && ((x.tab === 'ref' && i === 1) || (x.tab === 'best' && nx.tags.mine));
     if (guess) o.api.ask(s.fen, (from, to) => {
-      x.note = from === nx.from && to === nx.to ? '<b class="ok">Exact.</b>' : `<b class="ko">Pas le plus fort.</b> Le meilleur coup était ${fr(nx.san)}.`;
+      x.note = from === nx.from && to === nx.to ? '<b class="ok">Exact.</b>' : `<b class="ko">Pas le coup du moteur.</b> Il préférait ${fr(nx.san)}.`;
       x.i++; draw();
     });
     const note = x.note || ''; x.note = '';
@@ -422,6 +431,7 @@ function explainUI(o) {
     if (!x.d) return;
     if (a === 'next') x.i++; else if (a === 'prev') x.i = Math.max(0, x.i - 1);
     else if (a === 'tab') { x.tab = v; x.i = 1; } else if (a === 'jump') { if (t && t !== x.tab) x.tab = t; x.i = +v; }
+    x.i = Math.min(x.i, x.d[x.tab].length);
     draw();
   };
   getLines(g, e).then((d) => { if (document.body.contains(o.cap)) { x.d = d; draw(); } });
@@ -436,19 +446,20 @@ function solveBoard(el, fb, g, e, o = {}) {
   const say = (cls, html) => { fb.className = (fb.dataset.base || 'fb') + ' ' + cls; fb.innerHTML = html; };
   const finish = (ok, html) => {
     const first = !stt.done; stt.done = true;
-    say(ok ? 'ok' : '', html + (o.extra ? o.extra() : ''));
+    say(ok ? 'ok' : '', html);
     cg.set({ movable: { color: undefined }, drawable: { autoShapes: [arrow(e.best, 'green')] } });
     o.done?.(ok && stt.tries === 0 && !stt.shown, first, html);
   };
   async function onMove(from, to) {
     const m = ch.move({ from, to, promotion: 'q' });
-    if (!m) return;
+    if (!m) { cg.set({ fen: ch.fen(), movable: mov() }); return; }
     cg.set({ fen: ch.fen(), movable: { color: undefined } });
     const uci = from + to;
     if (uci === e.best.slice(0, 4) || ch.in_checkmate()) return finish(true, `<b class="ok">Bien vu.</b> ${fr(m.san)} est le meilleur coup.`);
     say('', 'Vérification de ton coup…');
     let drop = 100;
-    try { S.play ||= new Engine(); const r = await S.play.evalFen(ch.fen(), DEPTH); drop = winPct(e.e0) - winPct(-r.cp); } catch { /* moteur indisponible : seul le meilleur coup compte */ }
+    try { S.play ||= new Engine(); const r = await S.play.evalFen(ch.fen(), DEPTH, true); drop = winPct(e.e0) - winPct(-r.cp); } catch { /* moteur indisponible : seul le meilleur coup compte */ }
+    if (!document.body.contains(el)) return; // l'utilisateur a quitté l'écran pendant la vérification
     if (drop < 6) return finish(true, `<b class="ok">Bon coup.</b> ${fr(m.san)} tient la position (le moteur préférait ${fr(e.bestSan)}).`);
     stt.tries++;
     say('ko', `<b class="ko">Pas celui-là.</b> ${fr(m.san)} ${uci === e.playedUci.slice(0, 4) ? 'est le coup que tu avais joué en partie' : `fait perdre ${Math.round(drop)} points de chances de gain`}. Réessaie.`);
@@ -491,11 +502,11 @@ function mountPuzzle() {
   if (!el) return;
   const p = S.pzOne || (S.pz?.cur && allPuzzles().find((x) => x.id === S.pz.cur.id));
   if (!p) return;
-  const cur = S.pzOne ? {} : S.pz.cur, cap = $('#pzcap');
+  const cap = $('#pzcap');
   getLines(p.g, p.e); // prépare l'explication pendant que tu cherches
   S.solve = solveBoard(el, cap, p.g, p.e, {
     done: (ok, first, html) => {
-      if (first && !S.pzOne) { pzMark(p.id, ok); bump('pz'); cur.done = true; }
+      if (first && !S.pzOne) { pzMark(p.id, ok); bump('pz'); }
       explainUI({ g: p.g, e: p.e, api: S.solve, cap, panel: $('#pzx'), bar: $('#pzbar'), next: $('#pznextt').innerHTML, verdict: html });
     },
   });
@@ -586,7 +597,7 @@ function session() {
   const les = fc ? fc.id : nextLesson(ids), dr = fc ? DRILL_FOR[fc.id] : 'sur';
   const steps = [
     { k: 'dr', done: !!a.dr, t: 'Échauffe ton regard', d: `« ${DRILLS[dr].t} » : 10 positions, 2 minutes.`, cta: ['Lancer l’échauffement', '#drill/' + dr], p: 0 },
-    { k: 'pz', done: es.n > 0 && (pzDone >= pzGoal || (due === 0 && pzDone > 0)), t: 'Corrige tes erreurs', d: es.n ? `${Math.min(pzDone, pzGoal)} / ${pzGoal} puzzles tirés de tes parties${fc ? ', ton chantier d’abord' : ''}` : (S.job.running ? `Analyse de tes parties en cours (${S.job.done}/${S.job.total}). Les puzzles arrivent.` : 'Lance l’analyse pour créer tes puzzles.'), cta: es.n ? ['Résoudre mes puzzles', null, 'pzfocus'] : (S.job.running ? null : ['Analyser mes parties', null, 'analyse']), p: es.n ? pzDone / pzGoal : 0 },
+    { k: 'pz', done: es.n > 0 && (pzDone >= pzGoal || due === 0), t: 'Corrige tes erreurs', d: es.n ? `${Math.min(pzDone, pzGoal)} / ${pzGoal} puzzles tirés de tes parties${fc ? ', ton chantier d’abord' : ''}` : (S.job.running ? `Analyse de tes parties en cours (${S.job.done}/${S.job.total}). Les puzzles arrivent.` : 'Lance l’analyse pour créer tes puzzles.'), cta: es.n ? ['Résoudre mes puzzles', null, 'pzfocus'] : (S.job.running ? null : ['Analyser mes parties', null, 'analyse']), p: es.n ? pzDone / pzGoal : 0 },
     { k: 'les', done: !!a.les, t: 'Prends ton cours', d: (S.ai[les] ? S.ai[les].titre : LESSONS[les].titre) + (S.ai[les] ? ' · cours privé prêt' : ''), cta: ['Ouvrir le cours', '#cours/' + les], p: a.les ? 1 : 0 },
     { k: 'play', done: played >= 2, t: 'Joue 2 parties rapides', d: `${Math.min(played, 2)} / 2 jouées aujourd’hui.${fc ? ' Avant chaque coup : « ' + RULES[fc.id] + ' »' : ''}`, cta: ['Jouer sur Chess.com', 'https://www.chess.com/play/online/new'], p: Math.min(played, 2) / 2 },
   ];
@@ -634,7 +645,6 @@ function viewAccueil() {
       <div class="stepa">${btn}${x.k === 'play' && on ? '<button class="btn" data-act="refresh">J’ai joué, mettre à jour</button>' : ''}</div></div>`;
   }).join('');
   const sigHtml = (arr, c, empty) => (arr.length ? arr.slice(0, 4).map((x) => `<div class="sig" style="--c:var(--${c})"><b>${esc(x.t)}</b><span>${esc(x.d)}</span>${x.lesson ? `<a href="#${x.lesson === 'ouvertures' ? 'ouvertures' : 'cours/' + x.lesson}">${x.lesson === 'ouvertures' ? 'Voir tes ouvertures' : 'Ouvrir le cours'}</a>` : ''}</div>`).join('') : `<p class="sub">${empty}</p>`);
-  const maxT = Math.max(1, ...es.themes.map((t) => t.n));
   const all = st.tally(gs);
   return `<div class="row" style="justify-content:space-between"><h1>Bonjour ${esc(S.data.profile.username)}</h1>
     <span class="chip d-only ${stk ? 'warn' : ''}" title="Jours consécutifs avec au moins un puzzle ou un cours">Série : ${stk} jour${stk > 1 ? 's' : ''}</span></div>
@@ -740,7 +750,7 @@ async function genCourse(id) {
     S.ai[id] = L; await dbSet('ai:' + S.user, S.ai);
     S.gen = null; S.cl = null;
   } catch (e) { S.gen = { id, err: e.message || String(e) }; }
-  if (route()[0] === 'cours') render();
+  if (route()[0] === 'cours') bgRender();
 }
 function resolveEx(r) {
   const g = r && S.data.games.find((x) => x.t === r.t);
@@ -817,7 +827,7 @@ function viewLecon(id, mode) {
     ${nums ? `<h3>Tes chiffres</h3><dl class="kv prose">${nums}</dl>` : ''}
     <h3>La routine à appliquer</h3><ol class="routine">${L.routine.map((r) => `<li>${r}</li>`).join('')}</ol></div>
   ${ex.length ? `<div class="card"><h2>Dans tes parties</h2><p class="small">Flèche rouge : ton coup. Flèche verte : le meilleur coup.</p>
-    ${ex.map((x, i) => `<div class="ex"><div class="board mini" data-ex="${i}"></div><div class="stack">
+    ${ex.map((x, i) => `<div class="ex"><div class="board mini" data-mini="${i}"></div><div class="stack">
       <b>Coup ${moveNo(x.e)}, ${gameRef(x.g)}</b><p class="prose">${explain(x.e)}</p>
       <span class="row"><span class="chip bad">−${x.e.drop} pts de chances de gain</span><a class="btn pri sm" href="#erreur/${x.g.t}/${x.e.ply}">Travailler cette position</a><a class="btn sm" href="#partie/${x.g.t}/${x.e.ply}">Revoir dans la partie</a></span></div></div>`).join('')}
     <div><button class="btn pri" data-act="pztheme" data-theme="${id}">M’entraîner sur ce thème</button></div></div>`
@@ -827,8 +837,8 @@ function viewLecon(id, mode) {
 }
 function mountLecon() {
   mountCoachLesson();
-  document.querySelectorAll('[data-ex]').forEach((el) => {
-    const x = S.lessonEx[+el.dataset.ex];
+  document.querySelectorAll('[data-mini]').forEach((el) => {
+    const x = S.lessonEx[+el.dataset.mini];
     board(el, { fen: x.e.fen, orientation: x.g.w ? 'white' : 'black', viewOnly: true, coordinates: false, shapes: errShapes(x.e) });
   });
 }
@@ -844,13 +854,13 @@ function viewOuvertures() {
     const v = gs.filter((g) => g.w === S.white && g.fam === fam && S.an[g.id]?.ev.length > 20).map((g) => (g.w ? 1 : -1) * S.an[g.id].ev[20]);
     return v.length >= 3 ? fmtEval(Math.round(v.reduce((a, b) => a + b, 0) / v.length)) : '';
   };
-  let node = st.tree(gs, S.white); const ch = new Chess();
+  const root = st.tree(gs, S.white); let node = root; const ch = new Chess();
   const path = [];
   for (const s of S.path) { const k = node.kids.get(s); if (!k || !ch.move(s)) break; node = k; path.push(s); }
   S.path = path; S.exFen = ch.fen();
   const kids = [...node.kids.entries()].sort((a, b) => b[1].n - a[1].n).slice(0, 8);
   const myTurn = (path.length % 2 === 0) === S.white;
-  const first = S.white ? [...st.tree(gs, true).kids.entries()].sort((a, b) => b[1].n - a[1].n)[0] : null;
+  const first = S.white ? [...root.kids.entries()].sort((a, b) => b[1].n - a[1].n)[0] : null;
   const side = st.tally(gs.filter((g) => g.w === S.white));
   const crumbs = path.map((s, i) => `<button class="btn sm" data-act="expath" data-n="${i + 1}">${i % 2 === 0 ? i / 2 + 1 + '. ' : ''}${fr(s)}</button>`).join('');
   return `<div class="row" style="justify-content:space-between"><h1>Ouvertures</h1><div class="row" role="group" aria-label="Couleur">
@@ -975,7 +985,10 @@ function mountDrill() {
   if (!el || !d || d.i >= d.items.length) return;
   const it = d.items[d.i];
   d.ans = null;
-  S.drcg = board(el, { fen: it.fen, orientation: it.white ? 'white' : 'black', lastMove: it.last, movable: { free: false, color: undefined }, draggable: { enabled: false }, selectable: { enabled: !!it.tap }, drawable: { enabled: false, visible: true, autoShapes: it.pre || [] }, events: it.tap ? { select: (key) => drillAnswer(key) } : {} });
+  S.drcg = board(el, { fen: it.fen, orientation: it.white ? 'white' : 'black', lastMove: it.last, movable: { free: false, color: undefined }, draggable: { enabled: false }, selectable: { enabled: !!it.tap }, drawable: { enabled: false, visible: true, autoShapes: it.pre || [] }, events: it.tap ? { select: (key) => {
+    const pc = S.drcg.state.pieces.get(key), mine = it.white ? 'white' : 'black';
+    if (pc && (it.type === 'menace' ? pc.color === mine : pc.color !== mine)) drillAnswer(key);
+  } } : {} });
 }
 function viewPlus() {
   const row = (href, t, d, ic) => `<a class="mrow" href="${href}"><span class="mico">${ic}</span><span class="stepc"><b>${t}</b><span>${d}</span></span><span class="chev" aria-hidden="true">›</span></a>`;
@@ -988,10 +1001,11 @@ function viewPlus() {
   <div class="card"><h2>Tes données</h2><p class="sub">Compte ${esc(S.user)}. Dernière mise à jour le ${new Date(S.data.fetchedAt).toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}.</p>
     <div class="stack filters">${filtersHtml()}</div></div>`;
 }
-function weekKey() { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.toISOString().slice(0, 10); }
+function weekKey() { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return dkey(d); }
 function viewPlan() {
   const gb = goalBlock(), hours = ls.get('hours', 6), wk = weekKey(), done = ls.get('plan:' + wk, {});
-  const { ids } = priorityLessons();
+  const fcs = ls.get('focus', null), pri = priorityLessons().ids;
+  const ids = fcs && LESSONS[fcs.id] ? [fcs.id, ...pri.filter((x) => x !== fcs.id)] : pri;
   const monday = new Date(wk + 'T00:00:00').getTime() / 1000;
   const played = rapidAll().filter((g) => g.t >= monday).length;
   const target = Math.max(4, Math.round((hours * 60 * 0.5) / 25));
@@ -1000,7 +1014,7 @@ function viewPlan() {
   const items = [
     ['dr', 'Un échauffement de 2 minutes avant chaque session de parties', '#exos'],
     ...Array.from({ length: sessions }, (_, i) => [`pz${i}`, `Séance de puzzles ${i + 1} : 15 minutes sur tes erreurs`, '#puzzles']),
-    ids[0] ? ['l1', `Cours de la semaine : ${LESSONS[ids[0]].titre}`, '#cours/' + ids[0]] : null,
+    ids[0] ? ['l1', `${fcs ? 'Cours de ton chantier' : 'Cours de la semaine'} : ${LESSONS[ids[0]].titre}`, '#cours/' + ids[0]] : null,
     ids[1] ? ['l2', `Deuxième cours : ${LESSONS[ids[1]].titre}`, '#cours/' + ids[1]] : null,
     ['rev', 'Revoir tes 3 dernières défaites coup par coup', '#parties'],
     weakOp ? ['op', `Explorer ton ouverture la plus fragile : ${weakOp}`, '#ouvertures'] : null,
@@ -1008,7 +1022,7 @@ function viewPlan() {
   const g = gb.g;
   return `<h1>Plan de la semaine</h1>
   <div class="hero">${gb.html}
-    <div class="card"><h2>Semaine du ${new Date(wk).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}</h2>
+    <div class="card"><h2>Semaine du ${new Date(wk + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}</h2>
       <div class="row"><label for="hrs" class="sub">Temps disponible</label><select id="hrs">${[3, 4, 5, 6, 8, 10].map((h) => `<option value="${h}" ${h === hours ? 'selected' : ''}>${h} h par semaine</option>`).join('')}</select></div>
       <div class="stack"><b>Jouer : <span class="num">${played} / ${target}</span> parties rapides cette semaine</b>
         <div class="goalbar" aria-hidden="true"><i style="width:${Math.min(100, (100 * played) / target)}%"></i></div>
@@ -1095,7 +1109,13 @@ document.addEventListener('click', (ev) => {
   else if (act === 'pzreal') S.solve?.real(el);
   else if (act === 'pzhint') S.solve?.hint();
   else if (act === 'pzshow') S.solve?.show();
-  else if (act === 'pznext') { const q = pzQueue(S.pz.theme, S.pz.free).filter((p) => p.id !== S.pz.cur.id); S.pz.cur = q[0] ? { id: q[0].id, done: false } : null; if (!q[0]) S.pz.free = false; S.exui = null; render(); }
+  else if (act === 'pznext') {
+    let q = pzQueue(S.pz.theme, S.pz.free).filter((p) => p.id !== S.pz.cur.id);
+    if (!q[0] && S.pz.theme) { S.pz.theme = ''; q = pzQueue('', false).filter((p) => p.id !== S.pz.cur.id); }
+    S.pz.cur = q[0] ? { id: q[0].id } : null;
+    if (!q[0]) S.pz.free = false;
+    render();
+  }
   else if (act === 'pztheme') { S.pz = { theme: el.dataset.theme, free: true, cur: null }; location.hash = '#puzzles'; }
   else if (act === 'lu') { const d = ls.get('lus', {}); d[el.dataset.id] = !d[el.dataset.id]; ls.set('lus', d); if (d[el.dataset.id]) bump('les'); render(true); }
   else if (act === 'gen') genCourse(el.dataset.id);
@@ -1121,7 +1141,7 @@ document.addEventListener('click', (ev) => {
   else if (act === 'more') { S.listN += 50; render(true); }
   else if (act === 'goto') { S.gv.k = +el.dataset.k; render(true); }
   else if (act === 'reset') {
-    if (el.dataset.sure) { const u = S.user; ['user', 'pz', 'lus', 'filter', 'act', 'focus', 'drills', 'li', 'listat'].forEach(ls.del); dbDel('data:' + u); dbDel('an:' + u); dbDel('ai:' + u); S.ai = {}; S.job.stop = true; S.user = null; S.data = null; S.an = {}; S.pz = null; location.hash = '#accueil'; render(); }
+    if (el.dataset.sure) { const u = S.user; ls.clear(['key', 'model', 'goal', 'hours']); dbDel('data:' + u); dbDel('an:' + u); dbDel('ai:' + u); S.ai = {}; S.li = null; S.gen = null; S.cl = null; LINES.clear(); S.job.stop = true; S.user = null; S.data = null; S.an = {}; S.pz = null; location.hash = '#accueil'; render(); }
     else { el.dataset.sure = '1'; el.textContent = 'Confirmer : effacer les données de cet appareil'; }
   }
 });
@@ -1163,7 +1183,7 @@ document.addEventListener('pointerover', (ev) => {
 document.addEventListener('pointerout', (ev) => { if (ev.target.closest?.('[data-tip]')) $('#tip').hidden = true; });
 let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { const r = route()[0]; if (r === 'accueil') mountAccueil(); else if (r === 'stats') mountStats(S, H); }, 200); });
 
-window.__cap = S;
+if (new URLSearchParams(location.search).has('debug')) window.__cap = S; // accès à l'état pour les tests
 (async function init() {
   await load();
   render();

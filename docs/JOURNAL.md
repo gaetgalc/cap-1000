@@ -129,6 +129,12 @@ Fait :
 
 Précision demandée, réponse : « Des puzzles inédits ». Fait : onglet « Positions inédites » dans Puzzles, alimenté par l'API publique de Lichess (base dans le domaine public), sans compte. Choix du thème (par défaut celui du chantier) et du niveau, solution à jouer coup par coup, puis solution commentée et idée. Bouton d'accès depuis la carte du chantier. Non testé contre la vraie API (bloquée depuis l'environnement de Claude).
 
+## 14. Audit du projet (22:56)
+
+> "Read this entire project and find everything that's broken, inconsistent, inefficient, or no longer needed. Fix what you're sure about and list the rest for me to review."
+
+Corrigé : rendus d'arrière-plan qui interrompaient un exercice en cours, échec de mise à jour silencieux, vérification d'un coup qui aboutissait après avoir quitté l'écran, analyses illisibles comptées dans les statistiques, chantier épuisé affichant « tout est à jour », étape puzzles impossible à valider sans puzzle dû, touches hors pièce comptées comme réponses dans les échauffements, puzzle Lichess désynchronisé après un nouveau rendu, clé de semaine en UTC, plan non aligné sur le chantier, chiffre non sourcé (« 100 Elo »), collision d'attributs `data-ex`, file d'attente du moteur sans priorité, code mort, README périmé, fichier LICENSE manquant. Points laissés à l'arbitrage listés dans `CLAUDE.md` (points ouverts).
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |

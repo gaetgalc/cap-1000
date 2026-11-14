@@ -114,7 +114,7 @@ export const THEMES = {
 
 // Synthèse des analyses moteur pour un ensemble de parties.
 export function engineStats(games, an) {
-  const done = games.filter((g) => an[g.id]);
+  const done = games.filter((g) => an[g.id] && !an[g.id].bad);
   const themes = {}; const phases = { ouverture: 0, milieu: 0, finale: 0 };
   let gaffes = 0, erreurs = 0, accSum = 0, accN = 0, ahead = 0, converted = 0, behind = 0, saved = 0;
   for (const g of done) {
@@ -177,7 +177,7 @@ export function signals(games, an) {
   const es = engineStats(games, an);
   if (es.n >= 5) {
     const perGame = es.gaffes / es.n;
-    if (perGame >= 2.5) W('Trop de gaffes par partie', `${perGame.toFixed(1)} gaffes par partie en moyenne sur ${es.n} parties analysées. Une gaffe de moins par partie vaut environ 100 Elo à ce niveau.`, es.themes[0]?.id);
+    if (perGame >= 2.5) W('Trop de gaffes par partie', `${perGame.toFixed(1)} gaffes par partie en moyenne sur ${es.n} parties analysées.`, es.themes[0]?.id);
     else if (perGame <= 1.2) F('Peu de gaffes', `${perGame.toFixed(1)} gaffe par partie en moyenne sur ${es.n} parties analysées.`);
     const top = es.themes[0];
     if (top && top.n >= 3) W(THEMES[top.id], `${top.n} occurrences sur ${es.n} parties analysées. C’est ton erreur la plus coûteuse.`, top.id);

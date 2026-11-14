@@ -66,7 +66,14 @@ Idées non faites : import des parties Lichess, comptes et synchronisation, trad
 python3 -m http.server 8000   # puis http://localhost:8000/?u=gaetcc
 ```
 
-Les tests automatisés des sessions précédentes utilisaient puppeteer-core avec Chrome et interceptaient `api.chess.com` et `api.anthropic.com` (parties générées par coups aléatoires au format Chess.com). Ils ne sont pas versionnés.
+Les tests automatisés des sessions précédentes utilisaient puppeteer-core avec Chrome et interceptaient `api.chess.com` et `api.anthropic.com` (parties générées par coups aléatoires au format Chess.com). Ils ne sont pas versionnés. Ajouter `&debug` à l'URL expose l'état `S` dans `window.__cap` pour ces tests.
+
+## Règles internes à respecter
+
+- Tout rendu déclenché en arrière-plan (fin d'analyse, import, génération) passe par `bgRender()`, qui ne touche pas à un exercice en cours. `render()` est réservé aux actions de l'utilisateur.
+- `data-act` = actions globales, `data-ex` = actions de l'explication en cours (`S.exui`), `data-f` = filtres et sélecteurs, `data-mini` = mini-échiquiers des fiches.
+- Les analyses marquées `bad` (partie illisible) sont exclues de toutes les statistiques.
+- `Engine.evalFen(fen, depth, urgent)` : `urgent` fait passer la vérification d'un coup devant les calculs de suites.
 
 ## Points ouverts
 
@@ -75,5 +82,8 @@ Les tests automatisés des sessions précédentes utilisaient puppeteer-core ave
 - Interface mobile refaite le 14/11 au soir (coquille d'app) sans retour encore ; si elle ne convient toujours pas, demander une capture de l'écran précis.
 - Les explications de `explain.js` reposent sur des heuristiques (attaquants, défenseurs, matériel) : pas de clouages ni d'attaques à la découverte.
 - Puzzles Lichess codés d'après la documentation de l'API et testés avec une API simulée seulement : format réel de la réponse (coupe du PGN, `initialPly`) à confirmer au premier essai ; `fetchPuzzle` essaie plusieurs coupes et garde celle où la solution est légale.
+- Relecture de partie : tout l'écran est reconstruit à chaque coup (simple, mais sans animation des pièces).
+- Sous-promotions non gérées dans les puzzles (promotion en dame forcée).
+- Si le worker Stockfish plante après son démarrage, les calculs en attente ne se terminent pas.
 - Noms d'ouvertures en anglais (source Chess.com).
 - Licence : GPL-3.0-or-later (imposée par chessground et Stockfish).

@@ -5,7 +5,8 @@ const VAL = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
 
 export class Engine {
   constructor() {
-    this.q = Promise.resolve();
+    this.jobs = [];
+    this.busy = false;
     this.cur = null;
     this.ready = new Promise((res, rej) => {
       try {
@@ -22,8 +23,25 @@ export class Engine {
     });
   }
   // Score du point de vue du camp au trait. cp borné, mat encodé en ±(MATE - n).
-  evalFen(fen, depth) {
-    const run = () => new Promise((res) => {
+  // urgent : passe devant les calculs en attente (vérification d'un coup joué par l'utilisateur).
+  evalFen(fen, depth, urgent) {
+    return new Promise((res, rej) => {
+      const job = { fen, depth, res, rej };
+      if (urgent) this.jobs.unshift(job); else this.jobs.push(job);
+      this.pump();
+    });
+  }
+  async pump() {
+    if (this.busy) return;
+    const job = this.jobs.shift();
+    if (!job) return;
+    this.busy = true;
+    try { await this.ready; job.res(await this.run(job.fen, job.depth)); } catch (e) { job.rej(e); }
+    this.busy = false;
+    this.pump();
+  }
+  run(fen, depth) {
+    return new Promise((res) => {
       let last = { cp: 0, pv: [] };
       this.cur = (line) => {
         if (line.startsWith('info') && line.includes(' pv ') && !/bound/.test(line)) {
@@ -42,9 +60,6 @@ export class Engine {
       this.w.postMessage('position fen ' + fen);
       this.w.postMessage('go depth ' + depth);
     });
-    const p = this.q.then(() => this.ready).then(run);
-    this.q = p.catch(() => {});
-    return p;
   }
   stop() { try { this.w.terminate(); } catch { /* rien */ } }
 }

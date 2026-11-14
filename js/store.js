@@ -41,4 +41,6 @@ export const ls = {
   get(k, d) { try { const v = localStorage.getItem('cap1000:' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
   set(k, v) { try { localStorage.setItem('cap1000:' + k, JSON.stringify(v)); } catch { /* rien */ } },
   del(k) { try { localStorage.removeItem('cap1000:' + k); } catch { /* rien */ } },
+  // Efface toutes les clés de l'app sauf celles listées (réglages de l'appareil).
+  clear(keep) { try { for (const k of Object.keys(localStorage)) if (k.startsWith('cap1000:') && !keep.includes(k.slice(8))) localStorage.removeItem(k); } catch { /* rien */ } },
 };
