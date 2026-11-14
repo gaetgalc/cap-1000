@@ -6,7 +6,7 @@ import { Engine, analyzeGame, winPct, fmtEval, uciMove } from './engine.js';
 import * as st from './stats.js';
 import { LESSONS, ENGINE_LESSONS } from './lessons.js';
 import { viewStats, mountStats } from './alltime.js';
-import { MODELS, coachKey, coachModel, facts, genLesson, askCoach } from './coach.js';
+import { MODELS, coachKey, coachModel, facts, genLesson, askCoach, buildPrompt, parseLesson } from './coach.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -439,7 +439,7 @@ function viewCours() {
   const others = Object.keys(LESSONS).filter((id) => !ids.includes(id));
   return `<h1>Cours</h1>
     ${coachKey() ? coach('Je prépare chaque cours à partir de tes propres positions : une idée, tes erreurs à rejouer, une règle à emporter. Ouvre un cours et demande-moi de le préparer.')
-    : `<div class="card"><h2>Ton coach privé</h2><p class="prose">Avec une clé API Claude, chaque cours devient une leçon particulière : Claude étudie tes positions, te pose les bonnes questions avant de te laisser jouer, puis t’explique pourquoi ton coup échouait. Sans clé, tu gardes les fiches classiques ci-dessous.</p>${keyForm()}</div>`}
+    : `<div class="card"><h2>Ton coach privé</h2><p class="prose">Chaque cours peut devenir une leçon particulière : Claude étudie tes positions, te pose les bonnes questions avant de te laisser jouer, puis t’explique pourquoi ton coup échouait. Deux façons de faire : avec ton abonnement Claude (un copier-coller, proposé dans chaque cours), ou en un clic avec une clé API facturée à l’usage.</p><details class="manual"><summary>Activer la génération en un clic (clé API)</summary>${keyForm()}</details></div>`}
     ${ids.length ? `<h2>Tes priorités</h2><div class="grid">${ids.map((id, i) => card(id, i < 3 ? i + 1 : 0)).join('')}</div>` : `<div class="card"><p class="sub">${S.job.running ? 'Analyse en cours : le classement des cours arrive.' : 'Lance l’analyse de tes parties pour classer les cours selon tes erreurs.'}</p></div>`}
     <h2>Autres cours</h2><div class="grid">${others.map((id) => card(id, 0)).join('')}</div>`;
 }
@@ -461,13 +461,25 @@ function lessonExamples(id) {
   }
   return out.sort((x, y) => y.e.drop - x.e.drop).slice(0, 4);
 }
+function lessonArgs(id) {
+  const ex = ENGINE_LESSONS.includes(id) ? lessonExamples(id) : [];
+  const numbers = lessonNumbers(id, games()).replace(/<\/dd>/g, '\n').replace(/<[^>]+>/g, ' ').trim();
+  return { ex, args: { theme: st.THEMES[id] || LESSONS[id].titre, base: LESSONS[id], elo: st.trend(rapidAll())?.cur, goal: goal().elo, numbers, examples: ex.map((x) => facts(x.g, x.e)) } };
+}
+// Sans clé API : le brief part dans une conversation Claude (abonnement), la réponse revient par copier-coller.
+function manualBlock(id) {
+  return `<details class="manual" ${coachKey() ? '' : 'open'}><summary>Avec ton abonnement Claude, sans clé API</summary><ol class="routine">
+      <li><button class="btn pri" data-act="brief" data-id="${id}">Copier le brief du cours</button> <span class="small" id="briefok"></span></li>
+      <li>Colle-le dans une nouvelle conversation Claude (app ou claude.ai) et envoie.</li>
+      <li>Copie toute la réponse de Claude et colle-la ici :<form data-form="paste" data-id="${id}" class="stack" style="margin-top:8px"><textarea id="pastein" rows="4" placeholder="Réponse de Claude (elle commence par une accolade)" aria-label="Réponse de Claude"></textarea><div><button class="btn">Importer le cours</button> <span class="err" id="pasteerr"></span></div></form></li></ol>
+      <textarea id="briefraw" rows="6" hidden readonly aria-label="Brief à copier"></textarea></details>`;
+}
 async function genCourse(id) {
   if (S.gen && !S.gen.err) return;
   S.gen = { id }; render(true);
   try {
-    const ex = ENGINE_LESSONS.includes(id) ? lessonExamples(id) : [];
-    const numbers = lessonNumbers(id, games()).replace(/<\/dd>/g, '\n').replace(/<[^>]+>/g, ' ').trim();
-    const L = await genLesson({ theme: st.THEMES[id] || LESSONS[id].titre, base: LESSONS[id], elo: st.trend(rapidAll())?.cur, goal: goal().elo, numbers, examples: ex.map((x) => facts(x.g, x.e)) });
+    const { ex, args } = lessonArgs(id);
+    const L = await genLesson(args);
     L.ex = ex.map((x) => ({ t: x.g.t, ply: x.e.ply }));
     S.ai[id] = L; await dbSet('ai:' + S.user, S.ai);
     S.gen = null; S.cl = null;
@@ -501,7 +513,7 @@ function viewCoachLesson(id, L) {
         <div class="row"><button class="btn" data-act="pzhint">Un indice</button><button class="btn" data-act="pzreal" id="pzreal">Voir ce que j’ai joué en partie</button><button class="btn" data-act="pzshow">Je ne trouve pas</button></div>
         <div id="clx" hidden>${coach(`${txt(pos.explication)}<br><b>À retenir :</b> ${txt(pos.retenir)}`)}</div>
         ${next(i === L.positions.length - 1 ? 'Passer à la méthode' : 'Position suivante', true)}
-        <form data-form="ask" class="row"><input type="text" id="askq" placeholder="Une question sur cette position ?" style="flex:1;min-width:180px" aria-label="Question au coach"><button class="btn">Demander au coach</button></form><div id="aska"></div>
+        ${coachKey() ? `<form data-form="ask" class="row"><input type="text" id="askq" placeholder="Une question sur cette position ?" style="flex:1;min-width:180px" aria-label="Question au coach"><button class="btn">Demander au coach</button></form><div id="aska"></div>` : ''}
       </div></div>`;
   }
   if (stp === 'methode') {
@@ -533,8 +545,9 @@ function viewLecon(id, mode) {
   const coachCard = busy ? coach('Je prépare ton cours à partir de tes positions. Compte 20 à 40 secondes.')
     : S.ai[id] ? `<div><a class="btn pri lg" href="#cours/${id}">Revenir au cours privé</a></div>`
     : coachKey() ? `<div class="card"><h2>Cours privé</h2><p class="prose">Claude prépare une leçon particulière sur ce thème à partir de ${ex.length ? `tes ${ex.length} positions les plus coûteuses` : 'tes statistiques'} : questions guidées, explications, règle à retenir, quiz.</p>
-        ${S.gen?.id === id && S.gen.err ? `<p class="err">${esc(S.gen.err)}</p>` : ''}<div><button class="btn pri lg" data-act="gen" data-id="${id}">Préparer mon cours privé</button></div></div>`
-    : `<div class="card"><h2>Cours privé par Claude</h2><p class="prose">Active le coach pour transformer cette fiche en leçon particulière construite sur tes positions.</p>${keyForm()}</div>`;
+        ${S.gen?.id === id && S.gen.err ? `<p class="err">${esc(S.gen.err)}</p>` : ''}<div><button class="btn pri lg" data-act="gen" data-id="${id}">Préparer mon cours privé</button></div>${manualBlock(id)}</div>`
+    : `<div class="card"><h2>Cours privé par Claude</h2><p class="prose">Claude transforme cette fiche en leçon particulière construite sur tes positions : questions guidées, explications, règle à retenir, quiz.</p>${manualBlock(id)}
+      <details class="manual"><summary>Ou en un clic, avec une clé API (payante à l’usage)</summary>${keyForm()}</details></div>`;
   return `<p class="small"><a href="#cours">Tous les cours</a></p><h1>${L.titre}</h1>${coachCard}
   <div class="card"><h2>Le principe</h2><p class="prose">${L.principe}</p>
     ${nums ? `<h3>Tes chiffres</h3><dl class="kv prose">${nums}</dl>` : ''}
@@ -734,6 +747,12 @@ document.addEventListener('click', (ev) => {
   else if (act === 'pztheme') { S.pz = { theme: el.dataset.theme, free: true, cur: null }; location.hash = '#puzzles'; }
   else if (act === 'lu') { const d = ls.get('lus', {}); d[el.dataset.id] = !d[el.dataset.id]; ls.set('lus', d); if (d[el.dataset.id]) bump('les'); render(true); }
   else if (act === 'gen') genCourse(el.dataset.id);
+  else if (act === 'brief') {
+    const { ex, args } = lessonArgs(el.dataset.id), pr = buildPrompt(args), text = pr.system + '\n\n' + pr.user;
+    ls.set('brief:' + el.dataset.id, ex.map((x) => ({ t: x.g.t, ply: x.e.ply })));
+    const ok = $('#briefok'), raw = $('#briefraw');
+    navigator.clipboard.writeText(text).then(() => { ok.textContent = 'Copié. Colle-le dans Claude.'; }).catch(() => { raw.hidden = false; raw.value = text; raw.select(); ok.textContent = 'Copie le texte ci-dessous à la main.'; });
+  }
   else if (act === 'clnext') {
     const L = S.ai[S.cl?.id]; if (!L) return;
     const n = 1 + L.positions.length + 1 + (L.quiz.length ? 1 : 0);
@@ -758,6 +777,11 @@ document.addEventListener('submit', async (ev) => {
   const f = ev.target.closest('form[data-form]'); if (!f) return;
   ev.preventDefault();
   if (f.dataset.form === 'key') { const v = $('#keyin', f).value.trim(); if (v) { ls.set('key', v); render(true); } }
+  else if (f.dataset.form === 'paste') {
+    const id = f.dataset.id, refs = ls.get('brief:' + id, null) || lessonArgs(id).ex.map((x) => ({ t: x.g.t, ply: x.e.ply }));
+    try { const L = parseLesson($('#pastein').value, refs.length); L.ex = refs; L.model = 'abonnement'; S.ai[id] = L; await dbSet('ai:' + S.user, S.ai); S.cl = null; S.gen = null; location.hash = '#cours/' + id; render(); }
+    catch (e) { $('#pasteerr').textContent = e.message; }
+  }
   else if (f.dataset.form === 'ask') {
     const q = $('#askq').value.trim(), out = $('#aska'), c = S.clPos; if (!q || !c) return;
     out.innerHTML = coach('Je regarde la position…');

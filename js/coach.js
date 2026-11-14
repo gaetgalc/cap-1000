@@ -88,7 +88,7 @@ Rigueur : sur les positions, tu n'affirmes que ce qui figure dans les faits four
 
 Tu réponds uniquement par un objet JSON valide, sans texte autour ni balises de code.`;
 
-export async function genLesson({ theme, base, elo, goal, numbers, examples }) {
+export function buildPrompt({ theme, base, elo, goal, numbers, examples }) {
   const user = `Élève : environ ${elo || 'moins de 1000'} Elo en parties rapides sur Chess.com, objectif ${goal} Elo.
 Thème du cours : ${theme}.
 Principe de référence : ${base.principe}
@@ -112,15 +112,23 @@ Rédige le cours au format JSON suivant :
   ]
 }
 Une entrée dans "positions" par position fournie (${examples.length}), dans un ordre pédagogique (de la plus simple à la plus subtile). 3 questions dans "quiz".`;
-  const txt = await call(SYSTEM, user, 6000);
+  return { system: SYSTEM, user };
+}
+export function parseLesson(txt, nEx) {
   const a = txt.indexOf('{'), b = txt.lastIndexOf('}');
   let L;
-  try { L = JSON.parse(txt.slice(a, b + 1)); } catch { throw new Error('Le cours généré est illisible. Relance la génération.'); }
-  if (!L.titre || !L.idee) throw new Error('Le cours généré est incomplet. Relance la génération.');
-  L.positions = (Array.isArray(L.positions) ? L.positions : []).filter((p) => Number.isInteger(p.i) && p.i >= 0 && p.i < examples.length);
+  try { L = JSON.parse(txt.slice(a, b + 1)); } catch { throw new Error('Le cours est illisible : il faut la réponse complète de Claude, de la première accolade à la dernière.'); }
+  if (!L.titre || !L.idee) throw new Error('Le cours est incomplet. Relance la génération.');
+  L.positions = (Array.isArray(L.positions) ? L.positions : []).filter((p) => Number.isInteger(p.i) && p.i >= 0 && p.i < nEx);
   L.methode = Array.isArray(L.methode) ? L.methode : [];
   L.quiz = (Array.isArray(L.quiz) ? L.quiz : []).filter((q) => q.q && Array.isArray(q.choix) && Number.isInteger(q.bonne));
-  L.at = Date.now(); L.model = coachModel();
+  L.at = Date.now();
+  return L;
+}
+export async function genLesson(args) {
+  const { system, user } = buildPrompt(args);
+  const L = parseLesson(await call(system, user, 6000), args.examples.length);
+  L.model = coachModel();
   return L;
 }
 

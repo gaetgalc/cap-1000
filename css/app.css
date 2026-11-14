@@ -168,3 +168,6 @@ a.card.lesson { text-decoration: none; color: inherit; transition: border-color 
 .moves sup { font-size: 10px; font-weight: 700; margin-left: 1px; }
 .moves button.gaffe sup { color: var(--bad); } .moves button.erreur sup { color: var(--warn); } .moves button.imprecision sup { color: var(--ink3); }
 .moves button.cur sup { color: #fff; }
+details.manual { border-top: 1px solid var(--line); padding-top: 12px; }
+details.manual summary { cursor: pointer; font-weight: 600; margin-bottom: 10px; }
+textarea { font: 13px/1.4 ui-monospace, Menlo, monospace; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; width: 100%; resize: vertical; }
