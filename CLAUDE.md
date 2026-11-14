@@ -30,15 +30,25 @@ Site statique sans build, servi par GitHub Pages depuis `main` (racine). Tout to
 | `js/alltime.js` | Page Stats (depuis la première partie) |
 | `js/lessons.js` | Fiches de cours statiques (principe, routine), règles courtes par thème |
 | `js/explain.js` | Explications sans IA : description de chaque coup, idée du meilleur coup, raison de l'échec du coup joué, bilan matériel |
+| `js/drills.js` | Échauffements : 4 exercices de vérification générés depuis les positions des parties, réponse établie par les règles |
 | `js/coach.js` | Cours privés Claude : faits vérifiés, prompt, appel API, lecture du JSON |
 | `js/store.js` | IndexedDB (`data:<user>`, `an:<user>`, `ai:<user>`) et localStorage (préfixe `cap1000:`) |
 | `vendor/` | chess.js 0.10.3, chessground 9, Stockfish 19 lite single-thread (WASM) |
 
-Routes : `#accueil`, `#puzzles`, `#erreur/<end_time>/<ply>` (travail d'une erreur précise), `#plus` (menu mobile), `#cours`, `#cours/<id>[/fiche]`, `#ouvertures`, `#parties`, `#partie/<end_time>[/<ply>]`, `#plan`, `#stats`.
+Routes : `#accueil`, `#puzzles`, `#erreur/<end_time>/<ply>` (travail d'une erreur précise), `#plus` (menu mobile), `#exos`, `#drill/<sur|menace|cadeau|compte>`, `#cours`, `#cours/<id>[/fiche]`, `#ouvertures`, `#parties`, `#partie/<end_time>[/<ply>]`, `#plan`, `#stats`.
 
 ## Écran de travail (puzzles, erreurs, positions de cours)
 
 `workScreen` + `solveBoard` + `explainUI` dans `app.js`. Avant la solution : coach qui décrit le dernier coup adverse, indices en deux niveaux, « Mon coup ». Après : suites commentées coup par coup (« La bonne suite » et « Ton coup »), calculées en direct par Stockfish (`getLines`), idée, comparaison, règle à retenir. Sur téléphone : barre du haut avec retour, échiquier plein cadre, bandeau de commentaire sous l'échiquier, barre d'actions fixe en bas, 5 onglets.
+
+## Boucle pédagogique
+
+1. **Chantier** (`focus`, `focusStats`, `focusCard`) : un seul type d'erreur à la fois, choisi sur le coût mesuré ; validé quand son taux par partie est divisé par deux sur au moins 5 parties jouées depuis le début du chantier. Stocké dans `cap1000:focus`.
+2. **Séance du jour** en 4 étapes : échauffement lié au chantier (`DRILL_FOR`), puzzles du chantier, cours, 2 parties avec la règle du chantier.
+3. **Mesure** : `themeTrend` (10 dernières parties analysées contre les 10 précédentes) et `themeSeries` (courbe par paquets de 5).
+4. **Prédire avant d'expliquer** : dans `explainUI`, l'élève joue lui-même la punition de son coup et ses propres coups de la bonne suite.
+
+Idées non faites : positions inédites d'une base externe (Lichess), import Lichess, comptes et synchronisation, traduction.
 
 ## Contraintes à connaître
 

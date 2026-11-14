@@ -192,3 +192,21 @@ export function signals(games, an) {
   }
   return out;
 }
+
+// Évolution des erreurs graves par partie : 10 dernières parties analysées contre les 10 précédentes.
+export function themeTrend(games, an) {
+  const done = games.filter((g) => an[g.id] && !an[g.id].bad).sort((a, b) => a.t - b.t);
+  const cur = done.slice(-10), prev = done.slice(-20, -10);
+  const rate = (list, id) => (list.length ? list.reduce((n, g) => n + an[g.id].errs.filter((e) => e.theme === id).length, 0) / list.length : null);
+  const rows = Object.keys(THEMES).map((id) => ({ id, now: rate(cur, id), before: prev.length >= 5 ? rate(prev, id) : null })).filter((r) => r.now || r.before).sort((a, b) => (b.now || 0) - (a.now || 0));
+  return { rows, nCur: cur.length, nPrev: prev.length, done };
+}
+// Taux d'un type d'erreur par paquets de 5 parties analysées (pour la courbe du chantier).
+export function themeSeries(done, an, id, size = 5) {
+  const out = [];
+  for (let i = 0; i + size <= done.length; i += size) {
+    const b = done.slice(i, i + size);
+    out.push({ t: b[b.length - 1].t, y: b.reduce((n, g) => n + an[g.id].errs.filter((e) => e.theme === id).length, 0) / size });
+  }
+  return out;
+}

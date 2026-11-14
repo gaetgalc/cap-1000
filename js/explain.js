@@ -1,8 +1,8 @@
 // Explications pédagogiques : décrit chaque coup d'une suite en langage clair, dégage l'idée,
 // et compare le meilleur coup au coup joué. Tout est déduit des règles et des suites du moteur.
 /* global Chess */
-const VAL = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
-const NOM = { p: 'pion', n: 'cavalier', b: 'fou', r: 'tour', q: 'dame', k: 'roi' };
+export const VAL = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+export const NOM = { p: 'pion', n: 'cavalier', b: 'fou', r: 'tour', q: 'dame', k: 'roi' };
 const FEM = { r: 1, q: 1 };
 const UN = { p: 'un pion', n: 'un cavalier', b: 'un fou', r: 'une tour', q: 'la dame' };
 const FR = { N: 'C', B: 'F', R: 'T', Q: 'D', K: 'R' };
@@ -10,9 +10,10 @@ export const fr = (san) => String(san).replace(/[NBRQK]/g, (c) => FR[c]);
 const sqOf = (r, f) => 'abcdefgh'[f] + (8 - r);
 const rf = (sq) => [8 - +sq[1], sq.charCodeAt(0) - 97];
 // « ton cavalier », « sa dame » : toujours du point de vue du joueur (me).
-const poss = (type, color, me) => (color === me ? (FEM[type] ? 'ta ' : 'ton ') : (FEM[type] ? 'sa ' : 'son ')) + NOM[type];
+export const poss = (type, color, me) => (color === me ? (FEM[type] ? 'ta ' : 'ton ') : (FEM[type] ? 'sa ' : 'son ')) + NOM[type];
 const il = (type) => (FEM[type] ? 'elle' : 'il');
 const e_ = (type) => (FEM[type] ? 'e' : '');
+export const fem = e_;
 
 function attacksFrom(B, r, f) {
   const p = B[r][f]; if (!p) return [];
@@ -34,7 +35,7 @@ function attackers(B, sq, color) {
   }
   return out;
 }
-function cap(s) { return s[0].toUpperCase() + s.slice(1); }
+export function cap(s) { return s[0].toUpperCase() + s.slice(1); }
 const cheapest = (list) => list.slice().sort((a, b) => VAL[a.type] - VAL[b.type])[0];
 export function material(fen, me) {
   let m = 0;
@@ -42,7 +43,7 @@ export function material(fen, me) {
   return m;
 }
 // Pièces du camp `color` attaquées et en danger réel (non défendues, ou attaquées par moins cher).
-function hanging(B, color) {
+export function hanging(B, color) {
   const opp = color === 'w' ? 'b' : 'w', out = [];
   for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
     const p = B[r][f]; if (!p || p.color !== color || p.type === 'k') continue;

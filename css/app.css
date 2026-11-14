@@ -182,7 +182,7 @@ textarea { font: 13px/1.4 ui-monospace, Menlo, monospace; color: var(--ink); bac
 .cap { background: var(--surface); border-top: 4px solid var(--line); padding: 12px 14px; font-size: 15.5px; line-height: 1.45; min-height: 76px; border-radius: 0 0 8px 8px; display: flex; flex-direction: column; gap: 6px; max-width: 520px; }
 .cap.ok { border-top-color: var(--accent); background: var(--good-soft); }
 .cap.ko { border-top-color: var(--bad); background: var(--bad-soft); }
-.cap p { margin: 0; } .cap > .dot { display: inline-block; margin-right: 6px; }
+.cap p { margin: 0; } .cap .dot { display: inline-block; margin-right: 6px; vertical-align: -1px; }
 .cap b.ok { color: var(--good); } .cap b.ko { color: var(--bad); }
 .capm { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .capn { font: 700 17px var(--display); display: inline-flex; align-items: center; gap: 6px; }
@@ -257,3 +257,18 @@ details.gd summary { cursor: pointer; font-size: 14px; color: var(--accent-ink);
   .ex { grid-template-columns: 1fr; } .board.mini { max-width: none; }
   .job { font-size: 13px; padding: 8px 14px; }
 }
+
+/* Chantier, exercices */
+.focus { border-color: var(--accent); gap: 10px; }
+.focus .rulet { font-size: 17px; max-width: 46ch; }
+.fmet { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.fmet > div { display: flex; flex-direction: column; gap: 1px; padding: 10px 12px; border-radius: 10px; background: var(--bg); font-size: 12.5px; color: var(--ink2); }
+.fmet b { font: 700 24px/1.1 var(--display); color: var(--ink); } .fmet b.ok { color: var(--good); } .fmet b.ko { color: var(--bad); }
+.mico { font: 700 13px var(--display); }
+.cap .ask { font-weight: 600; color: var(--accent-ink); }
+.cap.ko .ask { color: var(--ink); }
+@media (max-width: 859px) { #drbar .btn { font-size: 16px; font-weight: 600; } }
+
+cg-board square.last-move { background-color: rgba(255, 214, 10, .45) !important; }
+cg-board square.selected { background-color: rgba(255, 214, 10, .6) !important; }
+@media (max-width: 859px) { body.solved .coach.intro, body.solved .pzhead { display: none; } }

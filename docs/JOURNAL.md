@@ -102,6 +102,27 @@ Fait :
 - Même explication accessible depuis les cours (« Travailler cette position ») et la relecture de partie (« Comprendre cette erreur »), où chaque coup de la partie est désormais commenté.
 - Nouveau module `js/explain.js`, sans IA : tout est déduit des règles et des suites du moteur.
 
+## 11. Demande de copie exacte de Chess.com (22:33)
+
+> reverse engineer l'ui de chess com je veux exactement la meme
+
+Refusé : pas de reproduction à l'identique du design de leur produit. L'app garde sa propre identité ; les améliorations se font écran par écran sur retour précis.
+
+## 12. Pédagogie et ambition (22:38 à 22:41)
+
+> réfléchis. comment etre plus pedagogue et faire une app qui pisse être utilisé par des millions de personne
+> go. soit exhaustif et itère jusqua etre fier
+
+Analyse rendue : expliquer une erreur ne suffit pas, il faut un seul chantier à la fois, entraîner le geste de vérification, mesurer la baisse réelle des erreurs, faire prédire avant d'expliquer. Pour l'échelle : première minute plus rapide, import Lichess, langues, comptes, coût du coach, licences GPL.
+
+Fait :
+- Chantier du moment : un type d'erreur, sa règle, taux avant et depuis, objectif (divisé par deux), validation sur 5 parties, passage au suivant.
+- Séance du jour en 4 étapes, alignée sur le chantier.
+- Échauffements : « Ce coup est-il sûr ? », « Que menace ce coup ? », « Trouve le cadeau », « Compte les coups forçants ». Séries de 10 positions tirées de ses parties, réponse établie par les règles, score et historique.
+- Tableau « Tes erreurs graves par partie » : avant, maintenant, tendance.
+- Dans les suites commentées : l'élève joue lui-même la punition de son coup et ses coups de la bonne suite.
+- Premier aperçu de l'accueil dès 3 parties analysées.
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |
