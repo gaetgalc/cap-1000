@@ -128,3 +128,17 @@ export const LESSONS = {
   },
 };
 export const ENGINE_LESSONS = ['en_prise_pose', 'en_prise_ignore', 'cadeau_rate', 'mat_autorise', 'mat_rate', 'tactique_subie', 'tactique_ratee', 'ouverture', 'plan', 'finale'];
+
+// Une phrase à se répéter en partie, par type d'erreur.
+export const RULES = {
+  en_prise_pose: 'Avant de lâcher une pièce, je regarde qui attaque sa case d’arrivée.',
+  en_prise_ignore: 'Après chaque coup adverse, je cherche ce qu’il attaque.',
+  cadeau_rate: 'À chaque coup, je passe en revue toutes mes captures.',
+  mat_autorise: 'Avant de jouer, je regarde tous les échecs que mon adversaire peut donner.',
+  mat_rate: 'Quand j’attaque le roi, j’examine tous les échecs d’abord.',
+  tactique_subie: 'Je repère mes pièces non défendues : ce sont les cibles des fourchettes.',
+  tactique_ratee: 'Échecs, captures, menaces : je les examine dans cet ordre.',
+  ouverture: 'Un pion au centre, les pièces dehors, le roque avant le 10e coup.',
+  plan: 'Sans tactique, j’améliore ma pièce la moins active sans rien laisser en prise.',
+  finale: 'En finale, mon roi avance et mes pions passés aussi.',
+};

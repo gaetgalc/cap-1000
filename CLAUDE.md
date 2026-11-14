@@ -28,12 +28,17 @@ Site statique sans build, servi par GitHub Pages depuis `main` (racine). Tout to
 | `js/engine.js` | Stockfish (worker), analyse d'une partie, classement des erreurs par thème |
 | `js/stats.js` | Agrégats, ouvertures, forces et faiblesses |
 | `js/alltime.js` | Page Stats (depuis la première partie) |
-| `js/lessons.js` | Fiches de cours statiques (principe, routine) |
+| `js/lessons.js` | Fiches de cours statiques (principe, routine), règles courtes par thème |
+| `js/explain.js` | Explications sans IA : description de chaque coup, idée du meilleur coup, raison de l'échec du coup joué, bilan matériel |
 | `js/coach.js` | Cours privés Claude : faits vérifiés, prompt, appel API, lecture du JSON |
 | `js/store.js` | IndexedDB (`data:<user>`, `an:<user>`, `ai:<user>`) et localStorage (préfixe `cap1000:`) |
 | `vendor/` | chess.js 0.10.3, chessground 9, Stockfish 19 lite single-thread (WASM) |
 
-Routes : `#accueil`, `#puzzles`, `#cours`, `#cours/<id>[/fiche]`, `#ouvertures`, `#parties`, `#partie/<end_time>[/<ply>]`, `#plan`, `#stats`.
+Routes : `#accueil`, `#puzzles`, `#erreur/<end_time>/<ply>` (travail d'une erreur précise), `#plus` (menu mobile), `#cours`, `#cours/<id>[/fiche]`, `#ouvertures`, `#parties`, `#partie/<end_time>[/<ply>]`, `#plan`, `#stats`.
+
+## Écran de travail (puzzles, erreurs, positions de cours)
+
+`workScreen` + `solveBoard` + `explainUI` dans `app.js`. Avant la solution : coach qui décrit le dernier coup adverse, indices en deux niveaux, « Mon coup ». Après : suites commentées coup par coup (« La bonne suite » et « Ton coup »), calculées en direct par Stockfish (`getLines`), idée, comparaison, règle à retenir. Sur téléphone : barre du haut avec retour, échiquier plein cadre, bandeau de commentaire sous l'échiquier, barre d'actions fixe en bas, 5 onglets.
 
 ## Contraintes à connaître
 
@@ -56,6 +61,7 @@ Les tests automatisés des sessions précédentes utilisaient puppeteer-core ave
 
 - Aucun retour encore sur l'import avec le vrai compte `gaetcc`.
 - Qualité réelle des cours générés par Claude non évaluée (testé avec une API simulée).
-- L'utilisateur a dit ne pas être satisfait de l'interface sans préciser quoi : demander une capture avant une nouvelle refonte.
+- Interface mobile refaite le 14/11 au soir (coquille d'app) sans retour encore ; si elle ne convient toujours pas, demander une capture de l'écran précis.
+- Les explications de `explain.js` reposent sur des heuristiques (attaquants, défenseurs, matériel) : pas de clouages ni d'attaques à la découverte.
 - Noms d'ouvertures en anglais (source Chess.com).
 - Licence : GPL-3.0-or-later (imposée par chessground et Stockfish).

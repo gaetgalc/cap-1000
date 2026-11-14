@@ -83,6 +83,25 @@ Réponse : l'abonnement Pro n'inclut pas l'API, facturée à part. Ajout d'une v
 
 Ce journal et `CLAUDE.md` ont été ajoutés au dépôt pour servir de mémoire du projet.
 
+## 9. Accès sur téléphone (17:26 à 17:33)
+
+> Comment accéder au site sur tel ?
+> Je vois pas le bouton partager sur safari
+
+Lien donné, ajout à l'écran d'accueil expliqué (bouton Partager parfois sous « ⋯ » selon la version d'iOS).
+
+## 10. Refonte mobile et pédagogie (19:25, redemandé à 22:15)
+
+> Reprend totalement l'ui sur téléphone, c'est pas assez bon. Rapproche toi de l'app chess.com
+> Je veux dans les puzzles pouvoir suivre les meilleurs coups ensuite (l'enchaînement logique qui explique cela) ainsi qu'une explication de pourquoi ce coup est mieux qu'un autre avec l'idée derrière
+> Globalement c'est pas assez pédagogique il faut que ça le soit plus. Applique toi vraiment que cette tâche
+
+Fait :
+- Téléphone : 5 onglets (Séance, Puzzles, Cours, Parties, Plus), barre du haut avec Elo et série, écrans de travail plein cadre avec bouton retour, échiquier bord à bord, bandeau de commentaire sous l'échiquier, barre d'actions fixe en bas, tuiles d'accès rapide sur l'accueil.
+- Puzzles : le coach décrit d'abord le dernier coup adverse ; indices en deux niveaux (question d'orientation, puis pièce à jouer) ; après la solution, « La bonne suite » et « Ton coup » se déroulent coup par coup, chaque coup expliqué en clair avec le bilan matériel ; carte « L'idée derrière le coup », carte « Pourquoi pas ton coup » avec comparaison chiffrée, règle à retenir.
+- Même explication accessible depuis les cours (« Travailler cette position ») et la relecture de partie (« Comprendre cette erreur »), où chaque coup de la partie est désormais commenté.
+- Nouveau module `js/explain.js`, sans IA : tout est déduit des règles et des suites du moteur.
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |

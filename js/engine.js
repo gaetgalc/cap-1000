@@ -31,7 +31,7 @@ export class Engine {
           if (m) {
             const n = +m[2];
             const cp = m[1] === 'cp' ? n : (n > 0 ? MATE - n : -MATE - n);
-            last = { cp, pv: line.split(' pv ')[1].trim().split(/\s+/).slice(0, 5) };
+            last = { cp, pv: line.split(' pv ')[1].trim().split(/\s+/).slice(0, 10) };
           }
         } else if (line.startsWith('bestmove')) {
           this.cur = null;
