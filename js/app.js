@@ -225,8 +225,8 @@ function viewPuzzles() {
     <div class="card"><h2>Trait aux ${side}<span class="chip">${st.THEMES[p.e.theme]}</span></h2>
       <p class="sub">Coup ${moveNo(p.e)} de ta ${gameRef(p.g)}. Ici tu as perdu ${p.e.drop} points de chances de gain. Trouve mieux.</p>
       <div class="fb" id="pzf">Joue le coup sur l’échiquier.</div>
-      <div class="row"><button class="btn" data-act="pzhint">Indice</button><button class="btn" data-act="pzshow">Voir la solution</button><button class="btn pri" data-act="pznext" id="pznext" hidden>Puzzle suivant</button></div>
-      <p class="small"><a href="#partie/${p.g.t}">Revoir la partie complète</a> · <a href="#cours/${p.e.theme}">Cours associé</a></p>
+      <div class="row"><button class="btn" data-act="pzreal" id="pzreal">Voir ce que j’ai joué en partie</button><button class="btn" data-act="pzhint">Indice</button><button class="btn" data-act="pzshow">Voir la solution</button><button class="btn pri" data-act="pznext" id="pznext" hidden>Puzzle suivant</button></div>
+      <p class="small"><a href="#partie/${p.g.t}/${p.e.ply}">Ouvrir la partie à ce coup</a> · <a href="#cours/${p.e.theme}">Cours associé</a></p>
     </div></div>`;
 }
 function mountPuzzle() {
@@ -258,9 +258,29 @@ function mountPuzzle() {
     fb.innerHTML = `<b class="ko">Pas celui-là.</b> ${fr(m.san)} ${uci === e.playedUci.slice(0, 4) ? 'est le coup que tu avais joué en partie' : `fait perdre ${Math.round(drop)} points de chances de gain`}. Réessaie.`;
     setTimeout(() => { ch.undo(); cg.set({ ...arm(), movable: { ...arm().movable, events: { after: onMove } } }); }, 700);
   }
+  const lastMv = e.prev ? [e.prev.slice(0, 2), e.prev.slice(2, 4)] : undefined;
   S.pz.api = {
-    hint: () => { cur.shown = true; cg.set({ drawable: { autoShapes: [{ orig: e.best.slice(0, 2), brush: 'green' }] } }); fb.className = 'fb'; fb.textContent = 'La pièce entourée doit jouer.'; },
-    show: () => { cur.shown = true; ch.load(e.fen); uciMove(ch, e.best); cg.set({ fen: ch.fen() }); finish(false, `La solution était <b>${fr(e.bestSan)}</b>.`); },
+    real: () => {
+      const btn = $('#pzreal');
+      if (cur.real) {
+        cur.real = false; btn.textContent = 'Voir ce que j’ai joué en partie';
+        ch.load(e.fen);
+        cg.set({ fen: ch.fen(), lastMove: lastMv, turnColor: color, drawable: { autoShapes: cur.done ? [arrow(e.best, 'green')] : [] }, movable: cur.done ? { color: undefined } : { ...arm().movable, events: { after: onMove } } });
+        fb.className = cur.fbClass; fb.innerHTML = cur.fbHtml;
+        return;
+      }
+      cur.real = true; btn.textContent = 'Revenir à la position';
+      cur.fbClass = fb.className; cur.fbHtml = fb.innerHTML;
+      ch.load(e.fen);
+      const m = uciMove(ch, e.playedUci); if (!m) return;
+      cg.set({ fen: ch.fen(), lastMove: [m.from, m.to], movable: { color: undefined }, drawable: { autoShapes: [arrow(e.playedUci, 'red')] } });
+      const replySan = p.g.san[e.ply + 1];
+      fb.className = 'fb';
+      fb.innerHTML = `En partie, tu as joué <b>${fr(e.played)}</b>` + (replySan ? ` et ton adversaire a répondu <b>${fr(replySan)}</b>.` : '.') + (e.punish[0] && e.punish[0] !== replySan ? ` La réponse la plus forte était ${fr(e.punish[0])}.` : '') + ` <a href="#partie/${p.g.t}/${e.ply + 2}">Voir la suite</a>`;
+      if (replySan) setTimeout(() => { if (!cur.real || S.pz?.cur !== cur) return; const r = ch.move(replySan, { sloppy: true }); if (r) cg.set({ fen: ch.fen(), lastMove: [r.from, r.to], drawable: { autoShapes: [] } }); }, 900);
+    },
+    hint: () => { if (cur.real) S.pz.api.real(); cur.shown = true; cg.set({ drawable: { autoShapes: [{ orig: e.best.slice(0, 2), brush: 'green' }] } }); fb.className = 'fb'; fb.textContent = 'La pièce entourée doit jouer.'; },
+    show: () => { if (cur.real) S.pz.api.real(); cur.shown = true; ch.load(e.fen); uciMove(ch, e.best); cg.set({ fen: ch.fen() }); finish(false, `La solution était <b>${fr(e.bestSan)}</b>.`); },
   };
 }
 
@@ -579,6 +599,7 @@ document.addEventListener('click', (ev) => {
   else if (act === 'analyse') runAnalysis(20);
   else if (act === 'analyse1') runAnalysis(1, S.gv.g);
   else if (act === 'pzfree') { S.pz.free = true; S.pz.cur = null; render(); }
+  else if (act === 'pzreal') S.pz.api?.real();
   else if (act === 'pzhint') S.pz.api?.hint();
   else if (act === 'pzshow') S.pz.api?.show();
   else if (act === 'pznext') { const q = pzQueue(S.pz.theme, S.pz.free).filter((p) => p.id !== S.pz.cur.id); S.pz.cur = q[0] ? { id: q[0].id, tries: 0, shown: false, done: false } : null; if (!q[0]) S.pz.free = false; render(); }
