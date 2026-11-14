@@ -6,6 +6,7 @@ import { Engine, analyzeGame, winPct, fmtEval, uciMove } from './engine.js';
 import * as st from './stats.js';
 import { LESSONS, ENGINE_LESSONS } from './lessons.js';
 import { viewStats, mountStats } from './alltime.js';
+import { MODELS, coachKey, coachModel, facts, genLesson, askCoach } from './coach.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -20,7 +21,7 @@ const S = {
   user: ls.get('user', null), data: null, an: {},
   f: ls.get('filter', { tc: 'rapid', days: 0 }),
   job: { running: false, done: 0, total: 0, stop: false, msg: '' },
-  engine: null, play: null, white: true, path: [], pz: null, boards: [], importing: null,
+  engine: null, play: null, ai: {}, gen: null, cl: null, solve: null, white: true, path: [], pz: null, boards: [], importing: null,
 };
 
 // ---------- Données ----------
@@ -33,6 +34,7 @@ async function load() {
   if (!S.user) return;
   S.data = (await dbGet('data:' + S.user)) || null;
   S.an = (await dbGet('an:' + S.user)) || {};
+  S.ai = (await dbGet('ai:' + S.user)) || {};
 }
 async function doImport(user) {
   S.importing = { done: 0, total: 0, err: null };
@@ -43,6 +45,7 @@ async function doImport(user) {
     S.user = d.user; S.data = d; ls.set('user', d.user);
     await dbSet('data:' + d.user, d);
     S.an = (await dbGet('an:' + d.user)) || {};
+    S.ai = (await dbGet('ai:' + d.user)) || {};
     S.importing = null;
     if (!d.games.some((g) => g.tc === S.f.tc) && S.f.tc !== 'all') { S.f = { tc: 'all', days: 0 }; ls.set('filter', S.f); }
     render();
@@ -53,6 +56,19 @@ async function doImport(user) {
     render();
   }
 }
+
+// ---------- Activité quotidienne (séance du jour, série) ----------
+const dkey = (d = new Date()) => d.toLocaleDateString('sv');
+const act = () => ls.get('act', {});
+function bump(k) { const a = act(), d = dkey(); a[d] ||= {}; a[d][k] = (a[d][k] || 0) + 1; ls.set('act', a); }
+function streak() {
+  const a = act(); let n = 0; const d = new Date();
+  if (!a[dkey(d)]) d.setDate(d.getDate() - 1);
+  while (a[dkey(d)]) { n++; d.setDate(d.getDate() - 1); }
+  return n;
+}
+const coach = (html, cls = '') => `<div class="coach ${cls}"><span class="coach-av" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="7" r="3.6" fill="currentColor"/><path d="M8 20c0-4 1.5-6 4-8.5 2.5 2.5 4 4.500 4 8.500z" fill="currentColor"/><rect x="6" y="19.500" width="12" height="2.500" rx="1" fill="currentColor"/></svg></span><div class="coach-b">${html}</div></div>`;
+const txt = (t) => esc(t).replace(/\n/g, '<br>');
 
 // ---------- Analyse moteur en arrière-plan ----------
 async function runAnalysis(count, only) {
@@ -216,7 +232,7 @@ function viewPuzzles() {
   const mastered = total.filter((p) => (prog[p.id]?.box || 0) >= 2).length;
   const head = `<div class="row" style="justify-content:space-between"><h1>Puzzles sur tes erreurs</h1>
     <div class="row"><label class="small" for="pzt">Thème</label><select id="pzt"><option value="">Tous les thèmes</option>${themes.map((t) => `<option value="${t}" ${S.pz.theme === t ? 'selected' : ''}>${st.THEMES[t]}</option>`).join('')}</select></div></div>
-    <div class="row"><span class="chip">${q.length} à faire</span><span class="chip good">${mastered} maîtrisés</span><span class="chip">${total.length} au total</span></div>`;
+    <div class="row"><span class="chip good">${act()[dkey()]?.pz || 0} résolu${(act()[dkey()]?.pz || 0) > 1 ? 's' : ''} aujourd’hui</span><span class="chip">${q.length} à faire</span><span class="chip good">${mastered} maîtrisés</span><span class="chip">${total.length} au total</span></div>`;
   if (!S.pz.cur) {
     return head + `<div class="card"><p class="prose">Tout est à jour. Les puzzles réussis reviennent après 1, 3, 7 puis 21 jours pour ancrer le réflexe.</p><div class="row"><button class="btn pri" data-act="pzfree">S’entraîner quand même</button>${S.job.running ? '' : '<button class="btn" data-act="analyse">Analyser 20 parties de plus</button>'}</div></div>`;
   }
@@ -230,19 +246,18 @@ function viewPuzzles() {
       <p class="small"><a href="#partie/${p.g.t}/${p.e.ply}">Ouvrir la partie à ce coup</a> · <a href="#cours/${p.e.theme}">Cours associé</a></p>
     </div></div>`;
 }
-function mountPuzzle() {
-  const el = $('#pzb');
-  if (!el || !S.pz?.cur) return;
-  const p = allPuzzles().find((x) => x.id === S.pz.cur.id);
-  if (!p) return;
-  const cur = S.pz.cur, e = p.e, ch = new Chess(e.fen), color = p.g.w ? 'white' : 'black', fb = $('#pzf');
-  const arm = () => ({ fen: ch.fen(), turnColor: color, movable: { free: false, color, dests: destsOf(ch), showDests: true } });
-  const cg = board(el, { ...arm(), orientation: color, lastMove: e.prev ? [e.prev.slice(0, 2), e.prev.slice(2, 4)] : undefined, movable: { ...arm().movable, events: { after: onMove } } });
+// Échiquier jouable sur une de tes erreurs : vérifie ton coup, montre l'indice, la solution ou ton coup réel.
+function solveBoard(el, fb, g, e, o = {}) {
+  const ch = new Chess(e.fen), color = g.w ? 'white' : 'black', stt = { tries: 0, shown: false, done: false, real: false };
+  const lastMv = e.prev ? [e.prev.slice(0, 2), e.prev.slice(2, 4)] : undefined;
+  const mov = () => ({ free: false, color, dests: destsOf(ch), showDests: true, events: { after: onMove } });
+  const cg = board(el, { fen: ch.fen(), orientation: color, turnColor: color, lastMove: lastMv, movable: mov() });
+  const say = (cls, html) => { fb.className = 'fb ' + cls; fb.innerHTML = html; };
   const finish = (ok, html) => {
-    if (!cur.done) { pzMark(p.id, ok && cur.tries === 0 && !cur.shown); cur.done = true; }
-    fb.className = 'fb ' + (ok ? 'ok' : ''); fb.innerHTML = html + `<br>${explain(e)}`;
+    const first = !stt.done; stt.done = true;
+    say(ok ? 'ok' : '', html + (o.extra ? o.extra() : ''));
     cg.set({ movable: { color: undefined }, drawable: { autoShapes: [arrow(e.best, 'green')] } });
-    $('#pznext').hidden = false;
+    o.done?.(ok && stt.tries === 0 && !stt.shown, first);
   };
   async function onMove(from, to) {
     const m = ch.move({ from, to, promotion: 'q' });
@@ -250,39 +265,48 @@ function mountPuzzle() {
     cg.set({ fen: ch.fen(), movable: { color: undefined } });
     const uci = from + to;
     if (uci === e.best.slice(0, 4) || ch.in_checkmate()) return finish(true, `<b class="ok">Bien vu.</b> ${fr(m.san)} est le meilleur coup.`);
-    fb.className = 'fb'; fb.textContent = 'Vérification de ton coup…';
+    say('', 'Vérification de ton coup…');
     let drop = 100;
     try { S.play ||= new Engine(); const r = await S.play.evalFen(ch.fen(), DEPTH); drop = winPct(e.e0) - winPct(-r.cp); } catch { /* moteur indisponible : seul le meilleur coup compte */ }
     if (drop < 6) return finish(true, `<b class="ok">Bon coup.</b> ${fr(m.san)} tient la position (le moteur préférait ${fr(e.bestSan)}).`);
-    cur.tries++;
-    fb.className = 'fb ko';
-    fb.innerHTML = `<b class="ko">Pas celui-là.</b> ${fr(m.san)} ${uci === e.playedUci.slice(0, 4) ? 'est le coup que tu avais joué en partie' : `fait perdre ${Math.round(drop)} points de chances de gain`}. Réessaie.`;
-    setTimeout(() => { ch.undo(); cg.set({ ...arm(), movable: { ...arm().movable, events: { after: onMove } } }); }, 700);
+    stt.tries++;
+    say('ko', `<b class="ko">Pas celui-là.</b> ${fr(m.san)} ${uci === e.playedUci.slice(0, 4) ? 'est le coup que tu avais joué en partie' : `fait perdre ${Math.round(drop)} points de chances de gain`}. Réessaie.`);
+    setTimeout(() => { ch.undo(); cg.set({ fen: ch.fen(), turnColor: color, movable: mov() }); }, 700);
   }
-  const lastMv = e.prev ? [e.prev.slice(0, 2), e.prev.slice(2, 4)] : undefined;
-  S.pz.api = {
-    real: () => {
-      const btn = $('#pzreal');
-      if (cur.real) {
-        cur.real = false; btn.textContent = 'Voir ce que j’ai joué en partie';
+  const api = {
+    stt,
+    real(btn) {
+      if (stt.real) {
+        stt.real = false; if (btn) btn.textContent = 'Voir ce que j’ai joué en partie';
         ch.load(e.fen);
-        cg.set({ fen: ch.fen(), lastMove: lastMv, turnColor: color, drawable: { autoShapes: cur.done ? [arrow(e.best, 'green')] : [] }, movable: cur.done ? { color: undefined } : { ...arm().movable, events: { after: onMove } } });
-        fb.className = cur.fbClass; fb.innerHTML = cur.fbHtml;
+        cg.set({ fen: ch.fen(), lastMove: lastMv, turnColor: color, drawable: { autoShapes: stt.done ? [arrow(e.best, 'green')] : [] }, movable: stt.done ? { color: undefined } : mov() });
+        fb.className = stt.fbClass; fb.innerHTML = stt.fbHtml;
         return;
       }
-      cur.real = true; btn.textContent = 'Revenir à la position';
-      cur.fbClass = fb.className; cur.fbHtml = fb.innerHTML;
+      stt.real = true; if (btn) btn.textContent = 'Revenir à la position';
+      stt.fbClass = fb.className; stt.fbHtml = fb.innerHTML;
       ch.load(e.fen);
       const m = uciMove(ch, e.playedUci); if (!m) return;
       cg.set({ fen: ch.fen(), lastMove: [m.from, m.to], movable: { color: undefined }, drawable: { autoShapes: [arrow(e.playedUci, 'red')] } });
-      const replySan = p.g.san[e.ply + 1];
-      fb.className = 'fb';
-      fb.innerHTML = `En partie, tu as joué <b>${fr(e.played)}</b>` + (replySan ? ` et ton adversaire a répondu <b>${fr(replySan)}</b>.` : '.') + (e.punish[0] && e.punish[0] !== replySan ? ` La réponse la plus forte était ${fr(e.punish[0])}.` : '') + ` <a href="#partie/${p.g.t}/${e.ply + 2}">Voir la suite</a>`;
-      if (replySan) setTimeout(() => { if (!cur.real || S.pz?.cur !== cur) return; const r = ch.move(replySan, { sloppy: true }); if (r) cg.set({ fen: ch.fen(), lastMove: [r.from, r.to], drawable: { autoShapes: [] } }); }, 900);
+      const replySan = g.san[e.ply + 1];
+      say('', `En partie, tu as joué <b>${fr(e.played)}</b>` + (replySan ? ` et ton adversaire a répondu <b>${fr(replySan)}</b>.` : '.') + (e.punish[0] && e.punish[0] !== replySan ? ` La réponse la plus forte était ${fr(e.punish[0])}.` : '') + ` <a href="#partie/${g.t}/${e.ply + 2}">Voir la suite</a>`);
+      if (replySan) setTimeout(() => { if (!stt.real || !document.body.contains(el)) return; const r = ch.move(replySan, { sloppy: true }); if (r) cg.set({ fen: ch.fen(), lastMove: [r.from, r.to], drawable: { autoShapes: [] } }); }, 900);
     },
-    hint: () => { if (cur.real) S.pz.api.real(); cur.shown = true; cg.set({ drawable: { autoShapes: [{ orig: e.best.slice(0, 2), brush: 'green' }] } }); fb.className = 'fb'; fb.textContent = 'La pièce entourée doit jouer.'; },
-    show: () => { if (cur.real) S.pz.api.real(); cur.shown = true; ch.load(e.fen); uciMove(ch, e.best); cg.set({ fen: ch.fen() }); finish(false, `La solution était <b>${fr(e.bestSan)}</b>.`); },
+    hint() { if (stt.real) api.real($('#pzreal')); if (stt.done) return; stt.shown = true; cg.set({ drawable: { autoShapes: [{ orig: e.best.slice(0, 2), brush: 'green' }] } }); say('', (o.hintText ? txt(o.hintText) + '<br>' : '') + 'La pièce entourée doit jouer.'); },
+    show() { if (stt.real) api.real($('#pzreal')); if (stt.done) return; stt.shown = true; ch.load(e.fen); uciMove(ch, e.best); cg.set({ fen: ch.fen() }); finish(false, `La solution était <b>${fr(e.bestSan)}</b>.`); },
   };
+  return api;
+}
+function mountPuzzle() {
+  const el = $('#pzb');
+  if (!el || !S.pz?.cur) return;
+  const p = allPuzzles().find((x) => x.id === S.pz.cur.id);
+  if (!p) return;
+  const cur = S.pz.cur;
+  S.solve = solveBoard(el, $('#pzf'), p.g, p.e, {
+    extra: () => `<br>${explain(p.e)}`,
+    done: (ok, first) => { if (first) { pzMark(p.id, ok); bump('pz'); cur.done = true; } $('#pznext').hidden = false; },
+  });
 }
 
 // ---------- Vues ----------
@@ -332,41 +356,62 @@ function priorityLessons() {
   return { ids, es, sig };
 }
 
+function nextLesson(ids) {
+  const read = ls.get('lus', {});
+  return ids.find((id) => !read[id]) || ids[0] || 'principes';
+}
+function session() {
+  const { ids, es, sig } = priorityLessons();
+  const a = act()[dkey()] || {}, due = pzQueue('', false).length;
+  const pzDone = a.pz || 0, pzGoal = Math.max(1, Math.min(10, pzDone + due));
+  const mid = new Date(); mid.setHours(0, 0, 0, 0);
+  const played = rapidAll().filter((g) => g.t >= mid.getTime() / 1000).length;
+  const les = nextLesson(ids);
+  const steps = [
+    { k: 'pz', done: es.n > 0 && (pzDone >= pzGoal || (due === 0 && pzDone > 0)), t: 'Corrige tes erreurs', d: es.n ? `${Math.min(pzDone, pzGoal)} / ${pzGoal} puzzles tirés de tes parties` : (S.job.running ? `Analyse de tes parties en cours (${S.job.done}/${S.job.total}). Les puzzles arrivent.` : 'Lance l’analyse pour créer tes puzzles.'), cta: es.n ? ['Résoudre mes puzzles', '#puzzles'] : (S.job.running ? null : ['Analyser mes parties', null, 'analyse']), p: es.n ? pzDone / pzGoal : 0 },
+    { k: 'les', done: !!a.les, t: 'Prends ton cours du jour', d: (S.ai[les] ? S.ai[les].titre : LESSONS[les].titre) + (S.ai[les] ? ' · cours privé prêt' : ''), cta: ['Ouvrir le cours', '#cours/' + les], p: a.les ? 1 : 0 },
+    { k: 'play', done: played >= 2, t: 'Joue 2 parties rapides', d: `${Math.min(played, 2)} / 2 jouées aujourd’hui. Applique la routine du cours, puis reviens mettre à jour.`, cta: ['Jouer sur Chess.com', 'https://www.chess.com/play/online/new'], p: Math.min(played, 2) / 2 },
+  ];
+  return { steps, ids, es, sig, nDone: steps.filter((x) => x.done).length };
+}
 function viewAccueil() {
   const gs = games();
   const gb = goalBlock();
-  if (!gs.length) return `<h1>Bonjour ${esc(S.data.profile.username)}</h1>${gb.html}<div class="card"><p class="sub">Aucune partie pour ce filtre (${TC[S.f.tc]}). Change la cadence ou la période en haut de page.</p></div>`;
-  const all = st.tally(gs), wh = st.tally(gs.filter((g) => g.w)), bl = st.tally(gs.filter((g) => !g.w));
-  const { ids, es, sig } = priorityLessons();
-  const due = pzQueue('', false).length;
-  const next = ids[0];
-  const sigHtml = (arr, c, empty) => (arr.length ? arr.slice(0, 5).map((s) => `<div class="sig" style="--c:var(--${c})"><b>${esc(s.t)}</b><span>${esc(s.d)}</span>${s.lesson ? `<a href="#${s.lesson === 'ouvertures' ? 'ouvertures' : 'cours/' + s.lesson}">${s.lesson === 'ouvertures' ? 'Voir tes ouvertures' : 'Ouvrir le cours'}</a>` : ''}</div>`).join('') : `<p class="sub">${empty}</p>`);
+  const { steps, es, sig, nDone } = session();
+  const cur = steps.find((x) => !x.done);
+  const stk = streak();
+  const stepHtml = steps.map((x, i) => {
+    const on = x === cur;
+    const btn = !x.cta ? '' : x.cta[2] ? `<button class="btn ${on ? 'pri lg' : ''}" data-act="${x.cta[2]}">${x.cta[0]}</button>` : `<a class="btn ${on ? 'pri lg' : ''}" href="${x.cta[1]}" ${x.cta[1].startsWith('http') ? 'target="_blank" rel="noopener"' : ''}>${x.done ? 'Refaire' : x.cta[0]}</a>`;
+    return `<div class="step ${x.done ? 'done' : on ? 'on' : ''}"><span class="stepn">${x.done ? '✓' : i + 1}</span>
+      <div class="stepc"><b>${x.t}</b><span>${esc(x.d)}</span>${on && x.p > 0 && x.p < 1 ? `<span class="goalbar"><i style="width:${100 * x.p}%"></i></span>` : ''}</div>
+      <div class="stepa">${btn}${x.k === 'play' && on ? '<button class="btn" data-act="refresh">J’ai joué, mettre à jour</button>' : ''}</div></div>`;
+  }).join('');
+  const sigHtml = (arr, c, empty) => (arr.length ? arr.slice(0, 4).map((x) => `<div class="sig" style="--c:var(--${c})"><b>${esc(x.t)}</b><span>${esc(x.d)}</span>${x.lesson ? `<a href="#${x.lesson === 'ouvertures' ? 'ouvertures' : 'cours/' + x.lesson}">${x.lesson === 'ouvertures' ? 'Voir tes ouvertures' : 'Ouvrir le cours'}</a>` : ''}</div>`).join('') : `<p class="sub">${empty}</p>`);
   const maxT = Math.max(1, ...es.themes.map((t) => t.n));
-  return `<h1>Bonjour ${esc(S.data.profile.username)}</h1>
+  const all = st.tally(gs);
+  return `<div class="row" style="justify-content:space-between"><h1>Bonjour ${esc(S.data.profile.username)}</h1>
+    <span class="chip ${stk ? 'warn' : ''}" title="Jours consécutifs avec au moins un puzzle ou un cours">Série : ${stk} jour${stk > 1 ? 's' : ''}</span></div>
+  <section class="card today"><div class="row" style="justify-content:space-between"><h2>${nDone === 3 ? 'Séance du jour terminée' : 'Ta séance du jour'}</h2><span class="chip ${nDone === 3 ? 'good' : ''}">${nDone} / 3</span></div>
+    ${nDone === 3 ? coach('Séance bouclée. Reviens demain : les puzzles réussis reviendront au bon moment pour ancrer le réflexe.') : ''}
+    <div class="steps">${stepHtml}</div></section>
   <div class="hero">${gb.html}
-    <div class="card"><h2>Ton classement ${TC[S.f.tc] === TC.all ? 'Rapide' : TC[S.f.tc]}</h2><div class="chart" id="rc"></div></div></div>
-  <div class="grid">
-    <div class="card"><h2>À faire maintenant</h2>
-      <div class="stack">
-        <div class="row" style="justify-content:space-between"><span><b class="num">${due}</b> puzzle${due > 1 ? 's' : ''} tiré${due > 1 ? 's' : ''} de tes erreurs</span><a class="btn pri sm" href="#puzzles">S’entraîner</a></div>
-        ${next ? `<div class="row" style="justify-content:space-between"><span>Cours prioritaire : <b>${LESSONS[next].titre}</b></span><a class="btn sm" href="#cours/${next}">Ouvrir</a></div>` : ''}
-        <div class="row" style="justify-content:space-between"><span>${es.n} partie${es.n > 1 ? 's' : ''} analysée${es.n > 1 ? 's' : ''} sur ${gs.length}</span>${S.job.running ? '<span class="chip">Analyse en cours</span>' : '<button class="btn sm" data-act="analyse">Analyser 20 de plus</button>'}</div>
-      </div></div>
-    <div class="card"><h2>Bilan <span class="small">${all.n} parties</span></h2>
-      <table><tbody>
-        <tr><td>Toutes</td><td style="width:45%">${wdl(all)}</td><td class="r"><b>${st.score(all)} %</b></td></tr>
-        <tr><td><span class="row" style="gap:6px"><i class="dot w"></i>Blancs</span></td><td>${wdl(wh)}</td><td class="r">${st.score(wh)} %</td></tr>
-        <tr><td><span class="row" style="gap:6px"><i class="dot b"></i>Noirs</span></td><td>${wdl(bl)}</td><td class="r">${st.score(bl)} %</td></tr>
-      </tbody></table>${WDL_LEGEND}
-      ${es.n ? `<dl class="kv"><dt>Précision moyenne (parties analysées)</dt><dd>${es.acc.toFixed(1)} %</dd><dt>Gaffes par partie</dt><dd>${(es.gaffes / es.n).toFixed(1)}</dd></dl>` : ''}</div>
-  </div>
-  <div class="grid">
+    <div class="card"><h2>Ton classement ${S.f.tc === 'all' ? 'Rapide' : TC[S.f.tc]}</h2><div class="chart" id="rc"></div></div></div>
+  ${gs.length ? `<div class="grid">
     <div class="card"><h2>Points forts</h2>${sigHtml(sig.forces, 'good', 'Pas encore assez de parties pour dégager un point fort net.')}</div>
     <div class="card"><h2>Points faibles</h2>${sigHtml(sig.faiblesses, 'bad', 'Aucune faiblesse nette détectée pour ce filtre.')}</div>
   </div>
+  <div class="grid">
   ${es.themes.length ? `<div class="card"><h2>Tes erreurs graves par type <span class="small">${es.n} parties analysées</span></h2>
     ${es.themes.map((t) => `<a class="hbar" href="#cours/${t.id}"><span>${st.THEMES[t.id]}</span><span class="track"><i style="width:${(100 * t.n) / maxT}%"></i></span><span class="v">${t.n}</span></a>`).join('')}
-    <p class="small">Chaque ligne ouvre le cours correspondant, illustré par tes propres positions.</p></div>` : ''}`;
+    <p class="small">Chaque ligne ouvre le cours correspondant.</p></div>` : ''}
+    <div class="card"><h2>Bilan <span class="small">${all.n} parties, ${TC[S.f.tc]}</span></h2>
+      <table><tbody><tr><td>Toutes</td><td style="width:45%">${wdl(all)}</td><td class="r"><b>${st.score(all)} %</b></td></tr>
+        <tr><td>Blancs</td><td>${wdl(st.tally(gs.filter((g) => g.w)))}</td><td class="r">${st.score(st.tally(gs.filter((g) => g.w)))} %</td></tr>
+        <tr><td>Noirs</td><td>${wdl(st.tally(gs.filter((g) => !g.w)))}</td><td class="r">${st.score(st.tally(gs.filter((g) => !g.w)))} %</td></tr></tbody></table>${WDL_LEGEND}
+      <dl class="kv">${es.n ? `<dt>Précision moyenne</dt><dd>${es.acc.toFixed(1)} %</dd><dt>Gaffes par partie</dt><dd>${(es.gaffes / es.n).toFixed(1)}</dd>` : ''}<dt>Parties analysées</dt><dd>${es.n} sur ${gs.length}</dd></dl>
+      ${S.job.running ? '' : '<div><button class="btn sm" data-act="analyse">Analyser 20 parties de plus</button></div>'}</div>
+  </div>` : `<div class="card"><p class="sub">Aucune partie pour ce filtre (${TC[S.f.tc]}). Change la cadence ou la période.</p></div>`}`;
 }
 function mountAccueil() {
   const el = $('#rc'); if (!el) return;
@@ -379,16 +424,23 @@ function mountAccueil() {
   lineChart(el, pts, o);
 }
 
+function keyForm() {
+  return `<form data-form="key" class="row"><input type="text" id="keyin" placeholder="sk-ant-…" autocomplete="off" spellcheck="false" style="flex:1;min-width:200px" aria-label="Clé API Anthropic"><button class="btn pri">Activer le coach</button></form>
+    <p class="small">Crée une clé sur <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>. Elle reste sur cet appareil et n’est envoyée qu’à l’API Claude. Un cours coûte quelques centimes.</p>`;
+}
 function viewCours() {
   const { ids, es } = priorityLessons();
   const read = ls.get('lus', {});
   const cnt = Object.fromEntries(es.themes.map((t) => [t.id, t.n]));
-  const card = (id, prio) => `<a class="card" href="#cours/${id}" style="text-decoration:none;color:inherit">
-    <h2>${LESSONS[id].titre}</h2><div class="row">${prio ? `<span class="chip bad">Priorité ${prio}</span>` : ''}${cnt[id] ? `<span class="chip">${cnt[id]} exemple${cnt[id] > 1 ? 's' : ''} dans tes parties</span>` : ''}${read[id] ? '<span class="chip good">Lu</span>' : ''}</div>
-    <p class="sub">${LESSONS[id].principe.split('. ')[0]}.</p></a>`;
+  const card = (id, prio) => `<a class="card lesson" href="#cours/${id}">
+    <div class="row">${prio ? `<span class="chip bad">Priorité ${prio}</span>` : ''}${S.ai[id] ? '<span class="chip good">Cours privé prêt</span>' : ''}${read[id] ? '<span class="chip">Terminé</span>' : ''}</div>
+    <h2>${esc(S.ai[id]?.titre || LESSONS[id].titre)}</h2>
+    <p class="sub">${cnt[id] ? `${cnt[id]} exemple${cnt[id] > 1 ? 's' : ''} dans tes parties. ` : ''}${LESSONS[id].principe.split('. ')[0]}.</p></a>`;
   const others = Object.keys(LESSONS).filter((id) => !ids.includes(id));
-  return `<h1>Cours</h1><p class="sub prose">Les cours sont classés selon ce que tes erreurs te coûtent réellement. Chaque cours montre tes propres positions, puis te les fait rejouer.</p>
-    ${ids.length ? `<div class="grid">${ids.map((id, i) => card(id, i < 3 ? i + 1 : 0)).join('')}</div>` : `<div class="card"><p class="sub">${S.job.running ? 'Analyse en cours : le classement des cours arrive.' : 'Lance l’analyse de tes parties pour classer les cours selon tes erreurs.'}</p></div>`}
+  return `<h1>Cours</h1>
+    ${coachKey() ? coach('Je prépare chaque cours à partir de tes propres positions : une idée, tes erreurs à rejouer, une règle à emporter. Ouvre un cours et demande-moi de le préparer.')
+    : `<div class="card"><h2>Ton coach privé</h2><p class="prose">Avec une clé API Claude, chaque cours devient une leçon particulière : Claude étudie tes positions, te pose les bonnes questions avant de te laisser jouer, puis t’explique pourquoi ton coup échouait. Sans clé, tu gardes les fiches classiques ci-dessous.</p>${keyForm()}</div>`}
+    ${ids.length ? `<h2>Tes priorités</h2><div class="grid">${ids.map((id, i) => card(id, i < 3 ? i + 1 : 0)).join('')}</div>` : `<div class="card"><p class="sub">${S.job.running ? 'Analyse en cours : le classement des cours arrive.' : 'Lance l’analyse de tes parties pour classer les cours selon tes erreurs.'}</p></div>`}
     <h2>Autres cours</h2><div class="grid">${others.map((id) => card(id, 0)).join('')}</div>`;
 }
 
@@ -409,15 +461,81 @@ function lessonExamples(id) {
   }
   return out.sort((x, y) => y.e.drop - x.e.drop).slice(0, 4);
 }
-function viewLecon(id) {
+async function genCourse(id) {
+  if (S.gen && !S.gen.err) return;
+  S.gen = { id }; render(true);
+  try {
+    const ex = ENGINE_LESSONS.includes(id) ? lessonExamples(id) : [];
+    const numbers = lessonNumbers(id, games()).replace(/<\/dd>/g, '\n').replace(/<[^>]+>/g, ' ').trim();
+    const L = await genLesson({ theme: st.THEMES[id] || LESSONS[id].titre, base: LESSONS[id], elo: st.trend(rapidAll())?.cur, goal: goal().elo, numbers, examples: ex.map((x) => facts(x.g, x.e)) });
+    L.ex = ex.map((x) => ({ t: x.g.t, ply: x.e.ply }));
+    S.ai[id] = L; await dbSet('ai:' + S.user, S.ai);
+    S.gen = null; S.cl = null;
+  } catch (e) { S.gen = { id, err: e.message || String(e) }; }
+  if (route()[0] === 'cours') render();
+}
+function resolveEx(r) {
+  const g = r && S.data.games.find((x) => x.t === r.t);
+  const e = g && S.an[g.id]?.errs.find((x) => x.ply === r.ply);
+  return e ? { g, e } : null;
+}
+function viewCoachLesson(id, L) {
+  if (!S.cl || S.cl.id !== id) S.cl = { id, step: 0, quiz: {} };
+  const steps = ['intro', ...L.positions.map((_, i) => 'p' + i), 'methode', ...(L.quiz.length ? ['quiz'] : [])];
+  const k = Math.min(S.cl.step, steps.length - 1), stp = steps[k];
+  const seg = `<div class="seg" role="progressbar" aria-valuemin="0" aria-valuemax="${steps.length}" aria-valuenow="${k + 1}">${steps.map((_, i) => `<i class="${i < k ? 'done' : i === k ? 'cur' : ''}"></i>`).join('')}</div>`;
+  const head = `<p class="small"><a href="#cours">Tous les cours</a> · <a href="#cours/${id}/fiche">Fiche classique</a></p><h1>${esc(L.titre)}</h1>${seg}`;
+  const next = (label = 'Continuer', hidden = false) => `<div><button class="btn pri lg" data-act="clnext" id="clnext" ${hidden ? 'hidden' : ''}>${label}</button></div>`;
+  S.clPos = null;
+  if (stp === 'intro') {
+    return head + coach(txt(L.accroche)) + `<div class="card"><h2>L’idée du cours</h2><p class="prose">${txt(L.idee)}</p></div>
+      <div class="row">${next(L.positions.length ? 'Commencer par ma première position' : 'Continuer')}<button class="btn" data-act="gen" data-id="${id}">Régénérer le cours</button></div>`;
+  }
+  if (stp[0] === 'p') {
+    const i = +stp.slice(1), pos = L.positions[i], x = resolveEx(L.ex[pos.i]);
+    if (!x) return head + `<div class="card"><p class="sub">Cette position n’est plus disponible dans tes analyses.</p></div>` + next();
+    S.clPos = { x, pos };
+    return head + coach(`<b>Position ${i + 1} sur ${L.positions.length}.</b> Coup ${moveNo(x.e)} de ta ${gameRef(x.g)}. Trait aux ${x.g.w ? 'Blancs' : 'Noirs'}.<br>${txt(pos.question)}`) + `
+    <div class="split"><div class="board" id="clb"></div>
+      <div class="stack"><div class="fb" id="clf">Joue sur l’échiquier le coup que tu aurais dû jouer.</div>
+        <div class="row"><button class="btn" data-act="pzhint">Un indice</button><button class="btn" data-act="pzreal" id="pzreal">Voir ce que j’ai joué en partie</button><button class="btn" data-act="pzshow">Je ne trouve pas</button></div>
+        <div id="clx" hidden>${coach(`${txt(pos.explication)}<br><b>À retenir :</b> ${txt(pos.retenir)}`)}</div>
+        ${next(i === L.positions.length - 1 ? 'Passer à la méthode' : 'Position suivante', true)}
+        <form data-form="ask" class="row"><input type="text" id="askq" placeholder="Une question sur cette position ?" style="flex:1;min-width:180px" aria-label="Question au coach"><button class="btn">Demander au coach</button></form><div id="aska"></div>
+      </div></div>`;
+  }
+  if (stp === 'methode') {
+    return head + `<div class="card rule"><span class="small">La règle du cours</span><p class="rulet">${txt(L.regle)}</p></div>
+      <div class="card"><h2>Ta routine avant chaque coup</h2><ol class="routine">${L.methode.map((m) => `<li>${txt(m)}</li>`).join('')}</ol></div>` + next(L.quiz.length ? 'Vérifier que j’ai compris' : 'Terminer le cours');
+  }
+  const answered = Object.keys(S.cl.quiz).length;
+  return head + L.quiz.map((q, qi) => {
+    const a = S.cl.quiz[qi];
+    return `<div class="card"><h2>${qi + 1}. ${txt(q.q)}</h2><div class="stack">${q.choix.map((c, ci) => `<button class="btn choice ${a != null && ci === q.bonne ? 'right' : ''} ${a === ci && ci !== q.bonne ? 'wrong' : ''}" data-act="clq" data-q="${qi}" data-c="${ci}" ${a != null ? 'disabled' : ''}>${txt(c)}</button>`).join('')}</div>
+      ${a != null ? `<div class="fb ${a === q.bonne ? 'ok' : 'ko'}"><b class="${a === q.bonne ? 'ok' : 'ko'}">${a === q.bonne ? 'Exact.' : 'Pas tout à fait.'}</b> ${txt(q.pourquoi || '')}</div>` : ''}</div>`;
+  }).join('') + (answered >= L.quiz.length ? next('Terminer le cours') : '');
+}
+function mountCoachLesson() {
+  const el = $('#clb'), c = S.clPos;
+  if (!el || !c) return;
+  S.solve = solveBoard(el, $('#clf'), c.x.g, c.x.e, { hintText: c.pos.indice, done: () => { $('#clx').hidden = false; $('#clnext').hidden = false; } });
+}
+function viewLecon(id, mode) {
   const L = LESSONS[id];
   if (!L) return viewCours();
+  if (S.ai[id] && mode !== 'fiche' && !(S.gen && S.gen.id === id && !S.gen.err)) return viewCoachLesson(id, S.ai[id]);
   const gs = games(), ex = ENGINE_LESSONS.includes(id) ? lessonExamples(id) : [];
   const nums = lessonNumbers(id, gs);
   const blown = id === 'conversion' ? gs.filter((g) => S.an[g.id]?.maxAdv >= 500 && g.out !== 'W').slice(-6).reverse() : [];
   const read = ls.get('lus', {});
+  const busy = S.gen && S.gen.id === id && !S.gen.err;
   S.lessonEx = ex;
-  return `<p class="small"><a href="#cours">Tous les cours</a></p><h1>${L.titre}</h1>
+  const coachCard = busy ? coach('Je prépare ton cours à partir de tes positions. Compte 20 à 40 secondes.')
+    : S.ai[id] ? `<div><a class="btn pri lg" href="#cours/${id}">Revenir au cours privé</a></div>`
+    : coachKey() ? `<div class="card"><h2>Cours privé</h2><p class="prose">Claude prépare une leçon particulière sur ce thème à partir de ${ex.length ? `tes ${ex.length} positions les plus coûteuses` : 'tes statistiques'} : questions guidées, explications, règle à retenir, quiz.</p>
+        ${S.gen?.id === id && S.gen.err ? `<p class="err">${esc(S.gen.err)}</p>` : ''}<div><button class="btn pri lg" data-act="gen" data-id="${id}">Préparer mon cours privé</button></div></div>`
+    : `<div class="card"><h2>Cours privé par Claude</h2><p class="prose">Active le coach pour transformer cette fiche en leçon particulière construite sur tes positions.</p>${keyForm()}</div>`;
+  return `<p class="small"><a href="#cours">Tous les cours</a></p><h1>${L.titre}</h1>${coachCard}
   <div class="card"><h2>Le principe</h2><p class="prose">${L.principe}</p>
     ${nums ? `<h3>Tes chiffres</h3><dl class="kv prose">${nums}</dl>` : ''}
     <h3>La routine à appliquer</h3><ol class="routine">${L.routine.map((r) => `<li>${r}</li>`).join('')}</ol></div>
@@ -428,9 +546,10 @@ function viewLecon(id) {
     <div><button class="btn pri" data-act="pztheme" data-theme="${id}">M’entraîner sur ce thème</button></div></div>`
     : ENGINE_LESSONS.includes(id) ? '<div class="card"><p class="sub">Aucun exemple de ce type dans tes parties analysées. Soit tu ne fais pas cette erreur, soit il faut analyser davantage de parties.</p></div>' : ''}
   ${blown.length ? `<div class="card"><h2>Parties qui t’ont échappé</h2>${blown.map((g) => `<a class="row" href="#partie/${g.t}" style="justify-content:space-between"><span>${dfmt(g.t)} contre ${esc(g.opp)} (${g.or})</span><span class="chip ${g.out === 'L' ? 'bad' : ''}">${g.out === 'L' ? 'Défaite' : 'Nulle'}</span></a>`).join('')}</div>` : ''}
-  <div><button class="btn ${read[id] ? '' : 'pri'}" data-act="lu" data-id="${id}">${read[id] ? 'Marquer comme non lu' : 'J’ai compris, marquer comme lu'}</button></div>`;
+  <div><button class="btn ${read[id] ? '' : 'pri'}" data-act="lu" data-id="${id}">${read[id] ? 'Marquer comme non terminé' : 'J’ai compris, marquer comme terminé'}</button></div>`;
 }
 function mountLecon() {
+  mountCoachLesson();
   document.querySelectorAll('[data-ex]').forEach((el) => {
     const x = S.lessonEx[+el.dataset.ex];
     board(el, { fen: x.e.fen, orientation: x.g.w ? 'white' : 'black', viewOnly: true, coordinates: false, shapes: errShapes(x.e) });
@@ -500,7 +619,7 @@ function viewPartie(t, plyArg) {
   const errAt = a ? Object.fromEntries(a.errs.map((e) => [e.ply, e])) : {};
   S.gv.errAt = errAt;
   const k = S.gv.k, e = errAt[k];
-  const moves = mv.map((m, i) => `${i % 2 === 0 ? `<span class="n">${i / 2 + 1}.</span>` : ''}<button data-act="goto" data-k="${i + 1}" class="${k === i + 1 ? 'cur' : ''} ${errAt[i]?.kind || ''}">${fr(m.san)}</button>`).join('');
+  const moves = mv.map((m, i) => `${i % 2 === 0 ? `<span class="n">${i / 2 + 1}.</span>` : ''}<button data-act="goto" data-k="${i + 1}" class="${k === i + 1 ? 'cur' : ''} ${errAt[i]?.kind || ''}">${fr(m.san)}${errAt[i] ? `<sup>${errAt[i].kind === 'gaffe' ? '??' : errAt[i].kind === 'erreur' ? '?' : '?!'}</sup>` : ''}</button>`).join('');
   const serious = a ? a.errs.filter((x) => x.theme) : [];
   return `<p class="small"><a href="#parties">Toutes les parties</a></p>
   <div class="row" style="justify-content:space-between"><h1>${g.w ? 'Blancs' : 'Noirs'} contre ${esc(g.opp)} <span class="small num">${g.or}</span></h1>
@@ -509,7 +628,8 @@ function viewPartie(t, plyArg) {
       <div class="row"><button class="btn" data-act="goto" data-k="0" aria-label="Début">⏮</button><button class="btn" data-act="goto" data-k="${Math.max(0, k - 1)}" aria-label="Coup précédent">◀</button><button class="btn" data-act="goto" data-k="${Math.min(mv.length, k + 1)}" aria-label="Coup suivant">▶</button><button class="btn" data-act="goto" data-k="${mv.length}" aria-label="Fin">⏭</button>
       ${a ? `<span class="chip num">Évaluation ${fmtEval(g.w ? a.ev[k] : -a.ev[k])}</span>` : ''}</div></div>
     <div class="stack">
-      ${e ? `<div class="fb ko"><b class="ko">${e.kind === 'gaffe' ? 'Gaffe' : e.kind === 'erreur' ? 'Erreur' : 'Imprécision'} au coup ${moveNo(e)}.</b> ${explain(e)}${e.theme ? ` <a href="#cours/${e.theme}">Cours : ${LESSONS[e.theme].titre}</a>` : ''}</div>` : ''}
+      ${a ? `<div class="row"><span class="chip bad">${a.errs.filter((x) => x.kind === 'gaffe').length} gaffes ??</span><span class="chip warn">${a.errs.filter((x) => x.kind === 'erreur').length} erreurs ?</span><span class="chip">${a.errs.filter((x) => x.kind === 'imprecision').length} imprécisions ?!</span><span class="chip good">Précision ${a.acc?.toFixed(0)} %</span>${serious.length ? '<button class="btn pri sm" data-act="nexterr">Erreur suivante</button>' : ''}</div>` : ''}
+      ${e ? coach(`<b class="ko">${e.kind === 'gaffe' ? 'Gaffe' : e.kind === 'erreur' ? 'Erreur' : 'Imprécision'} au coup ${moveNo(e)}.</b> ${explain(e)}${e.theme ? ` <a href="#cours/${e.theme}">Cours : ${LESSONS[e.theme].titre}</a>` : ''}`) : ''}
       ${a ? `<div class="card"><h2>Tes chances de gain <span class="small">précision ${a.acc?.toFixed(0)} %</span></h2><div class="chart" id="evc"></div><p class="small">Points rouges : gaffes. Points orange : erreurs. Clique sur la courbe pour aller au coup.</p></div>`
     : `<div class="card"><p class="sub">Cette partie n’est pas encore analysée.</p><div><button class="btn pri" data-act="analyse1" ${S.job.running ? 'disabled' : ''}>${S.job.running ? 'Analyse en cours' : 'Analyser cette partie'}</button></div></div>`}
       <div class="card"><h2>Coups</h2><div class="moves">${moves}</div></div>
@@ -561,6 +681,9 @@ function viewPlan() {
     <div class="card"><h2>Ton objectif</h2><div class="row"><label for="gelo" class="sub">Elo visé</label><input type="number" id="gelo" value="${g.elo}" min="100" max="3000" step="50" style="width:100px"></div>
       <div class="row"><label for="gdate" class="sub">Échéance</label><input type="date" id="gdate" value="${g.date}"></div>
       <div><button class="btn sm" data-act="reset">Changer de pseudo ou effacer les données</button></div></div>
+    <div class="card"><h2>Coach Claude</h2>${coachKey() ? `<p class="sub">Coach activé. Clé enregistrée sur cet appareil (…${esc(coachKey().slice(-4))}).</p>
+      <div class="row"><label for="cmodel" class="sub">Modèle</label><select id="cmodel">${MODELS.map(([v, l]) => `<option value="${v}" ${coachModel() === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+      <div><button class="btn sm" data-act="keydel">Supprimer la clé de cet appareil</button></div>` : keyForm()}</div>
   </div>`;
 }
 
@@ -577,7 +700,7 @@ function render(keepScroll) {
   document.querySelectorAll('#nav a').forEach((x) => x.classList.toggle('on', x.getAttribute('href') === '#' + (r === 'partie' ? 'parties' : r)));
   if (!S.data) { v.innerHTML = viewWelcome(); const f = $('#wf'); f.onsubmit = (ev) => { ev.preventDefault(); const u = $('#wu').value.trim(); if (u) doImport(u); }; return; }
   if (r !== 'partie') S.gv = null;
-  const html = r === 'puzzles' ? viewPuzzles() : r === 'cours' ? (a ? viewLecon(a) : viewCours()) : r === 'ouvertures' ? viewOuvertures() : r === 'parties' ? viewParties() : r === 'partie' ? viewPartie(a, b) : r === 'plan' ? viewPlan() : r === 'stats' ? viewStats(S, H) : viewAccueil();
+  const html = r === 'puzzles' ? viewPuzzles() : r === 'cours' ? (a ? viewLecon(a, b) : viewCours()) : r === 'ouvertures' ? viewOuvertures() : r === 'parties' ? viewParties() : r === 'partie' ? viewPartie(a, b) : r === 'plan' ? viewPlan() : r === 'stats' ? viewStats(S, H) : viewAccueil();
   v.innerHTML = html;
   if (r === 'puzzles') { mountPuzzle(); const s = $('#pzt'); if (s) s.onchange = () => { S.pz.theme = s.value; S.pz.cur = null; render(); }; }
   else if (r === 'cours' && a) mountLecon();
@@ -588,6 +711,7 @@ function render(keepScroll) {
     $('#hrs').onchange = (e) => { ls.set('hours', +e.target.value); render(true); };
     const save = () => { const elo = +$('#gelo').value, date = $('#gdate').value; if (elo >= 100 && date) { ls.set('goal', { elo, date }); render(true); } };
     $('#gelo').onchange = save; $('#gdate').onchange = save;
+    const cm = $('#cmodel'); if (cm) cm.onchange = () => ls.set('model', cm.value);
     document.querySelectorAll('[data-plan]').forEach((c) => { c.onchange = () => { const k = 'plan:' + weekKey(), d = ls.get(k, {}); d[c.dataset.plan] = c.checked; ls.set(k, d); c.closest('.check').classList.toggle('done', c.checked); }; });
   } else mountAccueil();
   if (keepScroll) scrollTo(0, y); else scrollTo(0, 0);
@@ -603,12 +727,22 @@ document.addEventListener('click', (ev) => {
   else if (act === 'analyse1') runAnalysis(1, S.gv.g);
   else if (act === 'stattc') { S.statTc = el.dataset.tc; render(true); }
   else if (act === 'pzfree') { S.pz.free = true; S.pz.cur = null; render(); }
-  else if (act === 'pzreal') S.pz.api?.real();
-  else if (act === 'pzhint') S.pz.api?.hint();
-  else if (act === 'pzshow') S.pz.api?.show();
+  else if (act === 'pzreal') S.solve?.real(el);
+  else if (act === 'pzhint') S.solve?.hint();
+  else if (act === 'pzshow') S.solve?.show();
   else if (act === 'pznext') { const q = pzQueue(S.pz.theme, S.pz.free).filter((p) => p.id !== S.pz.cur.id); S.pz.cur = q[0] ? { id: q[0].id, tries: 0, shown: false, done: false } : null; if (!q[0]) S.pz.free = false; render(); }
   else if (act === 'pztheme') { S.pz = { theme: el.dataset.theme, free: true, cur: null }; location.hash = '#puzzles'; }
-  else if (act === 'lu') { const d = ls.get('lus', {}); d[el.dataset.id] = !d[el.dataset.id]; ls.set('lus', d); render(true); }
+  else if (act === 'lu') { const d = ls.get('lus', {}); d[el.dataset.id] = !d[el.dataset.id]; ls.set('lus', d); if (d[el.dataset.id]) bump('les'); render(true); }
+  else if (act === 'gen') genCourse(el.dataset.id);
+  else if (act === 'clnext') {
+    const L = S.ai[S.cl?.id]; if (!L) return;
+    const n = 1 + L.positions.length + 1 + (L.quiz.length ? 1 : 0);
+    if (S.cl.step >= n - 1) { const d = ls.get('lus', {}); d[S.cl.id] = true; ls.set('lus', d); bump('les'); S.cl = null; location.hash = '#accueil'; }
+    else { S.cl.step++; render(); }
+  }
+  else if (act === 'clq') { S.cl.quiz[+el.dataset.q] = +el.dataset.c; render(true); }
+  else if (act === 'keydel') { ls.del('key'); render(true); }
+  else if (act === 'nexterr') { const v = S.gv, list = v.a.errs.filter((x) => x.theme).map((x) => x.ply); const nx = list.find((p) => p > v.k) ?? list[0]; if (nx != null) { v.k = nx; render(true); } }
   else if (act === 'color') { S.white = el.dataset.w === '1'; S.path = []; render(true); }
   else if (act === 'exmove') { S.path.push(el.dataset.san); render(true); }
   else if (act === 'expath') { S.path = S.path.slice(0, +el.dataset.n); render(true); }
@@ -616,8 +750,19 @@ document.addEventListener('click', (ev) => {
   else if (act === 'more') { S.listN += 50; render(true); }
   else if (act === 'goto') { S.gv.k = +el.dataset.k; render(true); }
   else if (act === 'reset') {
-    if (el.dataset.sure) { const u = S.user; ['user', 'pz', 'lus', 'filter'].forEach(ls.del); dbDel('data:' + u); dbDel('an:' + u); S.job.stop = true; S.user = null; S.data = null; S.an = {}; S.pz = null; location.hash = '#accueil'; render(); }
+    if (el.dataset.sure) { const u = S.user; ['user', 'pz', 'lus', 'filter', 'act'].forEach(ls.del); dbDel('data:' + u); dbDel('an:' + u); dbDel('ai:' + u); S.ai = {}; S.job.stop = true; S.user = null; S.data = null; S.an = {}; S.pz = null; location.hash = '#accueil'; render(); }
     else { el.dataset.sure = '1'; el.textContent = 'Confirmer : effacer les données de cet appareil'; }
+  }
+});
+document.addEventListener('submit', async (ev) => {
+  const f = ev.target.closest('form[data-form]'); if (!f) return;
+  ev.preventDefault();
+  if (f.dataset.form === 'key') { const v = $('#keyin', f).value.trim(); if (v) { ls.set('key', v); render(true); } }
+  else if (f.dataset.form === 'ask') {
+    const q = $('#askq').value.trim(), out = $('#aska'), c = S.clPos; if (!q || !c) return;
+    out.innerHTML = coach('Je regarde la position…');
+    try { const L = S.ai[S.cl.id]; const ans = await askCoach(`Cours : ${L.titre}. Idée : ${L.idee}\n${facts(c.x.g, c.x.e)}\nExplication donnée : ${c.pos.explication}`, q); out.innerHTML = coach(txt(ans)); }
+    catch (e) { out.innerHTML = `<p class="err">${esc(e.message)}</p>`; }
   }
 });
 document.addEventListener('keydown', (ev) => {

@@ -7,7 +7,8 @@ Coach d'échecs personnel, 100 % dans le navigateur.
 - Points forts et points faibles chiffrés, statistiques d'ouvertures, explorateur de tes coups.
 - Puzzles tirés de tes propres erreurs, avec répétition espacée.
 - Cours par type d'erreur, illustrés par tes positions.
-- Plan hebdomadaire et suivi de l'objectif Elo.
+- Séance du jour en trois étapes, plan hebdomadaire et suivi de l'objectif Elo.
+- Coach Claude (optionnel) : cours privés générés à partir de tes positions, avec ta propre clé API Anthropic. La clé reste dans le navigateur et n'est envoyée qu'à api.anthropic.com.
 
 ## Mise en ligne (GitHub Pages)
 
