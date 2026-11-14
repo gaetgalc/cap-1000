@@ -12,7 +12,13 @@ export class Engine {
       try {
         this.w = new Worker('vendor/stockfish-19-lite-single.js');
       } catch (e) { rej(e); return; }
-      this.w.onerror = (e) => rej(new Error('Le moteur d’analyse n’a pas pu démarrer.'));
+      this.w.onerror = () => {
+        this.dead = true;
+        const err = new Error('Le moteur d’analyse s’est arrêté.');
+        rej(err);
+        if (this.fail) this.fail(err);
+        for (const j of this.jobs.splice(0)) j.rej(err);
+      };
       this.w.onmessage = (e) => {
         const line = typeof e.data === 'string' ? e.data : String(e.data);
         if (line === 'uciok') this.w.postMessage('isready');
@@ -26,6 +32,7 @@ export class Engine {
   // urgent : passe devant les calculs en attente (vérification d'un coup joué par l'utilisateur).
   evalFen(fen, depth, urgent) {
     return new Promise((res, rej) => {
+      if (this.dead) { rej(new Error('Le moteur d’analyse s’est arrêté.')); return; }
       const job = { fen, depth, res, rej };
       if (urgent) this.jobs.unshift(job); else this.jobs.push(job);
       this.pump();
@@ -41,7 +48,8 @@ export class Engine {
     this.pump();
   }
   run(fen, depth) {
-    return new Promise((res) => {
+    return new Promise((res, rej) => {
+      this.fail = rej;
       let last = { cp: 0, pv: [] };
       this.cur = (line) => {
         if (line.startsWith('info') && line.includes(' pv ') && !/bound/.test(line)) {
@@ -52,7 +60,7 @@ export class Engine {
             last = { cp, pv: line.split(' pv ')[1].trim().split(/\s+/).slice(0, 10) };
           }
         } else if (line.startsWith('bestmove')) {
-          this.cur = null;
+          this.cur = null; this.fail = null;
           const b = line.split(' ')[1];
           res({ ...last, best: b && b !== '(none)' ? b : null });
         }

@@ -27,10 +27,11 @@ Tout est stocké sur l'appareil (IndexedDB et localStorage) ; analyses, cours et
 Le navigateur ne contacte que :
 - `api.chess.com` : lecture de tes parties publiques ;
 - `lichess.org` : un puzzle à la fois, uniquement dans « Positions inédites » ;
-- `api.anthropic.com` : uniquement si tu saisis une clé API pour le coach Claude (la clé reste dans le navigateur) ;
-- `fonts.googleapis.com` et `fonts.gstatic.com` : polices d'affichage.
+- `api.anthropic.com` : uniquement si tu saisis une clé API pour le coach Claude (la clé reste dans le navigateur).
+
+Les polices sont embarquées dans `vendor/fonts/` : l'affichage ne dépend d'aucun service tiers.
 
 ## Licences
 
 Code de l'application sous GPL-3.0-or-later (texte dans `LICENSE`). Bibliothèques incluses dans `vendor/` :
-chessground (GPL-3.0-or-later, pièces cburnett), Stockfish.js (GPL-3.0, voir `vendor/STOCKFISH-COPYING.txt`), chess.js 0.10.3 (BSD-2-Clause).
+chessground (GPL-3.0-or-later, pièces cburnett), Stockfish.js (GPL-3.0, voir `vendor/STOCKFISH-COPYING.txt`), chess.js 0.10.3 (BSD-2-Clause), polices Sora et IBM Plex Sans (SIL Open Font License 1.1).

@@ -1,3 +1,8 @@
+@font-face { font-family: "Sora"; font-style: normal; font-weight: 600; font-display: swap; src: url("../vendor/fonts/sora-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Sora"; font-style: normal; font-weight: 700; font-display: swap; src: url("../vendor/fonts/sora-latin-700-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-style: normal; font-weight: 400; font-display: swap; src: url("../vendor/fonts/ibm-plex-sans-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-style: normal; font-weight: 500; font-display: swap; src: url("../vendor/fonts/ibm-plex-sans-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-style: normal; font-weight: 600; font-display: swap; src: url("../vendor/fonts/ibm-plex-sans-latin-600-normal.woff2") format("woff2"); }
 /* Cap 1000 : outil d'entraînement. Colonne de lecture + cartes de données, échiquier comme pièce centrale. */
 /* Thème unique sombre : gris anthracite chaud, vert d'échiquier en accent. */
 :root {
@@ -107,7 +112,7 @@ td.r, th.r { text-align: right; font-variant-numeric: tabular-nums; white-space:
 .board.mini { max-width: 300px; }
 cg-board { background-color: var(--sq-light); background-image: repeating-conic-gradient(var(--sq-dark) 0 25%, var(--sq-light) 0 50%); background-size: 25% 25%; }
 .cg-wrap coords, .cg-wrap coords coord { font-size: 10px; font-weight: 700; color: #2c2b28 !important; opacity: .8; }
-.moves { display: flex; flex-wrap: wrap; gap: 2px 4px; font-size: 14px; max-height: 220px; overflow-y: auto; }
+.moves { position: relative; display: flex; flex-wrap: wrap; gap: 2px 4px; font-size: 14px; max-height: 220px; overflow-y: auto; }
 .moves .n { color: var(--ink3); font-size: 12.5px; padding: 3px 0 3px 4px; }
 .moves button { font: inherit; border: 0; background: none; color: var(--ink); padding: 3px 5px; border-radius: 5px; cursor: pointer; }
 .moves button:hover { background: var(--sunken); }

@@ -34,7 +34,7 @@ Site statique sans build, servi par GitHub Pages depuis `main` (racine). Tout to
 | `js/lichess.js` | Puzzles inédits : `GET lichess.org/api/puzzle/next?angle=&difficulty=` (anonyme), reconstruction de la position depuis le PGN |
 | `js/coach.js` | Cours privés Claude : faits vérifiés, prompt, appel API, lecture du JSON |
 | `js/store.js` | IndexedDB (`data:<user>`, `an:<user>`, `ai:<user>`) et localStorage (préfixe `cap1000:`) |
-| `vendor/` | chess.js 0.10.3, chessground 9, Stockfish 19 lite single-thread (WASM) |
+| `vendor/` | chess.js 0.10.3, chessground 9, Stockfish 19 lite single-thread (WASM), polices Sora et IBM Plex Sans |
 
 Routes : `#accueil`, `#puzzles`, `#erreur/<end_time>/<ply>` (travail d'une erreur précise), `#plus` (menu mobile), `#exos`, `#inedits` (puzzles Lichess), `#drill/<sur|menace|cadeau|compte>`, `#cours`, `#cours/<id>[/fiche]`, `#ouvertures`, `#parties`, `#partie/<end_time>[/<ply>]`, `#plan`, `#stats`.
 
@@ -73,6 +73,8 @@ Les tests automatisés des sessions précédentes utilisaient puppeteer-core ave
 - Tout rendu déclenché en arrière-plan (fin d'analyse, import, génération) passe par `bgRender()`, qui ne touche pas à un exercice en cours. `render()` est réservé aux actions de l'utilisateur.
 - `data-act` = actions globales, `data-ex` = actions de l'explication en cours (`S.exui`), `data-f` = filtres et sélecteurs, `data-mini` = mini-échiquiers des fiches.
 - Les analyses marquées `bad` (partie illisible) sont exclues de toutes les statistiques.
+- Relecture de partie : `gvGo(k)` met l'écran à jour sur place (`gvSync`), sans `render()`.
+- Profondeur d'analyse unique (`DEPTH = 12`) sur tous les appareils.
 - `Engine.evalFen(fen, depth, urgent)` : `urgent` fait passer la vérification d'un coup devant les calculs de suites.
 
 ## Points ouverts
@@ -80,10 +82,8 @@ Les tests automatisés des sessions précédentes utilisaient puppeteer-core ave
 - Aucun retour encore sur l'import avec le vrai compte `gaetcc`.
 - Qualité réelle des cours générés par Claude non évaluée (testé avec une API simulée).
 - Interface mobile refaite le 14/11 au soir (coquille d'app) sans retour encore ; si elle ne convient toujours pas, demander une capture de l'écran précis.
-- Les explications de `explain.js` reposent sur des heuristiques (attaquants, défenseurs, matériel) : pas de clouages ni d'attaques à la découverte.
+- Les explications de `explain.js` reposent sur des heuristiques (attaquants, défenseurs, matériel, clouages, enfilades, attaques à la découverte) : elles ignorent qu'une pièce clouée ne défend pas réellement, et les coups purement positionnels restent commentés sobrement.
+- Stockage : toutes les parties d'un compte tiennent dans une seule entrée IndexedDB (sans effet avant plusieurs milliers de parties).
 - Puzzles Lichess codés d'après la documentation de l'API et testés avec une API simulée seulement : format réel de la réponse (coupe du PGN, `initialPly`) à confirmer au premier essai ; `fetchPuzzle` essaie plusieurs coupes et garde celle où la solution est légale.
-- Relecture de partie : tout l'écran est reconstruit à chaque coup (simple, mais sans animation des pièces).
-- Sous-promotions non gérées dans les puzzles (promotion en dame forcée).
-- Si le worker Stockfish plante après son démarrage, les calculs en attente ne se terminent pas.
 - Noms d'ouvertures en anglais (source Chess.com).
 - Licence : GPL-3.0-or-later (imposée par chessground et Stockfish).

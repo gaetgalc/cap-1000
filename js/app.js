@@ -17,8 +17,7 @@ const fr = (san) => String(san).replace(/[NBRQK]/g, (c) => ({ N: 'C', B: 'F', R:
 const dfmt = (t) => new Date(t * 1000).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
 const TC = { rapid: 'Rapide', blitz: 'Blitz', bullet: 'Bullet', daily: 'Différé', all: 'Toutes cadences' };
 const HOW = { checkmated: 'mat', timeout: 'temps', resigned: 'abandon', abandoned: 'partie quittée', stalemate: 'pat', agreed: 'nulle par accord', repetition: 'répétition', insufficient: 'matériel insuffisant', '50move': '50 coups', timevsinsufficient: 'temps contre matériel insuffisant' };
-const MOBILE = matchMedia('(pointer: coarse)').matches;
-const DEPTH = MOBILE ? 10 : 12;
+const DEPTH = 12; // même profondeur sur tous les appareils : une erreur est classée pareil partout
 
 const S = {
   user: ls.get('user', null), data: null, an: {},
@@ -64,7 +63,15 @@ async function doImport(user) {
 // ---------- Activité quotidienne (séance du jour, série) ----------
 const dkey = (d = new Date()) => d.toLocaleDateString('sv');
 const act = () => ls.get('act', {});
-function bump(k) { const a = act(), d = dkey(); a[d] ||= {}; a[d][k] = (a[d][k] || 0) + 1; ls.set('act', a); }
+function bump(k, n = 1) {
+  const a = act(), d = dkey();
+  a[d] ||= {}; a[d][k] = Math.max(0, (a[d][k] || 0) + n);
+  if (!a[d][k]) delete a[d][k];
+  if (!Object.keys(a[d]).length) delete a[d];
+  const keys = Object.keys(a).sort(); // on garde un an d'historique
+  for (const old of keys.slice(0, Math.max(0, keys.length - 370))) delete a[old];
+  ls.set('act', a);
+}
 function streak() {
   const a = act(); let n = 0; const d = new Date();
   if (!a[dkey(d)]) d.setDate(d.getDate() - 1);
@@ -377,7 +384,7 @@ function getLines(g, e) {
         const r = await S.play.evalFen(c.fen(), DEPTH + 2);
         arr.push(...r.pv.slice(0, 5));
       }
-    } catch { bestU = e.line.length ? e.line : [e.best]; refU = [e.playedUci, ...e.punish]; }
+    } catch { S.play = null; bestU = e.line.length ? e.line : [e.best]; refU = [e.playedUci, ...e.punish]; }
     const best = buildLine(e.fen, bestU, me, true), ref = buildLine(e.fen, refU, me);
     return { best, ref, ins: insight(e.fen, me, best, ref), m0: material(e.fen, me) };
   })();
@@ -451,14 +458,14 @@ function solveBoard(el, fb, g, e, o = {}) {
     o.done?.(ok && stt.tries === 0 && !stt.shown, first, html);
   };
   async function onMove(from, to) {
-    const m = ch.move({ from, to, promotion: 'q' });
+    const m = ch.move({ from, to, promotion: (from + to === e.best.slice(0, 4) && e.best[4]) || 'q' });
     if (!m) { cg.set({ fen: ch.fen(), movable: mov() }); return; }
     cg.set({ fen: ch.fen(), movable: { color: undefined } });
     const uci = from + to;
     if (uci === e.best.slice(0, 4) || ch.in_checkmate()) return finish(true, `<b class="ok">Bien vu.</b> ${fr(m.san)} est le meilleur coup.`);
     say('', 'Vérification de ton coup…');
     let drop = 100;
-    try { S.play ||= new Engine(); const r = await S.play.evalFen(ch.fen(), DEPTH, true); drop = winPct(e.e0) - winPct(-r.cp); } catch { /* moteur indisponible : seul le meilleur coup compte */ }
+    try { S.play ||= new Engine(); const r = await S.play.evalFen(ch.fen(), DEPTH, true); drop = winPct(e.e0) - winPct(-r.cp); } catch { S.play = null; /* moteur indisponible : seul le meilleur coup compte */ }
     if (!document.body.contains(el)) return; // l'utilisateur a quitté l'écran pendant la vérification
     if (drop < 6) return finish(true, `<b class="ok">Bon coup.</b> ${fr(m.san)} tient la position (le moteur préférait ${fr(e.bestSan)}).`);
     stt.tries++;
@@ -574,7 +581,8 @@ const f1 = (x) => x.toFixed(1).replace('.', ',');
 function focus(es) {
   let f = ls.get('focus', null);
   if (f && st.THEMES[f.id]) return f;
-  const top = es.themes[0]?.id;
+  const all = S.f.days ? st.engineStats(S.data.games.filter((g) => g.tc === targetTc()), S.an) : es;
+  const top = all.themes[0]?.id;
   if (!top) return null;
   f = { id: top, since: Math.floor(Date.now() / 1000) };
   ls.set('focus', f);
@@ -895,6 +903,17 @@ function viewParties() {
     </tbody></table></div>${gs.length > S.listN ? '<div><button class="btn" data-act="more">Afficher 50 parties de plus</button></div>' : ''}</div>`;
 }
 
+function gvCap(v) {
+  const k = v.k, g = v.g, a = v.a, e = v.errAt[k], prevErr = v.errAt[k - 1], me = g.w ? 'w' : 'b';
+  const kindChip = (x) => `<span class="chip ${x.kind === 'gaffe' ? 'bad' : x.kind === 'erreur' ? 'warn' : ''}">${x.kind === 'gaffe' ? 'Gaffe' : x.kind === 'erreur' ? 'Erreur' : 'Imprécision'}</span>`;
+  if (e) return { cls: 'cap ko', html: `<div class="capm"><span class="capn">Moment clé, coup ${moveNo(e)}</span>${kindChip(e)}</div><p>${explain(e)}</p><a class="btn pri sm" href="#erreur/${g.t}/${e.ply}">Comprendre cette erreur</a>` };
+  const txtK = k > 0 ? moveText(g, k, me) : 'Position de départ. Avance coup par coup : chaque coup est commenté ici.';
+  return { cls: 'cap', html: `<div class="capm"><span class="capn">${k > 0 ? `<i class="dot ${k % 2 ? 'w' : 'b'}"></i>${Math.ceil(k / 2)}${k % 2 ? '.' : '…'} ${fr(v.mv[k - 1].san)}` : 'Début'}</span>${prevErr ? kindChip(prevErr) : ''}${a ? `<span class="small">éval ${fmtEval(g.w ? a.ev[k] : -a.ev[k])}</span>` : ''}</div><p>${esc(txtK)}</p>` };
+}
+function gvBar(v) {
+  const k = v.k, n = v.mv.length;
+  return `<button class="btn ico" data-act="goto" data-k="0" aria-label="Début" ${k === 0 ? 'disabled' : ''}>⏮</button><button class="btn ico" data-act="goto" data-k="${Math.max(0, k - 1)}" aria-label="Coup précédent" ${k === 0 ? 'disabled' : ''}>◀</button><button class="btn ico pri" data-act="goto" data-k="${Math.min(n, k + 1)}" aria-label="Coup suivant" ${k === n ? 'disabled' : ''}>▶</button><button class="btn ico" data-act="goto" data-k="${n}" aria-label="Fin" ${k === n ? 'disabled' : ''}>⏭</button>${v.a?.errs.some((x) => x.theme) ? '<button class="btn" data-act="nexterr">Erreur suivante</button>' : ''}`;
+}
 function viewPartie(t, plyArg) {
   const g = S.data.games.find((x) => String(x.t) === String(t));
   if (!g) return viewParties();
@@ -902,20 +921,14 @@ function viewPartie(t, plyArg) {
   const ch = new Chess(), fens = [ch.fen()], mv = [];
   for (const s of g.san) { const m = ch.move(s, { sloppy: true }); if (!m) break; mv.push(m); fens.push(ch.fen()); }
   if (!S.gv || S.gv.t !== g.t) S.gv = { t: g.t, k: plyArg != null ? Math.min(+plyArg, mv.length) : 0 };
-  S.gv.fens = fens; S.gv.mv = mv; S.gv.g = g; S.gv.a = a;
-  const errAt = a ? Object.fromEntries(a.errs.map((e) => [e.ply, e])) : {};
-  S.gv.errAt = errAt;
-  const k = S.gv.k, e = errAt[k];
-  const moves = mv.map((m, i) => `${i % 2 === 0 ? `<span class="n">${i / 2 + 1}.</span>` : ''}<button data-act="goto" data-k="${i + 1}" class="${k === i + 1 ? 'cur' : ''} ${errAt[i]?.kind || ''}">${fr(m.san)}${errAt[i] ? `<sup>${errAt[i].kind === 'gaffe' ? '??' : errAt[i].kind === 'erreur' ? '?' : '?!'}</sup>` : ''}</button>`).join('');
+  const v = Object.assign(S.gv, { fens, mv, g, a, errAt: a ? Object.fromEntries(a.errs.map((e) => [e.ply, e])) : {} });
+  const errAt = v.errAt, cap = gvCap(v);
+  const moves = mv.map((m, i) => `${i % 2 === 0 ? `<span class="n">${i / 2 + 1}.</span>` : ''}<button data-act="goto" data-k="${i + 1}" class="${errAt[i]?.kind || ''}">${fr(m.san)}${errAt[i] ? `<sup>${errAt[i].kind === 'gaffe' ? '??' : errAt[i].kind === 'erreur' ? '?' : '?!'}</sup>` : ''}</button>`).join('');
   const serious = a ? a.errs.filter((x) => x.theme) : [];
-  const me = g.w ? 'w' : 'b', lastTxt = k > 0 ? moveText(g, k, me) : 'Position de départ. Avance coup par coup : chaque coup est commenté ici.';
-  const prevErr = errAt[k - 1];
   const res = `<span class="chip ${g.out === 'W' ? 'good' : g.out === 'L' ? 'bad' : ''}">${g.out === 'W' ? 'Victoire' : g.out === 'L' ? 'Défaite' : 'Nulle'}${HOW[g.how] ? ' (' + HOW[g.how] + ')' : ''}</span>`;
-  const capHtml = e ? `<div class="capm"><span class="capn">Moment clé, coup ${moveNo(e)}</span><span class="chip ${e.kind === 'gaffe' ? 'bad' : 'warn'}">${e.kind === 'gaffe' ? 'Gaffe' : e.kind === 'erreur' ? 'Erreur' : 'Imprécision'}</span></div><p>${explain(e)}</p><a class="btn pri sm" href="#erreur/${g.t}/${e.ply}">Comprendre cette erreur</a>`
-    : `<div class="capm"><span class="capn">${k > 0 ? `<i class="dot ${k % 2 ? 'w' : 'b'}"></i>${Math.ceil(k / 2)}${k % 2 ? '.' : '…'} ${fr(mv[k - 1].san)}` : 'Début'}</span>${prevErr ? `<span class="chip ${prevErr.kind === 'gaffe' ? 'bad' : prevErr.kind === 'erreur' ? 'warn' : ''}">${prevErr.kind === 'gaffe' ? 'Gaffe' : prevErr.kind === 'erreur' ? 'Erreur' : 'Imprécision'}</span>` : ''}${a ? `<span class="small">éval ${fmtEval(g.w ? a.ev[k] : -a.ev[k])}</span>` : ''}</div><p>${esc(lastTxt)}</p>`;
   return `<div class="pzhead"><h1>${g.w ? 'Blancs' : 'Noirs'} contre ${esc(g.opp)} <span class="small num">${g.or}</span></h1>
     <div class="row">${res}<span class="chip">${dfmt(g.t)}</span><span class="chip">${esc(g.fam)}</span><a class="btn sm" href="${esc(g.id)}" target="_blank" rel="noopener">Chess.com</a></div></div>
-  <div class="split work"><div class="bwrap"><div class="board" id="gvb"></div><div class="cap ${e ? 'ko' : ''}" id="gvcap">${capHtml}</div></div>
+  <div class="split work"><div class="bwrap"><div class="board" id="gvb"></div><div class="${cap.cls}" id="gvcap">${cap.html}</div></div>
     <div class="stack">
       ${a ? `<div class="row"><span class="chip bad">${pl(a.errs.filter((x) => x.kind === 'gaffe').length, 'gaffe')} ??</span><span class="chip warn">${pl(a.errs.filter((x) => x.kind === 'erreur').length, 'erreur')} ?</span><span class="chip">${pl(a.errs.filter((x) => x.kind === 'imprecision').length, 'imprécision')} ?!</span><span class="chip good">Précision ${a.acc?.toFixed(0)} %</span></div>
       <div class="card"><h2>Tes chances de gain</h2><div class="chart" id="evc"></div><p class="small">Points rouges : gaffes. Points orange : erreurs. Touche la courbe pour aller au coup.</p></div>`
@@ -923,19 +936,33 @@ function viewPartie(t, plyArg) {
       <div class="card"><h2>Coups</h2><div class="moves">${moves}</div></div>
       ${serious.length ? `<div class="card"><h2>Moments clés</h2>${serious.map((x) => `<a class="row" href="#" data-act="goto" data-k="${x.ply}" style="justify-content:space-between;text-decoration:none"><span>Coup ${moveNo(x)} : ${fr(x.played)}, mieux ${fr(x.bestSan)}</span><span class="chip ${x.kind === 'gaffe' ? 'bad' : 'warn'}">${st.THEMES[x.theme]}</span></a>`).join('')}</div>` : ''}
     </div></div>
-  <div class="actbar"><button class="btn ico" data-act="goto" data-k="0" aria-label="Début">⏮</button><button class="btn ico" data-act="goto" data-k="${Math.max(0, k - 1)}" aria-label="Coup précédent">◀</button><button class="btn ico pri" data-act="goto" data-k="${Math.min(mv.length, k + 1)}" aria-label="Coup suivant">▶</button><button class="btn ico" data-act="goto" data-k="${mv.length}" aria-label="Fin">⏭</button>${serious.length ? '<button class="btn" data-act="nexterr">Erreur suivante</button>' : ''}</div>`;
+  <div class="actbar" id="gvbar">${gvBar(v)}</div>`;
 }
-function mountPartie() {
-  const v = S.gv, el = $('#gvb'); if (!el || !v) return;
-  const k = v.k, last = k > 0 ? [v.mv[k - 1].from, v.mv[k - 1].to] : undefined, e = v.errAt[k];
-  board(el, { fen: v.fens[k], orientation: v.g.w ? 'white' : 'black', viewOnly: true, lastMove: last, shapes: e ? errShapes(e) : [] });
+// Met à jour l'écran de relecture sans le reconstruire : les pièces s'animent d'un coup à l'autre.
+function gvSync() {
+  const v = S.gv, k = v.k, e = v.errAt[k], cap = gvCap(v), el = $('#gvcap');
+  v.cg.set({ fen: v.fens[k], lastMove: k > 0 ? [v.mv[k - 1].from, v.mv[k - 1].to] : undefined, drawable: { autoShapes: e ? errShapes(e) : [] } });
+  el.className = cap.cls; el.innerHTML = cap.html;
+  $('#gvbar').innerHTML = gvBar(v);
+  document.querySelectorAll('.moves button').forEach((b, i) => b.classList.toggle('cur', i + 1 === k));
+  const box = $('.moves'), curB = $('.moves .cur'); // défile la liste des coups, jamais la page
+  if (box && curB) box.scrollTop = curB.offsetTop - box.offsetTop - box.clientHeight / 2;
   const c = $('#evc');
   if (c && v.a) {
     const pts = v.a.ev.map((cp, i) => ({ x: i, y: winPct(v.g.w ? cp : -cp), tip: (i ? `Coup ${Math.ceil(i / 2)} (${fr(v.mv[i - 1]?.san || '')}) : ` : 'Début : ') + Math.round(winPct(v.g.w ? cp : -cp)) + ' %' }));
     const marks = v.a.errs.filter((x) => x.kind !== 'imprecision').map((x) => ({ i: x.ply, c: x.kind === 'gaffe' ? 'bad' : 'warn' }));
-    lineChart(c, pts, { h: 170, min: 0, max: 100, step: 25, base: 0, yfmt: (y) => y + ' %', marks, cursor: Math.min(k, pts.length - 1), label: 'Chances de gain au fil de la partie', x0: 'Début', x1: 'Fin', onPick: (i) => { S.gv.k = i; render(true); } });
+    lineChart(c, pts, { h: 170, min: 0, max: 100, step: 25, base: 0, yfmt: (y) => y + ' %', marks, cursor: Math.min(k, pts.length - 1), label: 'Chances de gain au fil de la partie', x0: 'Début', x1: 'Fin', onPick: gvGo });
   }
-  $('.moves .cur')?.scrollIntoView({ block: 'nearest' });
+}
+function gvGo(k) {
+  const v = S.gv; if (!v) return;
+  v.k = Math.max(0, Math.min(v.mv.length, k));
+  if ($('#gvb') && v.cg) gvSync(); else render(true);
+}
+function mountPartie() {
+  const v = S.gv, el = $('#gvb'); if (!el || !v) return;
+  v.cg = board(el, { fen: v.fens[v.k], orientation: v.g.w ? 'white' : 'black', viewOnly: true });
+  gvSync();
 }
 
 function viewExos() {
@@ -1117,7 +1144,7 @@ document.addEventListener('click', (ev) => {
     render();
   }
   else if (act === 'pztheme') { S.pz = { theme: el.dataset.theme, free: true, cur: null }; location.hash = '#puzzles'; }
-  else if (act === 'lu') { const d = ls.get('lus', {}); d[el.dataset.id] = !d[el.dataset.id]; ls.set('lus', d); if (d[el.dataset.id]) bump('les'); render(true); }
+  else if (act === 'lu') { const d = ls.get('lus', {}); d[el.dataset.id] = !d[el.dataset.id]; ls.set('lus', d); bump('les', d[el.dataset.id] ? 1 : -1); render(true); }
   else if (act === 'gen') genCourse(el.dataset.id);
   else if (act === 'brief') {
     const { ex, args } = lessonArgs(el.dataset.id), pr = buildPrompt(args), text = pr.system + '\n\n' + pr.user;
@@ -1133,16 +1160,16 @@ document.addEventListener('click', (ev) => {
   }
   else if (act === 'clq') { S.cl.quiz[+el.dataset.q] = +el.dataset.c; render(true); }
   else if (act === 'keydel') { ls.del('key'); render(true); }
-  else if (act === 'nexterr') { const v = S.gv, list = v.a.errs.filter((x) => x.theme).map((x) => x.ply); const nx = list.find((p) => p > v.k) ?? list[0]; if (nx != null) { v.k = nx; render(true); } }
+  else if (act === 'nexterr') { const v = S.gv, list = v.a.errs.filter((x) => x.theme).map((x) => x.ply); const nx = list.find((p) => p > v.k) ?? list[0]; if (nx != null) gvGo(nx); }
   else if (act === 'color') { S.white = el.dataset.w === '1'; S.path = []; render(true); }
   else if (act === 'exmove') { S.path.push(el.dataset.san); render(true); }
   else if (act === 'expath') { S.path = S.path.slice(0, +el.dataset.n); render(true); }
   else if (act === 'open') location.hash = '#partie/' + el.dataset.t;
   else if (act === 'more') { S.listN += 50; render(true); }
-  else if (act === 'goto') { S.gv.k = +el.dataset.k; render(true); }
+  else if (act === 'goto') gvGo(+el.dataset.k);
   else if (act === 'reset') {
     if (el.dataset.sure) { const u = S.user; ls.clear(['key', 'model', 'goal', 'hours']); dbDel('data:' + u); dbDel('an:' + u); dbDel('ai:' + u); S.ai = {}; S.li = null; S.gen = null; S.cl = null; LINES.clear(); S.job.stop = true; S.user = null; S.data = null; S.an = {}; S.pz = null; location.hash = '#accueil'; render(); }
-    else { el.dataset.sure = '1'; el.textContent = 'Confirmer : effacer les données de cet appareil'; }
+    else { el.dataset.sure = '1'; el.textContent = 'Confirmer : effacer parties, analyses et progression (réglages et clé du coach conservés)'; }
   }
 });
 document.addEventListener('change', (ev) => {
@@ -1170,7 +1197,7 @@ document.addEventListener('submit', async (ev) => {
 });
 document.addEventListener('keydown', (ev) => {
   if (route()[0] !== 'partie' || !S.gv || /INPUT|SELECT/.test(ev.target.tagName)) return;
-  if (ev.key === 'ArrowLeft') { S.gv.k = Math.max(0, S.gv.k - 1); render(true); } else if (ev.key === 'ArrowRight') { S.gv.k = Math.min(S.gv.mv.length, S.gv.k + 1); render(true); }
+  if (ev.key === 'ArrowLeft') gvGo(S.gv.k - 1); else if (ev.key === 'ArrowRight') gvGo(S.gv.k + 1);
 });
 addEventListener('hashchange', () => render());
 document.addEventListener('pointerover', (ev) => {
@@ -1181,7 +1208,7 @@ document.addEventListener('pointerover', (ev) => {
   tip.style.left = Math.max(4, Math.min(innerWidth - tw - 4, r.left + r.width / 2 - tw / 2)) + 'px'; tip.style.top = Math.max(4, r.top - 34) + 'px';
 });
 document.addEventListener('pointerout', (ev) => { if (ev.target.closest?.('[data-tip]')) $('#tip').hidden = true; });
-let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { const r = route()[0]; if (r === 'accueil') mountAccueil(); else if (r === 'stats') mountStats(S, H); }, 200); });
+let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { const r = route()[0]; if (r === 'accueil') mountAccueil(); else if (r === 'stats') mountStats(S, H); else if (r === 'partie' && S.gv?.cg) gvSync(); }, 200); });
 
 if (new URLSearchParams(location.search).has('debug')) window.__cap = S; // accès à l'état pour les tests
 (async function init() {

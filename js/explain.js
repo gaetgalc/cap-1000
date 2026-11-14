@@ -36,6 +36,18 @@ function attackers(B, sq, color) {
   return out;
 }
 export function cap(s) { return s[0].toUpperCase() + s.slice(1); }
+// Pour une pièce à longue portée : dans chaque direction, les deux premières pièces rencontrées.
+function xrays(B, r, f) {
+  const p = B[r][f]; if (!p || !'brq'.includes(p.type)) return [];
+  const D = [[1, 1], [1, -1], [-1, 1], [-1, -1]], O = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  const dirs = p.type === 'b' ? D : p.type === 'r' ? O : [...D, ...O], out = [];
+  for (const [dr, df] of dirs) {
+    let a = r + dr, b = f + df; const hit = [];
+    while (a >= 0 && a < 8 && b >= 0 && b < 8 && hit.length < 2) { if (B[a][b]) hit.push({ ...B[a][b], sq: sqOf(a, b) }); a += dr; b += df; }
+    if (hit.length === 2 && hit[0].color !== p.color && hit[1].color !== p.color) out.push(hit);
+  }
+  return out;
+}
 const cheapest = (list) => list.slice().sort((a, b) => VAL[a.type] - VAL[b.type])[0];
 export function material(fen, me) {
   let m = 0;
@@ -124,6 +136,21 @@ function describe(fen, mv, me, next, prev) {
   else if (tags.check && targets.length) { out.push(`Fourchette : ${il(m.piece)} attaque en même temps le roi et ${poss(targets[0].type, opp, me)} en ${targets[0].sq}.`); tags.fork = targets[0]; }
   else if (targets.length >= 2) { out.push(`Fourchette : ${il(m.piece)} attaque à la fois ${poss(targets[0].type, opp, me)} en ${targets[0].sq} et ${poss(targets[1].type, opp, me)} en ${targets[1].sq}.`); tags.fork = targets[0]; }
   else if (targets.length === 1) { out.push(`${P} menace ${poss(targets[0].type, opp, me)} en ${targets[0].sq}${targets[0].undefended ? `, qui n’est pas défendu${e_(targets[0].type)}` : ''}.`); tags.threat = targets[0]; }
+  // Clouage ou enfilade créés par la pièce jouée.
+  if (!selfHang) for (const [a, b] of xrays(B1, tr, tf)) {
+    if (a.type === 'k' && VAL[b.type] >= 3) { out.push(`Enfilade : le roi doit quitter la ligne, et ${poss(b.type, opp, me)} en ${b.sq} sera en prise.`); tags.skewer = b; break; }
+    if (a.type === 'k' || a.type === 'p') continue;
+    if (b.type === 'k') { out.push(`Clouage : ${poss(a.type, opp, me)} en ${a.sq} ne peut plus bouger, ${il(a.type)} protège le roi.`); tags.pin = a; break; }
+    if (VAL[b.type] > VAL[a.type] && VAL[b.type] > VAL[m.piece]) { out.push(`Clouage : si ${poss(a.type, opp, me)} en ${a.sq} bouge, ${poss(b.type, opp, me)} en ${b.sq} tombe.`); tags.pin = a; break; }
+    if (VAL[a.type] > VAL[b.type] && VAL[a.type] > VAL[m.piece] && attackers(B1, b.sq, opp).length <= 1) { out.push(`Enfilade : quand ${poss(a.type, opp, me)} en ${a.sq} s’écartera, ${poss(b.type, opp, me)} en ${b.sq} sera en prise.`); tags.skewer = b; break; }
+  }
+  // Attaque à la découverte : en bougeant, la pièce ouvre la ligne d'une autre.
+  for (let r = 0; r < 8 && !tags.discovered; r++) for (let f = 0; f < 8; f++) {
+    const y = B1[r][f]; if (!y || y.color !== m.color || !'brq'.includes(y.type) || sqOf(r, f) === m.to) continue;
+    const was = new Set(attacksFrom(B0, r, f).map(([a, b]) => sqOf(a, b)));
+    const hit = attacksFrom(B1, r, f).map(([a, b]) => ({ ...B1[a][b], sq: sqOf(a, b) })).find((q) => q.type && q.color === opp && !was.has(q.sq) && q.sq !== m.to && (q.type === 'k' || (q.type !== 'p' && !attackers(B1, sqOf(r, f), opp).some((z) => z.sq === q.sq) && (VAL[q.type] > VAL[y.type] || attackers(B1, q.sq, opp).length === 0))));
+    if (hit) { out.push(hit.type === 'k' ? `Échec à la découverte : en bougeant, ${poss(m.piece, m.color, me)} ouvre la ligne de ${poss(y.type, m.color, me)} sur le roi.` : `Attaque à la découverte : en bougeant, ${poss(m.piece, m.color, me)} ouvre la ligne de ${poss(y.type, m.color, me)} sur ${poss(hit.type, opp, me)} en ${hit.sq}.`); tags.discovered = hit; break; }
+  }
   // Défense d'une pièce qui était en danger.
   if (!m.captured && !fled) {
     const still = new Set(hanging(B1, m.color).map((h) => h.sq));
@@ -163,6 +190,9 @@ export function insight(fen, me, best, ref) {
   else if (oppMate) idee = `Le danger principal était sur ton roi. ${fr(b0.san)} pare la menace de mat avant toute autre idée : la sécurité du roi passe avant le matériel.`;
   else if (b0.tags.escape) idee = `${cap(poss(b0.tags.escape.type, me, me))} en ${b0.tags.escape.sq} était attaqué${e_(b0.tags.escape.type)} par ${poss(b0.tags.escape.by.type, opp, me)}. La priorité était de ${FEM[b0.tags.escape.type] ? 'la' : 'le'} sauver${b0.tags.threat || b0.tags.fork ? ', et le bon coup en profite pour créer une menace' : ''}.`;
   else if (b0.tags.defend) idee = `${cap(poss(b0.tags.defend.type, me, me))} en ${b0.tags.defend.sq} était attaqué${e_(b0.tags.defend.type)} et pas assez défendu${e_(b0.tags.defend.type)}. Le bon coup ${FEM[b0.tags.defend.type] ? 'la' : 'le'} protège sans rien céder.`;
+  else if (b0.tags.discovered) idee = `${fr(b0.san)} est une attaque à la découverte : la pièce qui bouge crée sa propre menace et libère en même temps la ligne d’une autre. Deux menaces d’un seul coup, ton adversaire ne peut en parer qu’une.`;
+  else if (b0.tags.pin) idee = `${fr(b0.san)} cloue ${poss(b0.tags.pin.type, opp, me)} en ${b0.tags.pin.sq} : cette pièce ne peut plus bouger sans perdre ce qui est derrière elle. Une pièce clouée est une cible : on l’attaque une deuxième fois, souvent avec un pion.`;
+  else if (b0.tags.skewer) idee = `${fr(b0.san)} est une enfilade : deux pièces adverses sont sur la même ligne, la plus précieuse devant. Quand elle s’écarte, celle de derrière tombe.`;
   else if (myFork) idee = `Le bon coup mène à une fourchette : une seule pièce attaque deux cibles à la fois, et ton adversaire ne peut en sauver qu’une. Cherche-les dès que deux pièces adverses sont à portée d’un cavalier, d’un pion ou d’un échec.`;
   else if (b0.tags.capture && (b0.tags.fork || b0.tags.threat)) { const tg = b0.tags.fork || b0.tags.threat; idee = `${fr(b0.san)} fait deux choses à la fois : il prend du matériel et attaque ${poss(tg.type, opp, me)} en ${tg.sq}. Ton adversaire ne peut pas répondre aux deux. Un coup qui prend en créant une menace est presque toujours le bon.`; }
   else if (bestD >= 2) {
@@ -203,6 +233,8 @@ export function hintFor(fen, bestMv, me) {
   if (t.capture) return 'Passe en revue toutes tes captures possibles. L’une d’elles gagne du matériel.';
   if (t.escape) return 'Une de tes pièces est attaquée. Laquelle, et par quoi ?';
   if (t.defend) return 'Une de tes pièces est attaquée et mal défendue. Comment la protéger ?';
+  if (t.pin || t.skewer) return 'Deux pièces adverses sont alignées sur une colonne, une rangée ou une diagonale. Quelle pièce peut s’y placer ?';
+  if (t.discovered) return 'Une de tes pièces bloque la ligne d’une autre. Que se passe-t-il si elle s’écarte ?';
   if (t.fork || t.threat) return 'Cherche une pièce adverse mal défendue. Quel coup l’attaque ?';
   if (t.castle) return 'Où est ton roi ? Est-il en sécurité ?';
   return 'Aucune tactique immédiate ici. Vérifie que chacune de tes pièces est défendue, puis améliore la moins active.';
