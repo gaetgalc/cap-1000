@@ -272,3 +272,7 @@ details.gd summary { cursor: pointer; font-size: 14px; color: var(--accent-ink);
 cg-board square.last-move { background-color: rgba(255, 214, 10, .45) !important; }
 cg-board square.selected { background-color: rgba(255, 214, 10, .6) !important; }
 @media (max-width: 859px) { body.solved .coach.intro, body.solved .pzhead { display: none; } }
+
+.seg2 a { flex: 1; text-align: center; font: 600 14px var(--body); color: var(--ink2); text-decoration: none; border-radius: 8px; padding: 9px 8px; }
+.seg2 a.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+@media (max-width: 859px) { body.solved .pztabs { display: none; } }

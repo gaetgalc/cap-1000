@@ -31,11 +31,12 @@ Site statique sans build, servi par GitHub Pages depuis `main` (racine). Tout to
 | `js/lessons.js` | Fiches de cours statiques (principe, routine), règles courtes par thème |
 | `js/explain.js` | Explications sans IA : description de chaque coup, idée du meilleur coup, raison de l'échec du coup joué, bilan matériel |
 | `js/drills.js` | Échauffements : 4 exercices de vérification générés depuis les positions des parties, réponse établie par les règles |
+| `js/lichess.js` | Puzzles inédits : `GET lichess.org/api/puzzle/next?angle=&difficulty=` (anonyme), reconstruction de la position depuis le PGN |
 | `js/coach.js` | Cours privés Claude : faits vérifiés, prompt, appel API, lecture du JSON |
 | `js/store.js` | IndexedDB (`data:<user>`, `an:<user>`, `ai:<user>`) et localStorage (préfixe `cap1000:`) |
 | `vendor/` | chess.js 0.10.3, chessground 9, Stockfish 19 lite single-thread (WASM) |
 
-Routes : `#accueil`, `#puzzles`, `#erreur/<end_time>/<ply>` (travail d'une erreur précise), `#plus` (menu mobile), `#exos`, `#drill/<sur|menace|cadeau|compte>`, `#cours`, `#cours/<id>[/fiche]`, `#ouvertures`, `#parties`, `#partie/<end_time>[/<ply>]`, `#plan`, `#stats`.
+Routes : `#accueil`, `#puzzles`, `#erreur/<end_time>/<ply>` (travail d'une erreur précise), `#plus` (menu mobile), `#exos`, `#inedits` (puzzles Lichess), `#drill/<sur|menace|cadeau|compte>`, `#cours`, `#cours/<id>[/fiche]`, `#ouvertures`, `#parties`, `#partie/<end_time>[/<ply>]`, `#plan`, `#stats`.
 
 ## Écran de travail (puzzles, erreurs, positions de cours)
 
@@ -48,7 +49,7 @@ Routes : `#accueil`, `#puzzles`, `#erreur/<end_time>/<ply>` (travail d'une erreu
 3. **Mesure** : `themeTrend` (10 dernières parties analysées contre les 10 précédentes) et `themeSeries` (courbe par paquets de 5).
 4. **Prédire avant d'expliquer** : dans `explainUI`, l'élève joue lui-même la punition de son coup et ses propres coups de la bonne suite.
 
-Idées non faites : positions inédites d'une base externe (Lichess), import Lichess, comptes et synchronisation, traduction.
+Idées non faites : import des parties Lichess, comptes et synchronisation, traduction.
 
 ## Contraintes à connaître
 
@@ -73,5 +74,6 @@ Les tests automatisés des sessions précédentes utilisaient puppeteer-core ave
 - Qualité réelle des cours générés par Claude non évaluée (testé avec une API simulée).
 - Interface mobile refaite le 14/11 au soir (coquille d'app) sans retour encore ; si elle ne convient toujours pas, demander une capture de l'écran précis.
 - Les explications de `explain.js` reposent sur des heuristiques (attaquants, défenseurs, matériel) : pas de clouages ni d'attaques à la découverte.
+- Puzzles Lichess codés d'après la documentation de l'API et testés avec une API simulée seulement : format réel de la réponse (coupe du PGN, `initialPly`) à confirmer au premier essai ; `fetchPuzzle` essaie plusieurs coupes et garde celle où la solution est légale.
 - Noms d'ouvertures en anglais (source Chess.com).
 - Licence : GPL-3.0-or-later (imposée par chessground et Stockfish).

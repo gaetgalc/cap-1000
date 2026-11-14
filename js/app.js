@@ -6,7 +6,8 @@ import { Engine, analyzeGame, winPct, fmtEval, uciMove } from './engine.js';
 import * as st from './stats.js';
 import { LESSONS, ENGINE_LESSONS, RULES } from './lessons.js';
 import { viewStats, mountStats } from './alltime.js';
-import { buildLine, insight, hintFor, lastMoveText, moveText, material } from './explain.js';
+import { buildLine, insight, hintFor, lastMoveText, moveText, material, describeAt, justPlayed } from './explain.js';
+import { LI_ANGLES, LI_FOR, LI_DIFF, fetchPuzzle } from './lichess.js';
 import { DRILLS, DRILL_FOR, makeRound } from './drills.js';
 import { MODELS, coachKey, coachModel, facts, genLesson, askCoach, buildPrompt, parseLesson } from './coach.js';
 
@@ -223,6 +224,87 @@ const pl = (n, w) => `${n} ${w}${n > 1 ? 's' : ''}`;
 const moveNo = (e) => Math.floor(e.ply / 2) + 1;
 const gameRef = (g) => `partie du ${dfmt(g.t)} contre ${esc(g.opp)} (${g.or})`;
 
+const pzTabs = (on) => `<div class="seg2 pztabs"><a class="${on === 'mine' ? 'on' : ''}" href="#puzzles">Mes erreurs</a><a class="${on === 'li' ? 'on' : ''}" href="#inedits">Positions inédites</a></div>`;
+
+// ---------- Puzzles inédits (Lichess) ----------
+async function liLoad() {
+  const L = S.li;
+  L.loading = true; L.err = null; L.cur = null; render();
+  try { L.cur = await fetchPuzzle(L.angle, L.diff); L.step = 0; L.failed = false; L.done = false; }
+  catch (e) { L.err = e.message || String(e); }
+  L.loading = false;
+  if (route()[0] === 'inedits') render();
+}
+function viewInedits() {
+  if (!S.li) { const f = ls.get('focus', null), saved = ls.get('li', {}); S.li = { angle: saved.angle || (f ? LI_FOR[f.id] : 'hangingPiece'), diff: saved.diff || 'easiest', cur: null, loading: false, err: null }; }
+  const L = S.li, stat = ls.get('listat', {})[L.angle] || { n: 0, ok: 0 };
+  const head = pzTabs('li') + `<div class="pzhead"><h1>Positions inédites</h1><div class="row">
+      <select data-f="liangle" aria-label="Thème">${LI_ANGLES.map(([v, l]) => `<option value="${v}" ${L.angle === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <select data-f="lidiff" aria-label="Niveau">${LI_DIFF.map(([v, l]) => `<option value="${v}" ${L.diff === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <span class="chip ${stat.n ? 'good' : ''}">${stat.ok} / ${stat.n} du premier coup</span></div></div>`;
+  if (L.loading) return head + coach('Je vais chercher une position que tu n’as jamais vue…');
+  if (L.err) return head + `<div class="card"><p class="err">${esc(L.err)}</p><div><button class="btn pri" data-act="linext">Réessayer</button></div></div>`;
+  if (!L.cur) return head + `<div class="card">${coach('Ici, tu travailles le même motif que dans tes parties, mais sur des positions que tu ne peux pas reconnaître : c’est ce qui prouve que le réflexe est acquis. Les positions viennent de la base de puzzles de Lichess, libre de droits.')}<div><button class="btn pri lg" data-act="linext">Commencer</button></div></div>`;
+  const P = L.cur, me = P.white ? 'w' : 'b', side = P.white ? 'Blancs' : 'Noirs';
+  const last = justPlayed(describeAt(P.prevFen, P.lastSan, me));
+  return head + coach(`${esc(last)} <b>À toi de jouer avec les ${side}.</b> Trouve le meilleur coup${P.sol.length > 2 ? `, puis la suite (${Math.ceil(P.sol.length / 2)} coups à trouver)` : ''}.`, 'intro') + `
+    <div class="split work"><div class="bwrap"><div class="board" id="lib"></div><div class="cap" id="licap"><p><i class="dot ${P.white ? 'w' : 'b'}"></i> Trait aux ${side}. Joue ton coup sur l’échiquier.</p></div></div>
+      <div class="stack"><div class="meta small">Puzzle Lichess n° ${esc(P.id)} · niveau ${P.rating} · <a href="${P.url}" target="_blank" rel="noopener">Voir sur Lichess</a></div>
+        <div id="lix"><div class="card ghost"><h3>Comment chercher</h3><ol class="routine"><li>Que vient de faire ton adversaire ? Que menace son coup ?</li><li>As-tu un échec, une capture ou une menace ?</li><li>La case où tu vas est-elle attaquée ?</li></ol></div></div></div></div>
+    <div class="actbar" id="libar"><button class="btn" data-act="lihint">Indice</button><button class="btn" data-act="lishow">Solution</button></div>`;
+}
+function mountInedits() {
+  const el = $('#lib'), L = S.li;
+  if (!el || !L?.cur) return;
+  const P = L.cur, me = P.white ? 'w' : 'b', color = P.white ? 'white' : 'black', cap = $('#licap'), ch = new Chess(P.fen);
+  let hinted = false;
+  const mov = () => ({ free: false, color, dests: destsOf(ch), showDests: true, events: { after: onMove } });
+  const cg = board(el, { fen: P.fen, orientation: color, turnColor: color, lastMove: P.last, movable: mov() });
+  const say = (cls, html) => { cap.className = 'cap ' + cls; cap.innerHTML = `<p>${html}</p>`; };
+  function finish(ok) {
+    if (L.done) return;
+    L.done = true;
+    const first = ok && !L.failed && !hinted, all = ls.get('listat', {}), stt = all[L.angle] || { n: 0, ok: 0 };
+    stt.n++; if (first) stt.ok++; all[L.angle] = stt; ls.set('listat', all); bump('li');
+    const steps = buildLine(P.fen, P.sol, me, true), ins = insight(P.fen, me, steps, []), x = { i: steps.length };
+    const draw = () => {
+      const i = Math.min(Math.max(x.i, 0), steps.length), s = steps[i - 1];
+      cg.set({ fen: s ? s.fen : P.fen, lastMove: s ? [s.from, s.to] : P.last, movable: { color: undefined }, drawable: { autoShapes: s ? [] : [arrow(P.sol[0], 'green')] } });
+      cap.className = 'cap ok';
+      cap.innerHTML = s ? `<div class="capm"><span class="capn"><i class="dot ${s.white ? 'w' : 'b'}"></i>${s.no}${s.white ? '.' : '…'} ${fr(s.san)}</span><span class="small">coup ${i} sur ${steps.length}</span></div><p>${esc(s.text)}</p>` : '<p><b>Position de départ.</b> Déroule la solution coup par coup.</p>';
+      $('#lix').innerHTML = `<div class="card idea"><h3>L’idée</h3><p>${esc(ins.idee)}</p></div>
+        <ol class="line">${steps.map((q, k) => `<li class="${k + 1 === i ? 'cur' : ''}" data-ex="jump" data-v="${k + 1}"><b>${q.white ? q.no + '.' : (k === 0 ? q.no + '…' : '')} ${fr(q.san)}</b><span>${esc(q.text)}</span></li>`).join('')}</ol>
+        <p class="small">Puzzle de la base Lichess (domaine public). Thèmes : ${esc(P.themes.join(', '))}.</p>`;
+      $('#libar').innerHTML = `<button class="btn ico" data-ex="prev" aria-label="Coup précédent" ${i === 0 ? 'disabled' : ''}>◀</button><button class="btn" data-ex="next" ${i >= steps.length ? 'disabled' : ''}>Suite ▶</button><button class="btn pri" data-act="linext">Suivant ›</button>`;
+    };
+    S.exui = (a, v) => { if (a === 'next') x.i++; else if (a === 'prev') x.i--; else if (a === 'jump') x.i = +v; x.i = Math.min(Math.max(x.i, 0), steps.length); draw(); };
+    document.body.classList.add('solved');
+    draw();
+    cap.insertAdjacentHTML('afterbegin', `<div class="verdict">${first ? '<b class="ok">Résolu du premier coup.</b>' : ok ? '<b class="ok">Résolu.</b>' : 'Voici la solution.'} Reviens en arrière avec ◀ pour revoir chaque coup.</div>`);
+  }
+  function onMove(from, to) {
+    const want = P.sol[L.step], m = ch.move({ from, to, promotion: want[4] || 'q' });
+    if (!m) return;
+    if (from + to === want.slice(0, 4) || ch.in_checkmate()) {
+      L.step++;
+      if (L.step >= P.sol.length || ch.in_checkmate()) { cg.set({ fen: ch.fen() }); return finish(true); }
+      const r = uciMove(ch, P.sol[L.step]); L.step++;
+      cg.set({ fen: ch.fen(), lastMove: [r.from, r.to], turnColor: color, movable: mov() });
+      if (L.step >= P.sol.length) return finish(true);
+      say('ok', `<b class="ok">Bien.</b> Ton adversaire répond ${fr(r.san)}. Trouve la suite.`);
+    } else {
+      L.failed = true;
+      cg.set({ fen: ch.fen(), movable: { color: undefined } });
+      say('ko', `<b class="ko">Pas celui-là.</b> ${fr(m.san)} n’est pas le meilleur coup. Réessaie.`);
+      setTimeout(() => { ch.undo(); cg.set({ fen: ch.fen(), turnColor: color, movable: mov() }); }, 700);
+    }
+  }
+  S.liapi = {
+    hint() { if (L.done) return; hinted = true; const w = P.sol[L.step]; cg.set({ drawable: { autoShapes: [{ orig: w.slice(0, 2), brush: 'green' }] } }); say('', `<b>Indice.</b> ${esc(hintFor(ch.fen(), w, me))} La pièce entourée doit jouer.`); },
+    show() { if (L.done) return; L.failed = true; finish(false); },
+  };
+}
+
 function findErr(t, ply) {
   const g = S.data.games.find((x) => String(x.t) === String(t));
   const e = g && S.an[g.id]?.errs.find((x) => String(x.ply) === String(ply));
@@ -252,7 +334,7 @@ function viewPuzzles(force) {
   S.pzOne = null;
   const total = allPuzzles();
   if (!total.length) {
-    return `<h1>Puzzles sur tes erreurs</h1><div class="card"><p class="prose">${S.job.running ? 'L’analyse de tes parties est en cours. Les premiers puzzles apparaissent ici dès qu’une partie est terminée.' : 'Aucune partie analysée pour le moment. Lance l’analyse pour transformer tes erreurs en puzzles.'}</p>${S.job.running ? '' : '<div><button class="btn pri" data-act="analyse">Analyser mes 20 dernières parties</button></div>'}</div>`;
+    return pzTabs('mine') + `<h1>Puzzles sur tes erreurs</h1><div class="card"><p class="prose">${S.job.running ? 'L’analyse de tes parties est en cours. Les premiers puzzles apparaissent ici dès qu’une partie est terminée.' : 'Aucune partie analysée pour le moment. Lance l’analyse pour transformer tes erreurs en puzzles.'}</p>${S.job.running ? '' : '<div><button class="btn pri" data-act="analyse">Analyser mes 20 dernières parties</button></div>'}</div>`;
   }
   S.pz ||= { theme: '', free: false, cur: null };
   const prog = ls.get('pz', {});
@@ -260,7 +342,7 @@ function viewPuzzles(force) {
   if (!S.pz.cur || !q.some((p) => p.id === S.pz.cur.id)) S.pz.cur = q[0] ? { id: q[0].id, done: false } : null;
   const themes = [...new Set(total.map((p) => p.e.theme))];
   const mastered = total.filter((p) => (prog[p.id]?.box || 0) >= 2).length, today = act()[dkey()]?.pz || 0;
-  const head = `<div class="pzhead"><h1>Puzzles sur tes erreurs</h1>
+  const head = pzTabs('mine') + `<div class="pzhead"><h1>Puzzles sur tes erreurs</h1>
     <div class="row"><span class="chip good">${today} aujourd’hui</span><span class="chip">${q.length} à faire</span><span class="chip">${mastered} maîtrisés</span>
     <select id="pzt" aria-label="Thème"><option value="">Tous les thèmes</option>${themes.map((t) => `<option value="${t}" ${S.pz.theme === t ? 'selected' : ''}>${st.THEMES[t]}</option>`).join('')}</select></div></div>`;
   if (!S.pz.cur) {
@@ -287,7 +369,7 @@ function getLines(g, e) {
         arr.push(...r.pv.slice(0, 5));
       }
     } catch { bestU = e.line.length ? e.line : [e.best]; refU = [e.playedUci, ...e.punish]; }
-    const best = buildLine(e.fen, bestU, me), ref = buildLine(e.fen, refU, me);
+    const best = buildLine(e.fen, bestU, me, true), ref = buildLine(e.fen, refU, me);
     return { best, ref, ins: insight(e.fen, me, best, ref), m0: material(e.fen, me) };
   })();
   LINES.set(id, pr);
@@ -426,10 +508,10 @@ function filtersHtml() {
     <select data-f="days" aria-label="Période"><option value="0">Depuis le début</option><option value="90" ${S.f.days === 90 ? 'selected' : ''}>90 derniers jours</option><option value="30" ${S.f.days === 30 ? 'selected' : ''}>30 derniers jours</option></select>
     <button class="btn sm" data-act="refresh" title="Récupérer les nouvelles parties de ${esc(S.user)}">Mettre à jour</button>`;
 }
-const TITLES = { puzzles: 'Puzzles', erreur: 'Comprendre', partie: 'Partie', cours: 'Cours', drill: 'Échauffement' };
+const TITLES = { puzzles: 'Puzzles', erreur: 'Comprendre', partie: 'Partie', cours: 'Cours', drill: 'Échauffement', inedits: 'Positions inédites' };
 function header() {
   const t = $('#tools'), [r, a] = route();
-  const imm = !!S.data && (r === 'erreur' || r === 'partie' || (r === 'drill' && !!$('#drb')) || (r === 'cours' && !!a) || (r === 'puzzles' && !!$('#pzb')));
+  const imm = !!S.data && (r === 'erreur' || r === 'partie' || (r === 'drill' && !!$('#drb')) || (r === 'inedits' && !!$('#lib')) || (r === 'cours' && !!a) || (r === 'puzzles' && !!$('#pzb')));
   document.body.classList.toggle('imm', imm);
   $('#ttl').textContent = imm ? TITLES[r] : '';
   if (!S.data) { t.innerHTML = ''; return; }
@@ -523,6 +605,7 @@ function focusCard(fc, es) {
       <div><span>Objectif</span><b>${fs.target == null ? '—' : f1(fs.target)}</b><span>par partie</span></div></div>
     <div class="chart" id="fchart"></div>
     <p class="small">${fs.ok ? 'Tu as divisé cette erreur par deux sur tes dernières parties. Tu peux passer au chantier suivant.' : `Un seul type d’erreur à la fois : on passe au suivant quand celle-ci est divisée par deux sur au moins 5 parties. ${nEx} exemple${nEx > 1 ? 's' : ''} dans tes parties analysées.`}</p>
+    <div><button class="btn" data-act="lifocus">Travailler ce thème sur des positions inédites</button></div>
     <div class="row">${fs.ok && others[0] ? `<button class="btn pri" data-act="focusnext" data-id="${others[0].id}">Chantier suivant : ${st.THEMES[others[0].id]}</button>` : ''}
       ${others.length ? `<label class="small" for="fsel">Changer</label><select id="fsel" data-f="focus"><option value="${fc.id}">${st.THEMES[fc.id]}</option>${others.map((t) => `<option value="${t.id}">${st.THEMES[t.id]} (${t.n})</option>`).join('')}</select>` : ''}</div></section>`;
 }
@@ -954,17 +1037,18 @@ function render(keepScroll) {
   const v = $('#view'), [r, a, b] = route();
   paintJob();
   $('#nav').hidden = !S.data;
-  document.querySelectorAll('#nav a').forEach((x) => x.classList.toggle('on', x.getAttribute('href') === '#' + ({ partie: 'parties', erreur: 'puzzles' }[r] || r) || (x.getAttribute('href') === '#plus' && ['ouvertures', 'plan', 'stats', 'exos'].includes(r))));
+  document.querySelectorAll('#nav a').forEach((x) => x.classList.toggle('on', x.getAttribute('href') === '#' + ({ partie: 'parties', erreur: 'puzzles', inedits: 'puzzles', drill: 'puzzles' }[r] || r) || (x.getAttribute('href') === '#plus' && ['ouvertures', 'plan', 'stats', 'exos'].includes(r))));
   if (!S.data) { header(); v.innerHTML = viewWelcome(); const f = $('#wf'); f.onsubmit = (ev) => { ev.preventDefault(); const u = $('#wu').value.trim(); if (u) doImport(u); }; return; }
   if (r !== 'partie') S.gv = null;
   if (r !== 'drill') S.dr = null;
-  const html = r === 'puzzles' ? viewPuzzles() : r === 'erreur' ? viewPuzzles([a, b]) : r === 'plus' ? viewPlus() : r === 'exos' ? viewExos() : r === 'drill' ? viewDrill(a) : r === 'cours' ? (a ? viewLecon(a, b) : viewCours()) : r === 'ouvertures' ? viewOuvertures() : r === 'parties' ? viewParties() : r === 'partie' ? viewPartie(a, b) : r === 'plan' ? viewPlan() : r === 'stats' ? viewStats(S, H) : viewAccueil();
+  const html = r === 'puzzles' ? viewPuzzles() : r === 'erreur' ? viewPuzzles([a, b]) : r === 'plus' ? viewPlus() : r === 'exos' ? viewExos() : r === 'inedits' ? viewInedits() : r === 'drill' ? viewDrill(a) : r === 'cours' ? (a ? viewLecon(a, b) : viewCours()) : r === 'ouvertures' ? viewOuvertures() : r === 'parties' ? viewParties() : r === 'partie' ? viewPartie(a, b) : r === 'plan' ? viewPlan() : r === 'stats' ? viewStats(S, H) : viewAccueil();
   v.innerHTML = html;
   if (r === 'puzzles' || r === 'erreur') { mountPuzzle(); const s = $('#pzt'); if (s) s.onchange = () => { S.pz.theme = s.value; S.pz.cur = null; render(); }; }
   else if (r === 'cours' && a) mountLecon();
   else if (r === 'ouvertures') board($('#exb'), { fen: S.exFen, orientation: S.white ? 'white' : 'black', viewOnly: true });
   else if (r === 'partie') mountPartie();
   else if (r === 'drill') mountDrill();
+  else if (r === 'inedits') mountInedits();
   else if (r === 'stats') mountStats(S, H);
   else if (r === 'plan') {
     $('#hrs').onchange = (e) => { ls.set('hours', +e.target.value); render(true); };
@@ -991,8 +1075,12 @@ document.addEventListener('click', (ev) => {
   else if (act === 'back') {
     const r = route()[0];
     if (r === 'erreur') { if (history.length > 1) history.back(); else location.hash = '#puzzles'; }
-    else location.hash = { partie: '#parties', cours: '#cours', drill: '#exos' }[r] || '#accueil';
+    else location.hash = { partie: '#parties', cours: '#cours', drill: '#exos', inedits: '#puzzles' }[r] || '#accueil';
   }
+  else if (act === 'linext') liLoad();
+  else if (act === 'lihint') S.liapi?.hint();
+  else if (act === 'lishow') S.liapi?.show();
+  else if (act === 'lifocus') { const f = ls.get('focus', null); S.li = { angle: f ? LI_FOR[f.id] : 'mix', diff: ls.get('li', {}).diff || 'easiest', cur: null, loading: false, err: null }; location.hash = '#inedits'; }
   else if (act === 'drans') drillAnswer(el.dataset.v);
   else if (act === 'drnext') {
     const d = S.dr; d.i++;
@@ -1033,12 +1121,13 @@ document.addEventListener('click', (ev) => {
   else if (act === 'more') { S.listN += 50; render(true); }
   else if (act === 'goto') { S.gv.k = +el.dataset.k; render(true); }
   else if (act === 'reset') {
-    if (el.dataset.sure) { const u = S.user; ['user', 'pz', 'lus', 'filter', 'act', 'focus', 'drills'].forEach(ls.del); dbDel('data:' + u); dbDel('an:' + u); dbDel('ai:' + u); S.ai = {}; S.job.stop = true; S.user = null; S.data = null; S.an = {}; S.pz = null; location.hash = '#accueil'; render(); }
+    if (el.dataset.sure) { const u = S.user; ['user', 'pz', 'lus', 'filter', 'act', 'focus', 'drills', 'li', 'listat'].forEach(ls.del); dbDel('data:' + u); dbDel('an:' + u); dbDel('ai:' + u); S.ai = {}; S.job.stop = true; S.user = null; S.data = null; S.an = {}; S.pz = null; location.hash = '#accueil'; render(); }
     else { el.dataset.sure = '1'; el.textContent = 'Confirmer : effacer les données de cet appareil'; }
   }
 });
 document.addEventListener('change', (ev) => {
   const el = ev.target.closest('[data-f]'); if (!el) return;
+  if (el.dataset.f === 'liangle' || el.dataset.f === 'lidiff') { S.li[el.dataset.f === 'liangle' ? 'angle' : 'diff'] = el.value; ls.set('li', { angle: S.li.angle, diff: S.li.diff }); S.li.cur = null; S.li.err = null; render(true); return; }
   if (el.dataset.f === 'focus') { ls.set('focus', { id: el.value, since: Math.floor(Date.now() / 1000) }); render(true); return; }
   if (el.dataset.f === 'tc') { S.f.tc = el.value; S.pz = null; } else S.f.days = +el.value;
   ls.set('filter', S.f); S.path = []; render(true);

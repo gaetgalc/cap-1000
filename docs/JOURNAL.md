@@ -123,6 +123,12 @@ Fait :
 - Dans les suites commentées : l'élève joue lui-même la punition de son coup et ses coups de la bonne suite.
 - Premier aperçu de l'accueil dès 3 parties analysées.
 
+## 13. Puzzles Lichess (22:50)
+
+> importe lichess ?
+
+Précision demandée, réponse : « Des puzzles inédits ». Fait : onglet « Positions inédites » dans Puzzles, alimenté par l'API publique de Lichess (base dans le domaine public), sans compte. Choix du thème (par défaut celui du chantier) et du niveau, solution à jouer coup par coup, puis solution commentée et idée. Bouton d'accès depuis la carte du chantier. Non testé contre la vraie API (bloquée depuis l'environnement de Claude).
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |

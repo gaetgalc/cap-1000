@@ -134,11 +134,12 @@ function describe(fen, mv, me, next, prev) {
 }
 
 // Construit une suite commentée à partir d'une liste de coups (UCI ou SAN).
-export function buildLine(fen, moves, me) {
+export function buildLine(fen, moves, me, winning) {
   const steps = []; let cur = fen;
   for (let i = 0; i < moves.length; i++) {
     const d = describe(cur, moves[i], me, moves[i + 1], steps.length ? steps[steps.length - 1].raw : null);
     if (!d) break;
+    if (winning && d.tags.bad && d.tags.mine) d.text = d.text.replace(/ : (ton|ta) [^.]*?ce qui est pris/, ' : c’est un sacrifice, la suite montre ce qu’il rapporte');
     steps.push({ raw: { to: d.m.to, captured: d.m.captured, piece: d.m.piece }, san: d.m.san, from: d.m.from, to: d.m.to, fen: d.fen, text: d.text, tags: d.tags, mat: material(d.fen, me), no: +cur.split(' ')[5], white: d.m.color === 'w' });
     cur = d.fen;
     if (d.tags.mate) break;
@@ -222,3 +223,7 @@ export function moveText(g, k, me) {
   const d = describe(ch.fen(), g.san[k - 1], me, g.san[k], prev ? { to: prev.to, captured: prev.captured } : null);
   return d ? d.text : '';
 }
+
+// Description d'un coup à partir d'une position quelconque (puzzles inédits).
+export function describeAt(fen, mv, me) { const d = describe(fen, mv, me); return d ? d.text : ''; }
+export const justPlayed = (t) => t.replace(/^Ton adversaire (\S+)/, (_, vb) => 'Ton adversaire vient de ' + ({ prend: 'prendre', reprend: 'reprendre', met: 'mettre', pare: 'parer', joue: 'jouer', roque: 'roquer' }[vb] || vb));
