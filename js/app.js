@@ -5,6 +5,7 @@ import { importPlayer } from './chesscom.js';
 import { Engine, analyzeGame, winPct, fmtEval, uciMove } from './engine.js';
 import * as st from './stats.js';
 import { LESSONS, ENGINE_LESSONS } from './lessons.js';
+import { viewStats, mountStats } from './alltime.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -564,6 +565,7 @@ function viewPlan() {
 }
 
 // ---------- Routage et événements ----------
+const H = { esc, fr, dfmt, wdl, lineChart, TC, HOW, WDL: WDL_LEGEND };
 const route = () => (location.hash.slice(1) || 'accueil').split('/');
 function render(keepScroll) {
   const y = scrollY;
@@ -575,12 +577,13 @@ function render(keepScroll) {
   document.querySelectorAll('#nav a').forEach((x) => x.classList.toggle('on', x.getAttribute('href') === '#' + (r === 'partie' ? 'parties' : r)));
   if (!S.data) { v.innerHTML = viewWelcome(); const f = $('#wf'); f.onsubmit = (ev) => { ev.preventDefault(); const u = $('#wu').value.trim(); if (u) doImport(u); }; return; }
   if (r !== 'partie') S.gv = null;
-  const html = r === 'puzzles' ? viewPuzzles() : r === 'cours' ? (a ? viewLecon(a) : viewCours()) : r === 'ouvertures' ? viewOuvertures() : r === 'parties' ? viewParties() : r === 'partie' ? viewPartie(a, b) : r === 'plan' ? viewPlan() : viewAccueil();
+  const html = r === 'puzzles' ? viewPuzzles() : r === 'cours' ? (a ? viewLecon(a) : viewCours()) : r === 'ouvertures' ? viewOuvertures() : r === 'parties' ? viewParties() : r === 'partie' ? viewPartie(a, b) : r === 'plan' ? viewPlan() : r === 'stats' ? viewStats(S, H) : viewAccueil();
   v.innerHTML = html;
   if (r === 'puzzles') { mountPuzzle(); const s = $('#pzt'); if (s) s.onchange = () => { S.pz.theme = s.value; S.pz.cur = null; render(); }; }
   else if (r === 'cours' && a) mountLecon();
   else if (r === 'ouvertures') board($('#exb'), { fen: S.exFen, orientation: S.white ? 'white' : 'black', viewOnly: true });
   else if (r === 'partie') mountPartie();
+  else if (r === 'stats') mountStats(S, H);
   else if (r === 'plan') {
     $('#hrs').onchange = (e) => { ls.set('hours', +e.target.value); render(true); };
     const save = () => { const elo = +$('#gelo').value, date = $('#gdate').value; if (elo >= 100 && date) { ls.set('goal', { elo, date }); render(true); } };
@@ -598,6 +601,7 @@ document.addEventListener('click', (ev) => {
   if (act === 'refresh') doImport(S.user);
   else if (act === 'analyse') runAnalysis(20);
   else if (act === 'analyse1') runAnalysis(1, S.gv.g);
+  else if (act === 'stattc') { S.statTc = el.dataset.tc; render(true); }
   else if (act === 'pzfree') { S.pz.free = true; S.pz.cur = null; render(); }
   else if (act === 'pzreal') S.pz.api?.real();
   else if (act === 'pzhint') S.pz.api?.hint();
@@ -621,7 +625,15 @@ document.addEventListener('keydown', (ev) => {
   if (ev.key === 'ArrowLeft') { S.gv.k = Math.max(0, S.gv.k - 1); render(true); } else if (ev.key === 'ArrowRight') { S.gv.k = Math.min(S.gv.mv.length, S.gv.k + 1); render(true); }
 });
 addEventListener('hashchange', () => render());
-let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { const r = route()[0]; if (r === 'accueil') mountAccueil(); }, 200); });
+document.addEventListener('pointerover', (ev) => {
+  const el = ev.target.closest?.('[data-tip]'), tip = $('#tip');
+  if (!el) return;
+  tip.hidden = false; tip.textContent = el.dataset.tip;
+  const r = el.getBoundingClientRect(), tw = tip.offsetWidth;
+  tip.style.left = Math.max(4, Math.min(innerWidth - tw - 4, r.left + r.width / 2 - tw / 2)) + 'px'; tip.style.top = Math.max(4, r.top - 34) + 'px';
+});
+document.addEventListener('pointerout', (ev) => { if (ev.target.closest?.('[data-tip]')) $('#tip').hidden = true; });
+let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { const r = route()[0]; if (r === 'accueil') mountAccueil(); else if (r === 'stats') mountStats(S, H); }, 200); });
 
 window.__cap = S;
 (async function init() {
