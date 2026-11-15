@@ -272,6 +272,9 @@ details.gd summary { cursor: pointer; font-size: 14px; color: var(--accent-ink);
 .cap.ko .ask { color: var(--ink); }
 @media (max-width: 859px) { .actbar .btn.opt { font-size: 16px; font-weight: 600; } }
 
+.cg-wrap .cg-shapes { opacity: .85; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .35)); }
+.capbest { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; background: var(--good-soft); color: var(--good); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.capbest b { color: #8fe36a; }
 cg-board square.last-move { background-color: rgba(255, 214, 10, .45) !important; }
 cg-board square.selected { background-color: rgba(255, 214, 10, .6) !important; }
 @media (max-width: 859px) { body.solved .pzhead { display: none; } }

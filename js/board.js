@@ -11,8 +11,17 @@ export function destsOf(ch) {
   return d;
 }
 const chkOf = (fen) => { try { const c = new Chess(fen); return c.in_check() ? (c.turn() === 'w' ? 'white' : 'black') : false; } catch { return false; } };
+// Couleurs des flèches : plus vives que celles de chessground (vert = meilleur coup, rouge = erreur ou menace).
+const BRUSHES = {
+  green: { key: 'g', color: '#2bd46a', opacity: 1, lineWidth: 11 },
+  red: { key: 'r', color: '#f0443c', opacity: 1, lineWidth: 11 },
+  blue: { key: 'b', color: '#3b8cff', opacity: 1, lineWidth: 11 },
+  yellow: { key: 'y', color: '#ffad1f', opacity: 1, lineWidth: 11 },
+  paleBlue: { key: 'pb', color: '#3b8cff', opacity: 0.4, lineWidth: 15 },
+};
 export function board(el, cfg) {
-  const cg = Chessground(el, { coordinates: true, animation: { duration: 220 }, drawable: { enabled: false, visible: true, autoShapes: cfg.shapes || [] }, ...(cfg.fen ? { check: chkOf(cfg.fen) } : {}), ...cfg });
+  const drawable = { enabled: false, visible: true, autoShapes: cfg.shapes || [], ...cfg.drawable, brushes: BRUSHES };
+  const cg = Chessground(el, { coordinates: true, animation: { duration: 220 }, ...(cfg.fen ? { check: chkOf(cfg.fen) } : {}), ...cfg, drawable });
   const set0 = cg.set; // le roi en échec est signalé à chaque changement de position
   cg.set = (c) => set0(c.fen ? { check: chkOf(c.fen), ...c } : c);
   boards.push(cg);
