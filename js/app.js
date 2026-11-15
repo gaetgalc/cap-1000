@@ -1,7 +1,8 @@
 /* global Chess */
 import { dbGet, dbSet, dbDel, ls } from './store.js';
 import { importPlayer } from './chesscom.js';
-import { Engine, analyzeGame, winPct, fmtEval, uciMove } from './engine.js';
+import { Engine, evaluateGame } from './engine.js';
+import { classify, VERSION, winPct, fmtEval, uciMove } from './classify.js';
 import * as st from './stats.js';
 import { LESSONS, ENGINE_LESSONS, RULES } from './lessons.js';
 import { viewStats, mountStats } from './alltime.js';
@@ -51,8 +52,8 @@ async function doImport(user) {
     S.importing = null;
     if (!d.games.some((g) => g.tc === S.f.tc) && S.f.tc !== 'all') { S.f = { tc: 'all', days: 0 }; ls.set('filter', S.f); }
     if (first) render(); else bgRender();
-    const fresh = d.games.filter((g) => g.tc === targetTc()).slice(-20).filter((g) => !S.an[g.id]).length;
-    if (fresh) runAnalysis(fresh);
+    reclassify();
+    autoAnalyse();
   } catch (e) {
     if (first) { S.importing = { err: e.message || String(e) }; render(); }
     else { S.importing = null; S.job.msg = 'Mise à jour impossible : ' + (e.message || String(e)); paintJob(); }
@@ -66,11 +67,35 @@ function bgRender() {
 }
 
 // ---------- Analyse moteur en arrière-plan ----------
+// Une analyse stockée = évaluations brutes du moteur (ev, best, pv) + ce que classify() en déduit (errs, acc…) + version des règles.
+const analysis = (g, raw) => ({ ...raw, ...classify(g, raw), v: VERSION });
+// Analyse d'avant la séparation évaluer / classer : pas de données brutes, donc impossible à reclasser. À réévaluer une fois.
+const legacy = (a) => !!a && !a.bad && !a.pv;
+function analysisPool() {
+  const pool = S.data.games.filter((g) => g.tc === targetTc());
+  return (pool.length ? pool : S.data.games).slice().sort((a, b) => b.t - a.t);
+}
+// Les règles de classement ont changé : les parties déjà évaluées sont reclassées sur place, sans relancer le moteur.
+function reclassify() {
+  if (!S.data) return;
+  const user = S.user, todo = S.data.games.filter((g) => { const a = S.an[g.id]; return a && a.pv && a.v !== VERSION; });
+  let i = 0;
+  (function step() {
+    if (S.user !== user || !todo.length) return;
+    for (const t0 = performance.now(); i < todo.length && performance.now() - t0 < 30; i++) S.an[todo[i].id] = analysis(todo[i], S.an[todo[i].id]);
+    if (i < todo.length) setTimeout(step, 0); else { dbSet('an:' + user, S.an); bgRender(); }
+  })();
+}
+// Au démarrage : nouvelles parties récentes à analyser, puis anciennes analyses à réévaluer (une seule fois).
+function autoAnalyse() {
+  if (!S.data) return;
+  const pool = analysisPool(), fresh = pool.slice(0, 20).filter((g) => !S.an[g.id]).length, old = pool.filter((g) => legacy(S.an[g.id])).length;
+  if (fresh + old) runAnalysis(fresh + old);
+}
 async function runAnalysis(count, only) {
   if (S.job.running || !S.data) return;
-  let pool = S.data.games.filter((g) => g.tc === targetTc());
-  if (!pool.length) pool = S.data.games;
-  const queue = only ? [only] : pool.filter((g) => !S.an[g.id]).sort((a, b) => b.t - a.t).slice(0, count);
+  const pool = analysisPool();
+  const queue = only ? [only] : [...pool.filter((g) => !S.an[g.id]), ...pool.filter((g) => legacy(S.an[g.id]))].slice(0, count);
   if (!queue.length) return;
   S.job = { running: true, done: 0, total: queue.length, stop: false, msg: '' };
   const user = S.user, saveAn = () => (S.user === user ? dbSet('an:' + user, S.an) : null);
@@ -80,9 +105,9 @@ async function runAnalysis(count, only) {
     await S.engine.ready;
     for (const g of queue) {
       if (S.job.stop || S.user !== user) break;
-      const a = await analyzeGame(S.engine, g, DEPTH, () => !S.job.stop);
-      S.an[g.id] = a || { ev: [], errs: [], nb: 0, acc: null, maxAdv: 0, last: 0, bad: true };
-      if (S.job.stop && !a) { delete S.an[g.id]; break; }
+      const raw = await evaluateGame(S.engine, g, DEPTH, () => !S.job.stop);
+      if (S.job.stop && !raw) break; // interrompue : l'ancienne analyse, s'il y en a une, reste en place
+      S.an[g.id] = raw ? analysis(g, raw) : { ev: [], errs: [], nb: 0, acc: null, maxAdv: 0, last: 0, bad: true };
       S.job.done++;
       if (S.job.done % 3 === 0 || S.job.done === queue.length) await saveAn();
       paintJob();
@@ -1295,6 +1320,8 @@ if (new URLSearchParams(location.search).has('debug')) window.__cap = S; // acc�
   navigator.storage?.persist?.().catch(() => {}); // demande au navigateur de ne pas effacer les données de l'app
   render();
   const u = new URLSearchParams(location.search).get('u');
+  reclassify();
   if (!S.data && (S.user || u)) doImport(S.user || u);
   else if (S.data && Date.now() - (S.data.fetchedAt || 0) > 6 * 3600000) doImport(S.user);
+  else if (S.data && Object.values(S.an).some(legacy)) autoAnalyse(); // anciennes analyses à réévaluer, même sans nouvel import
 })();

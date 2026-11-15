@@ -99,6 +99,25 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
     await page.reload(); await sleep(800);
     check(await S(() => window.__cap.dr?.i) === 2, 'un échauffement interrompu reprend à la même position');
   }
+  // ---- Analyse en deux temps : reclasser sans moteur, réévaluer les anciennes analyses ----
+  const tamper = (fn) => S(async (src) => {
+    const db = await new Promise((res) => { const r = indexedDB.open('cap1000', 1); r.onsuccess = () => res(r.result); });
+    const an = await new Promise((res) => { const q = db.transaction('kv').objectStore('kv').get('an:testeur'); q.onsuccess = () => res(q.result); });
+    const before = Object.values(an).reduce((n, a) => n + a.errs.length, 0);
+    for (const a of Object.values(an)) new Function('a', src)(a);
+    await new Promise((res) => { const tx = db.transaction('kv', 'readwrite'); tx.objectStore('kv').put(an, 'an:testeur'); tx.oncomplete = res; });
+    db.close(); return before;
+  }, fn);
+  const errCount = () => S(() => Object.values(window.__cap.an).reduce((n, a) => n + a.errs.length, 0));
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#accueil`); await sleep(500);
+  let nErr = await tamper('a.v = 0; a.errs = [];'); // comme si les règles de classement avaient changé
+  await page.reload(); await sleep(1200);
+  check(await errCount() === nErr && await S(() => window.__cap.job.total) === 0, 'règles changées : les parties sont reclassées sans relancer le moteur');
+  nErr = await tamper('delete a.pv; delete a.best; delete a.v;'); // analyses d'avant la séparation évaluer / classer
+  await page.reload();
+  await page.waitForFunction(() => window.__cap?.job.total > 0 && !window.__cap.job.running, null, { timeout: 180000 });
+  check(await S(() => Object.values(window.__cap.an).every((a) => a.pv && a.v)) && await errCount() === nErr, 'anciennes analyses : réévaluées une fois, mêmes erreurs');
+
   check(errs.length === 0, 'aucune erreur JavaScript' + (errs.length ? ' : ' + errs.join(' | ') : ''));
   await browser.close(); server.close();
   console.log(failed ? `\n${failed} échec(s)` : '\nTout passe.');

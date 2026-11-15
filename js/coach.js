@@ -3,7 +3,7 @@
 /* global Chess */
 import { ls } from './store.js';
 import { THEMES } from './stats.js';
-import { fmtEval } from './engine.js';
+import { fmtEval } from './classify.js';
 import { fr } from './explain.js';
 
 export const MODELS = [['claude-sonnet-5-5', 'Sonnet 5.5 (recommandé)'], ['claude-opus-5-5', 'Opus 5.5 (plus fin, plus cher)'], ['claude-haiku-5-5', 'Haiku 5.5 (rapide, économique)']];

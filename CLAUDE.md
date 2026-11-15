@@ -29,7 +29,8 @@ Site statique sans build, servi par GitHub Pages depuis `main` (racine). Tout to
 | `js/board.js` | Échiquier : `board()` (chessground, roi en échec signalé), flèches, `film()` (lecture animée d'une suite), `destroyBoards()` |
 | `js/progress.js` | Mémoire de l'entraînement : répétition espacée, journal, activité par jour, objectif du jour. Stockage et horloge injectés (`makeProgress(store, now)`), donc testable sans navigateur |
 | `js/chesscom.js` | Import via l'API publique Chess.com, normalisation des parties |
-| `js/engine.js` | Stockfish (worker), analyse d'une partie, classement des erreurs par thème |
+| `js/engine.js` | Stockfish (worker) : file de calculs, `evaluateGame` (évaluation brute de chaque position d'une partie) |
+| `js/classify.js` | Classement des erreurs à partir des évaluations brutes : seuils, thèmes, suites. Calcul pur, sans moteur. `VERSION` des règles |
 | `js/stats.js` | Agrégats, ouvertures, forces et faiblesses |
 | `js/alltime.js` | Page Stats (depuis la première partie) |
 | `js/lessons.js` | Fiches de cours statiques (principe, routine), règles courtes par thème |
@@ -39,7 +40,7 @@ Site statique sans build, servi par GitHub Pages depuis `main` (racine). Tout to
 | `js/coach.js` | Cours privés Claude : faits vérifiés, prompt, appel API, lecture du JSON |
 | `js/store.js` | IndexedDB (`data:<user>`, `an:<user>`, `ai:<user>`) et localStorage (préfixe `cap1000:` ; clés principales : `pz` répétition espacée, `hist` journal d'entraînement, `ui` état de l'écran à reprendre, `act` activité par jour, `focus` chantier) |
 | `tests/parcours.js` | Test de bout en bout (Playwright, parties simulées, `api.chess.com` intercepté) |
-| `tests/*.test.mjs` | Tests unitaires sans navigateur : règles de `progress.js`, positions de référence de `explain.js` |
+| `tests/*.test.mjs` | Tests unitaires sans navigateur : règles de `progress.js`, positions de référence de `explain.js`, classement de `classify.js` sur des évaluations enregistrées |
 | `vendor/` | chess.js 0.10.3, chessground 9, Stockfish 19 lite single-thread (WASM), polices Sora et IBM Plex Sans |
 
 Routes : `#accueil`, `#puzzles`, `#historique` (journal des exercices faits), `#erreur/<end_time>/<ply>` (travail d'une erreur précise), `#plus` (menu mobile), `#exos`, `#inedits` (puzzles Lichess), `#drill/<sur|menace|cadeau|compte>`, `#cours`, `#cours/<id>[/fiche]`, `#ouvertures`, `#parties`, `#partie/<end_time>[/<ply>]`, `#plan`, `#stats`.
@@ -59,6 +60,13 @@ Sur téléphone, pendant un exercice, l'en-tête (`.pzhead.main`) est masqué et
 - Résultat : 2 du premier coup, 1 trouvé avec aide (mauvais essai ou indice), 0 solution vue. Raté : revient le lendemain. Réussi : 1, 3, 7, 21, 60 jours. Jamais de retour le jour même, sauf « Refaire mes ratés du jour » (`S.pz.redo`).
 - Objectif du jour (`pzDay`) : 8 puzzles ; bilan `pzRecap` affiché une fois quand il est atteint, avec `nextStep` (prochaine étape de la séance).
 - `keepUi` / `restoreUi` : puzzle en cours, étape du cours, échauffement entamé, position inédite sont repris après rechargement.
+
+## Analyse en deux temps
+
+- **Évaluer** (`engine.evaluateGame`, lent, une fois par partie) : pour chaque position, `ev` (centipions, point de vue des Blancs), `best` (meilleur coup), `pv` (4 premiers coups de la suite du moteur).
+- **Classer** (`classify.classify(game, raw)`, instantané) : en déduit `errs`, `acc`, `maxAdv`, `last`. Une analyse stockée dans `S.an[id]` contient les deux, plus `v` (version des règles).
+- Changer un seuil ou un thème : modifier `classify.js`, augmenter `VERSION`, ajouter le cas dans `tests/classify.test.mjs`. À l'ouverture du site, `reclassify()` reclasse les parties déjà évaluées sans relancer Stockfish.
+- Les analyses d'avant le 15/11 n'ont pas de données brutes (`pv` absent) : `autoAnalyse()` les réévalue une fois en arrière-plan, après les nouvelles parties. L'ancienne analyse reste en place tant que la nouvelle n'est pas prête.
 
 ## Boucle pédagogique
 
@@ -98,6 +106,7 @@ Le test génère des parties par coups semi-aléatoires au format Chess.com, int
 - Les analyses marquées `bad` (partie illisible) sont exclues de toutes les statistiques.
 - Relecture de partie : `gvGo(k)` met l'écran à jour sur place (`gvSync`), sans `render()`.
 - Profondeur d'analyse unique (`DEPTH = 12`) sur tous les appareils.
+- Ne jamais modifier une règle de classement sans augmenter `VERSION` dans `classify.js` : sinon les parties déjà analysées gardent l'ancien classement.
 - `Engine.evalFen(fen, depth, urgent)` : `urgent` fait passer la vérification d'un coup devant les calculs de suites.
 - Tout exercice terminé est noté par `progress.record…` au moment où il se termine, jamais au changement d'écran.
 - Boutons de contrôle : icônes SVG de `ico()`, pas de flèches Unicode (émojis sur iPhone). Une barre mise à jour pendant une lecture passe par `setHtml` pour ne pas remplacer un bouton sous le doigt.
