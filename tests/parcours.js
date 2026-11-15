@@ -26,6 +26,10 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#accueil`);
   await page.waitForFunction(() => window.__cap?.data && window.__cap.job.total > 0 && !window.__cap.job.running, null, { timeout: 180000 });
   check(await S(() => Object.keys(window.__cap.an).length) === GAMES.length, 'import et analyse des parties simulées');
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#accueil`); await sleep(600);
+  check(await S(() => document.querySelectorAll('.home .stepper li').length === 4 && document.querySelectorAll('.home .btn.pri').length === 1 && !!document.querySelector('.gstrip') && !!document.querySelector('.lgame a[href^="#erreur/"]')), 'accueil : objectif, séance à un seul bouton, dernière partie avec son erreur');
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#bilan`); await sleep(600);
+  check(await S(() => !!document.querySelector('#rc svg') && !!document.querySelector('.focus') && !!document.querySelector('.sig')), 'Mon jeu : classement, chantier détaillé, points forts et faibles');
 
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#puzzles`); await sleep(600);
   let c = await cur();
@@ -105,9 +109,13 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
 
   // ---- Apprendre les ouvertures ----
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#ouvertures/apprendre`); await sleep(500);
-  check(await S(() => document.querySelectorAll('#view a.card.lesson').length) === 15, 'Apprendre : les 15 ouvertures sont listées');
+  check(await S(() => document.querySelectorAll('#view .oprow').length) === 7, 'Apprendre : liste compacte, 7 ouvertures avec les Blancs');
+  await page.click('[data-act="opgrp"][data-g="e4"]'); await sleep(300);
+  check(await S(() => document.querySelectorAll('#view .oprow').length) === 5, 'Apprendre : filtre « Noirs contre 1.e4 »');
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#ouvertures/italienne`); await sleep(600);
-  check(/Histoire et utilisation dans le temps/.test(await bar('#view')) && await S(() => !!document.querySelector('#opb cg-board')), 'fiche : histoire, lignes et position de l’ouverture');
+  check(await S(() => document.querySelectorAll('#view .lnrow').length) === 6 && await S(() => !!document.querySelector('#opb cg-board')), 'fiche : position et lignes visibles d’emblée');
+  await page.click('[data-act="optab"][data-tab="histoire"]'); await sleep(300);
+  check(/Polerio/.test(await bar('#view')) && await S(() => !document.querySelector('#view .lnrow')), 'fiche : un seul bloc à la fois (onglet Histoire)');
   const playLine = async (moves, w, wrongAt) => {
     const c2 = new Chess();
     for (const [i, sanM] of moves.entries()) {
