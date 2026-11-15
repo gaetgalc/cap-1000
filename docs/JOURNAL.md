@@ -236,6 +236,13 @@ L'environnement cloud bloquait `api.chess.com` : création, avec accord, d'un en
 
 Fait : 5 fiches de plus (histoire, idées, pièges, 15 lignes), lignes choisies d'après les suites réellement jouées (par exemple la version 2…Fc5 de l'Englund, 3.Fc4 contre la Petrov et la Philidor, le mat de Légal). Les chiffres personnels ne sont pas écrits dans les fiches (dépôt public, site partageable) : chaque fiche montre à la place « Tes suites les plus fréquentes », calculé sur les parties de la personne qui consulte.
 
+## 23. Ouvertures plus claires (15/11)
+
+> réorganise pour que ça soit bien plus claire. les zones sont trop grosses
+
+Catalogue : les grandes cartes deviennent une liste serrée (nom, code ECO, nombre de tes parties, lignes apprises et petite barre de progression), filtrée par couleur (Blancs, Noirs contre 1.e4, Noirs contre 1.d4) ; ton répertoire puis tes ouvertures les plus jouées en tête. La bulle du coach devient une phrase ; la révision du jour, une bande d'une ligne.
+Fiche : en-tête compact (petite position, coups, résumé, étiquettes), puis des onglets Lignes, Plans, Histoire, Pièges, Tes parties : un seul bloc à la fois, les lignes d'abord. Chaque ligne tient sur une rangée (coups abrégés, boutons « Voir » et « Jouer »).
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |

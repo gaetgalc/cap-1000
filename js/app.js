@@ -549,7 +549,7 @@ const opGames = (o) => (S.data ? S.data.games.filter((g) => matchGame(o, g)) : [
 const dshort = (t) => new Date(t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 function lineChip(key) {
   const s = progress.lineState(key);
-  if (!s) return '<span class="chip">Nouvelle</span>';
+  if (!s) return ''; // ligne jamais jouée : rien à signaler, la liste reste serrée
   if (s.aReviser) return '<span class="chip warn">À réviser</span>';
   return `<span class="chip ${s.acquise ? 'good' : ''}">${s.acquise ? 'Acquise' : 'Apprise'} · révision le ${dshort(s.due)}</span>`;
 }
@@ -560,40 +560,56 @@ function nextLine(key) {
   const [id, k] = key.split(':'), o = byId(id);
   return o.lines[+k + 1] ? [lineHref(lineKey(o, +k + 1)), 'Ligne suivante'] : [`#ouvertures/${id}`, 'Retour à la fiche'];
 }
+// Catalogue : une liste serrée, filtrée par couleur ; ton répertoire puis tes ouvertures les plus jouées d'abord.
 function viewApprendre() {
-  const due = progress.linesDue(allLineKeys());
-  const card = (o) => {
-    const keys = o.lines.map((_, k) => lineKey(o, k)), learned = keys.filter((k) => progress.lineState(k)).length, n = opGames(o).length;
-    return `<a class="card lesson" href="#ouvertures/${o.id}"><div class="row">${o.rep ? '<span class="chip good">Ton répertoire</span>' : ''}<span class="chip">${o.eco}</span>${n ? `<span class="chip">${pl(n, 'partie')} chez toi</span>` : ''}</div>
-      <h2>${o.nom}</h2><p class="sub">${esc(o.tag)}</p><span class="small">${learned} / ${keys.length} lignes apprises</span></a>`;
-  };
+  const due = progress.linesDue(allLineKeys()), grp = S.opGrp || 'w';
+  const info = (o) => { const keys = o.lines.map((_, k) => lineKey(o, k)); return { o, n: opGames(o).length, learned: keys.filter((k) => progress.lineState(k)).length, total: keys.length }; };
+  const rows = OPENINGS.filter((o) => o.group === grp).map(info).sort((a, b) => (b.o.rep ? 1 : 0) - (a.o.rep ? 1 : 0) || b.n - a.n);
+  const tab = ([g, t]) => `<button class="${g === grp ? 'on' : ''}" data-act="opgrp" data-g="${g}">${t.replace('Avec les ', '').replace('contre', 'c.')}</button>`;
   return OP_TABS('learn') + `<h1>Apprendre les ouvertures</h1>
-    ${coach('Chaque fiche raconte l’histoire de l’ouverture, ses idées, ses pièges, puis les lignes principales à savoir. Découvre une ligne coup par coup, puis rejoue-la de mémoire : elle revient en révision le lendemain, puis à 3, 7 et 21 jours, comme tes puzzles.')}
-    ${due.length ? `<div class="card recap"><h2>À réviser aujourd’hui</h2><p class="sub">${pl(due.length, 'ligne')} à rejouer de mémoire.</p><div><a class="btn pri lg" href="${lineHref(due[0])}">Réviser mes lignes</a></div></div>` : ''}
-    ${GROUPS.map(([g, t]) => `<h2>${t}</h2><div class="grid">${OPENINGS.filter((o) => o.group === g).map(card).join('')}</div>`).join('')}`;
+    <p class="sub">Une fiche par ouverture. Ses lignes se rejouent de mémoire et reviennent en révision, comme tes puzzles.</p>
+    ${due.length ? `<a class="opdue" href="${lineHref(due[0])}"><b>${pl(due.length, 'ligne')} à réviser aujourd’hui</b><span>Réviser ›</span></a>` : ''}
+    <div class="seg2 mini opgrp">${GROUPS.map(tab).join('')}</div>
+    <div class="oplist">${rows.map(({ o, n, learned, total }) => `<a class="oprow" href="#ouvertures/${o.id}">
+      <span><b>${o.nom}</b>${o.rep ? '<i class="optag">Répertoire</i>' : ''}</span>
+      <span class="opmeta">${o.eco}${n ? ` · ${pl(n, 'partie')}` : ''} · ${learned}/${total} lignes</span>
+      <span class="opprog" aria-hidden="true"><i style="width:${(100 * learned) / total}%"></i></span>
+      <span class="chev" aria-hidden="true">›</span></a>`).join('')}</div>`;
 }
+// Fiche : en-tête compact (position, coups, résumé), puis un seul bloc à la fois : lignes, plans, histoire, pièges, tes parties.
+const OP_SECTIONS = [['lignes', 'Lignes'], ['plans', 'Plans'], ['histoire', 'Histoire'], ['pieges', 'Pièges'], ['parties', 'Tes parties']];
 function viewOpening(id) {
   const o = byId(id);
   if (!o) return viewApprendre();
+  if (S.opTabFor !== id) { S.opTabFor = id; S.opTab = 'lignes'; }
+  const tab = S.opTab;
   const gs = opGames(o).sort((a, b) => a.t - b.t), wG = gs.filter((g) => g.w), bG = gs.filter((g) => !g.w);
   const startSan = o.start ? o.start.split(' ') : ['d4', 'd5', 'Bf4'];
   const ch = new Chess(); for (const m of startSan) ch.move(m);
-  S.op = { o, fen: ch.fen(), gs };
+  S.op = { o, fen: ch.fen(), gs, tab };
   const res = (l) => (l.length ? `${pl(l.length, 'partie')}, ${st.score(st.tally(l))} % de score` : 'aucune partie');
-  return `<p class="small"><a href="#ouvertures/apprendre">Toutes les ouvertures</a></p><h1>${o.nom}</h1>
-  <div class="row">${o.rep ? '<span class="chip good">Ton répertoire</span>' : ''}<span class="chip">${o.eco}</span><span class="chip">${GROUPS.find((x) => x[0] === o.group)[1]}</span></div>
-  <div class="split"><div class="board mini" id="opb"></div>
-    <div class="card"><h2>En bref</h2><p class="rulet">${esc(st.lineText(startSan))}${o.start ? '' : ' (ou 1…Cf6)'}</p><p class="prose">${esc(o.tag)}</p>
-      <h3>Le plan des Blancs</h3><p class="prose">${esc(o.idees.w)}</p><h3>Le plan des Noirs</h3><p class="prose">${esc(o.idees.b)}</p></div></div>
-  <div class="card"><h2>Les lignes à connaître</h2><p class="small">Point blanc : tu joues les Blancs. Point noir : tu joues les Noirs.</p>
-    ${o.lines.map((l, k) => { const key = lineKey(o, k); return `<div class="hrow"><i class="dot ${l.side}"></i><span class="stepc"><b>${esc(l.n)}</b><span>${esc(st.lineText(movesOf(l)))}</span><span>${lineChip(key)}</span></span><span class="stack"><a class="btn sm" href="${lineHref(key, true)}">Découvrir</a><a class="btn sm pri" href="${lineHref(key)}">M’entraîner</a></span></div>`; }).join('')}</div>
-  <div class="card"><h2>Histoire et utilisation dans le temps</h2><div class="prose stack">${o.histoire.map((x) => `<p>${esc(x)}</p>`).join('')}</div></div>
-  <div class="card"><h2>Pièges à connaître</h2><ul class="prose stack">${o.pieges.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>
-  <div class="card"><h2>Dans tes parties</h2>${gs.length ? `<dl class="kv"><dt>Avec les Blancs</dt><dd>${res(wG)}</dd><dt>Avec les Noirs</dt><dd>${res(bG)}</dd><dt>Première fois</dt><dd>${dfmt(gs[0].t)}</dd><dt>Dernière fois</dt><dd>${dfmt(gs[gs.length - 1].t)}</dd></dl>
-    ${opSeq(gs, o)}
-    <div class="chart" id="opc"></div>
-    <div class="stack">${gs.slice(-3).reverse().map((g) => `<a class="row" href="#partie/${g.t}" style="justify-content:space-between"><span>${dfmt(g.t)} contre ${esc(g.opp)} (${g.or}), ${g.w ? 'Blancs' : 'Noirs'}</span><span class="chip ${g.out === 'W' ? 'good' : g.out === 'L' ? 'bad' : ''}">${g.out === 'W' ? 'Victoire' : g.out === 'L' ? 'Défaite' : 'Nulle'}</span></a>`).join('')}</div>`
-    : `<p class="sub">Tu ne l’as jamais jouée ni rencontrée dans tes parties importées.</p>`}</div>`;
+  const body = {
+    lignes: () => `<div class="oplist">${o.lines.map((l, k) => { const key = lineKey(o, k); return `<div class="lnrow"><i class="dot ${l.side}" title="${l.side === 'w' ? 'Tu joues les Blancs' : 'Tu joues les Noirs'}"></i>
+      <span class="lnc"><b>${esc(l.n)}</b><span class="lnmv">${esc(st.lineText(movesOf(l)))}</span>${lineChip(key)}</span>
+      <span class="lna"><a class="btn sm" href="${lineHref(key, true)}">Voir</a><a class="btn sm pri" href="${lineHref(key)}">Jouer</a></span></div>`; }).join('')}</div>
+      <p class="small">Point blanc : tu joues les Blancs, point noir : les Noirs. « Voir » déroule la ligne commentée, « Jouer » te la fait rejouer de mémoire.</p>`,
+    plans: () => `<div class="card"><h3><i class="dot w"></i> Les Blancs</h3><p class="prose">${esc(o.idees.w)}</p><h3><i class="dot b"></i> Les Noirs</h3><p class="prose">${esc(o.idees.b)}</p></div>`,
+    histoire: () => `<div class="card"><div class="prose stack">${o.histoire.map((x) => `<p>${esc(x)}</p>`).join('')}</div></div>`,
+    pieges: () => `<div class="card"><ol class="routine">${o.pieges.map((x) => `<li>${esc(x)}</li>`).join('')}</ol></div>`,
+    parties: () => `<div class="card">${gs.length ? `<dl class="kv"><dt>Avec les Blancs</dt><dd>${res(wG)}</dd><dt>Avec les Noirs</dt><dd>${res(bG)}</dd><dt>Première et dernière fois</dt><dd>${dfmt(gs[0].t)} · ${dfmt(gs[gs.length - 1].t)}</dd></dl>
+      ${opSeq(gs, o)}
+      <div class="chart" id="opc"></div>
+      <div class="stack">${gs.slice(-3).reverse().map((g) => `<a class="row" href="#partie/${g.t}" style="justify-content:space-between"><span>${dfmt(g.t)} contre ${esc(g.opp)} (${g.or}), ${g.w ? 'Blancs' : 'Noirs'}</span><span class="chip ${g.out === 'W' ? 'good' : g.out === 'L' ? 'bad' : ''}">${g.out === 'W' ? 'Victoire' : g.out === 'L' ? 'Défaite' : 'Nulle'}</span></a>`).join('')}</div>`
+      : '<p class="sub">Tu ne l’as jamais jouée ni rencontrée dans tes parties importées.</p>'}</div>`,
+  };
+  return `<p class="small"><a href="#ouvertures/apprendre">‹ Toutes les ouvertures</a></p>
+  <div class="ophero"><div class="board" id="opb"></div><div class="stack">
+    <h1>${o.nom}</h1>
+    <p class="opmoves">${esc(st.lineText(startSan))}${o.start ? '' : ' (ou 1…Cf6)'}</p>
+    <p class="sub">${esc(o.tag)}</p>
+    <div class="row">${o.rep ? '<span class="chip good">Ton répertoire</span>' : ''}<span class="chip">${o.eco}</span>${gs.length ? `<span class="chip">${pl(gs.length, 'partie')}</span>` : ''}</div></div></div>
+  <div class="seg2 mini optabs" role="tablist">${OP_SECTIONS.map(([k, t]) => `<button role="tab" class="${k === tab ? 'on' : ''}" aria-selected="${k === tab}" data-act="optab" data-tab="${k}">${t}${k === 'lignes' ? ` (${o.lines.length})` : ''}</button>`).join('')}</div>
+  ${body[tab]()}`;
 }
 // Tes suites les plus fréquentes dans cette ouverture (jusqu'au 5e coup), avec ton score : calculé sur les parties de l'utilisateur.
 function opSeq(gs, o) {
@@ -602,12 +618,12 @@ function opSeq(gs, o) {
   const top = [...m.values()].filter((r) => r.l.length >= 2).sort((a, b) => b.l.length - a.l.length).slice(0, 4);
   if (!top.length) return '';
   return `<h3>Tes suites les plus fréquentes</h3><table><tbody>${top.map((r) => { const t = st.tally(r.l), sc = st.score(t); return `<tr><td><i class="dot ${r.w ? 'w' : 'b'}"></i> ${esc(st.lineText(r.san))}</td><td class="r">${r.l.length}</td><td class="r"><span class="chip ${sc >= 55 ? 'good' : sc <= 42 ? 'bad' : ''}">${sc} %</span></td></tr>`; }).join('')}</tbody></table>
-    <p class="small">Point blanc : tu avais les Blancs. Score : victoire 1, nulle ½. Une suite à moins de 42 % mérite un passage par les lignes et les pièges ci-dessus.</p>`;
+    <p class="small">Point blanc : tu avais les Blancs. Score : victoire 1, nulle ½. Une suite à moins de 42 % mérite un passage par les onglets Lignes et Pièges.</p>`;
 }
 function mountOpening() {
   const P = S.op; if (!P) return;
   board($('#opb'), { fen: P.fen, orientation: P.o.group === 'w' ? 'white' : 'black', viewOnly: true, coordinates: false });
-  const el = $('#opc'); if (!el || !S.data.games.length) return;
+  const el = $('#opc'); if (!el || !S.data.games.length) return; // présent sur l'onglet « Tes parties » seulement
   // Parties dans cette ouverture, par trimestre, depuis ta première partie importée.
   const q = (t) => { const d = new Date(t * 1000); return d.getFullYear() * 4 + Math.floor(d.getMonth() / 3); };
   const all = S.data.games, q0 = q(all[0].t), q1 = q(all[all.length - 1].t), cnt = new Map();
@@ -1573,6 +1589,8 @@ document.addEventListener('click', (ev) => {
   else if (act === 'more') { S.listN += 50; render(true); }
   else if (act === 'goto') gvGo(+el.dataset.k);
   else if (act === 'bakexp') { const m = $('#bakmsg'); backup.exportFile(S.user).then((n) => { if (m) m.textContent = `Fichier ${n} téléchargé. Range-le dans tes fichiers ou envoie-le sur ton autre appareil.`; }).catch((e) => { if (m) m.textContent = 'Sauvegarde impossible : ' + (e.message || e); }); }
+  else if (act === 'opgrp') { S.opGrp = el.dataset.g; render(true); }
+  else if (act === 'optab') { S.opTab = el.dataset.tab; render(true); }
   else if (act === 'bakimp') $('#bakfile')?.click();
   else if (act === 'reset') {
     if (el.dataset.sure) { const u = S.user; ls.clear(['key', 'model', 'goal', 'hours']); dbDel('data:' + u); dbDel('an:' + u); dbDel('ai:' + u); S.ai = {}; S.li = null; S.liKeep = null; S.dr = null; S.cv = null; S.gen = null; S.cl = null; LINES.clear(); S.job.stop = true; S.user = null; S.data = null; S.an = {}; S.pz = null; location.hash = '#accueil'; render(); }
