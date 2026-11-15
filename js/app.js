@@ -589,9 +589,19 @@ function viewOpening(id) {
   <div class="card"><h2>Histoire et utilisation dans le temps</h2><div class="prose stack">${o.histoire.map((x) => `<p>${esc(x)}</p>`).join('')}</div></div>
   <div class="card"><h2>Pièges à connaître</h2><ul class="prose stack">${o.pieges.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>
   <div class="card"><h2>Dans tes parties</h2>${gs.length ? `<dl class="kv"><dt>Avec les Blancs</dt><dd>${res(wG)}</dd><dt>Avec les Noirs</dt><dd>${res(bG)}</dd><dt>Première fois</dt><dd>${dfmt(gs[0].t)}</dd><dt>Dernière fois</dt><dd>${dfmt(gs[gs.length - 1].t)}</dd></dl>
+    ${opSeq(gs, o)}
     <div class="chart" id="opc"></div>
     <div class="stack">${gs.slice(-3).reverse().map((g) => `<a class="row" href="#partie/${g.t}" style="justify-content:space-between"><span>${dfmt(g.t)} contre ${esc(g.opp)} (${g.or}), ${g.w ? 'Blancs' : 'Noirs'}</span><span class="chip ${g.out === 'W' ? 'good' : g.out === 'L' ? 'bad' : ''}">${g.out === 'W' ? 'Victoire' : g.out === 'L' ? 'Défaite' : 'Nulle'}</span></a>`).join('')}</div>`
     : `<p class="sub">Tu ne l’as jamais jouée ni rencontrée dans tes parties importées.</p>`}</div>`;
+}
+// Tes suites les plus fréquentes dans cette ouverture (jusqu'au 5e coup), avec ton score : calculé sur les parties de l'utilisateur.
+function opSeq(gs, o) {
+  const n = Math.max(6, (o.start ? o.start.split(' ').length : 3) + 4), m = new Map();
+  for (const g of gs) { if (g.san.length < n) continue; const k = (g.w ? 'w' : 'b') + g.san.slice(0, n).join(' '); const r = m.get(k) || { w: g.w, san: g.san.slice(0, n), l: [] }; r.l.push(g); m.set(k, r); }
+  const top = [...m.values()].filter((r) => r.l.length >= 2).sort((a, b) => b.l.length - a.l.length).slice(0, 4);
+  if (!top.length) return '';
+  return `<h3>Tes suites les plus fréquentes</h3><table><tbody>${top.map((r) => { const t = st.tally(r.l), sc = st.score(t); return `<tr><td><i class="dot ${r.w ? 'w' : 'b'}"></i> ${esc(st.lineText(r.san))}</td><td class="r">${r.l.length}</td><td class="r"><span class="chip ${sc >= 55 ? 'good' : sc <= 42 ? 'bad' : ''}">${sc} %</span></td></tr>`; }).join('')}</tbody></table>
+    <p class="small">Point blanc : tu avais les Blancs. Score : victoire 1, nulle ½. Une suite à moins de 42 % mérite un passage par les lignes et les pièges ci-dessus.</p>`;
 }
 function mountOpening() {
   const P = S.op; if (!P) return;

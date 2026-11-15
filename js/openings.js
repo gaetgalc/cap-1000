@@ -290,6 +290,151 @@ export const OPENINGS = [
         notes: { 8: 'f3 solidifie e4 et prépare g4.', 13: 'Le cavalier en h5 soutient la poussée …f5.' } },
     ],
   },
+  // ---- Ouvertures très fréquentes sous 1000 en partie rapide (ajoutées le 15/11) ----
+  {
+    id: 'parham', nom: 'Attaque Parham (2.Dh5)', eco: 'C20', group: 'w',
+    start: 'e4 e5 Qh5',
+    tag: 'La dame sort dès le 2e coup pour viser f7 et e5 : redoutable sous 1000, à connaître des deux côtés.',
+    histoire: [
+      'Le coup 2.Dh5 est aussi vieux que le coup du berger, dont il est le point de départ. Les manuels l’ont toujours déconseillé : la dame sort trop tôt et se fait chasser avec gain de temps.',
+      'Il doit son nom à l’Américain Bernard Parham, qui l’a défendu sérieusement au XXe siècle. Avec le jeu en ligne, il est devenu l’un des débuts les plus fréquents chez les joueurs de club, et des joueurs de l’élite l’ont sorti ponctuellement pour surprendre. Sous 1000, il marche parce que l’adversaire ne connaît pas les deux ou trois coups précis qui le réfutent.',
+    ],
+    idees: {
+      w: 'Attaquer f7 (avec Fc4) et e5 tout de suite. Si les Noirs se défendent bien, ramener la dame (Df3, puis Ce2, Cbc3, d3) et jouer une position normale : le piège ne doit pas devenir ton seul plan.',
+      b: 'Défendre e5 par …Cc6, fermer la diagonale de f7 par …g6, puis …Cf6 en chassant la dame : chaque coup de dame te donne un temps de développement.',
+    },
+    pieges: [
+      'Avec les Noirs : après 2.Dh5 Cc6 3.Fc4, le coup 3…Cf6 ?? perd tout de suite : 4.Dxf7#. C’est la défaite la plus fréquente sous 1000. 3…g6 ou 3…De7 d’abord.',
+      'Avec les Blancs : après 2…Cf6 ? 3.Dxe5+ De7, ne prends pas 4.Dxc7 ?? : 4…Dxe4+ reprend le pion avec échec, et ta dame, isolée en c7, se fait chasser pendant que les Noirs se développent. Échange les dames : 4.Dxe7+.',
+      'Avec les Noirs, contre 2.Dh5, 2…g6 ?? perd la tour : 3.Dxe5+ fourchette le roi et la tour h8.',
+    ],
+    lines: [
+      { n: 'La ligne principale, avec les Blancs', side: 'w', moves: 'e4 e5 Qh5 Nc6 Bc4 g6 Qf3 Nf6 Ne2 Bg7 Nbc3 d6 d3',
+        idee: 'Quand les Noirs se défendent bien, la dame reste en f3 et tu développes normalement : Ce2 laisse la diagonale de la dame ouverte, d3 tient e4.',
+        notes: { 2: 'La dame attaque e5 et vise f7.', 4: 'Le fou s’ajoute sur f7 : menace de mat.', 6: 'La dame se replace en f3 : f7 reste visé.', 8: 'Le cavalier va en e2 pour ne pas boucher la dame.', 12: 'd3 défend e4 : la position est saine.' } },
+      { n: 'Contre 2…Cf6 ?', side: 'w', moves: 'e4 e5 Qh5 Nf6 Qxe5+ Qe7 Qxe7+ Bxe7 Nc3',
+        idee: 'Tu gagnes le pion e5. Si la dame noire vient en e7, échange les dames au lieu de chercher plus : un pion de plus en finale suffit.',
+        notes: { 4: 'Le pion e5 tombe avec échec.', 6: 'Échange des dames : pas de Dxc7 ?? qui permet …Dxe4+.', 8: 'Tu défends e4 et tu gardes ton pion de plus.' } },
+      { n: 'Avec les Noirs : la réponse modèle', side: 'b', moves: 'e4 e5 Qh5 Nc6 Bc4 g6 Qf3 Nf6 Ne2 Bg7 Nbc3 d6 h3 Be6',
+        idee: '…Cc6, …g6, …Cf6, …Fg7 : tu te développes en chassant la dame. Ensuite …Fe6 échange le fou qui vise f7.',
+        notes: { 3: '…Cc6 défend e5.', 5: '…g6 chasse la dame et ferme la diagonale.', 7: '…Cf6 bloque la dame sur f7.', 13: '…Fe6 neutralise le fou c4.' } },
+      { n: 'Avec les Noirs : contre 5.g4', side: 'b', moves: 'e4 e5 Qh5 Nc6 Bc4 g6 Qf3 Nf6 g4 Nd4',
+        idee: 'Si les Blancs poussent g4 pour chasser ton cavalier, le contre est …Cd4 : la dame f3 et le pion c2 sont attaqués.',
+        notes: { 8: 'g4 menace g5 qui chasserait le cavalier f6.', 9: '…Cd4 ! attaque la dame et menace …Cxc2+.' } },
+    ],
+  },
+  {
+    id: 'englund', nom: 'Gambit Englund (1.d4 e5)', eco: 'A40', group: 'd4',
+    start: 'd4 e5',
+    tag: 'Un pion donné dès le premier coup contre 1.d4, pour des pièges redoutables.',
+    histoire: [
+      'Il porte le nom du joueur suédois Fritz Englund, qui le pratique au début du XXe siècle. Il n’a jamais été joué au plus haut niveau : objectivement, les Noirs donnent un pion sans compensation suffisante.',
+      'Il vit grâce à ses pièges, très efficaces en partie rapide et en ligne, où il est devenu courant. La version 2…Fc5 puis …d6, fréquente en ligne, n’est pas la ligne classique (2…Cc6) : bien jouée par les Blancs, elle te laisse un pion de moins pour une avance de développement.',
+    ],
+    idees: {
+      w: 'Garder le pion e5 sans gourmandise (Cf3, Ff4 ou Fg5, e3), se développer, et ne jamais tomber dans …Db4+.',
+      b: 'Récupérer le pion e5 ou gagner du temps contre lui : …Cc6, …De7, …d6. Le piège principal vise b2 avec …Db4+.',
+    },
+    pieges: [
+      'Le piège de l’Englund : 1.d4 e5 2.dxe5 Cc6 3.Cf3 De7 4.Ff4 ? Db4+ 5.Fd2 Dxb2 6.Fc3 ? Fb4 ! 7.Dd2 Fxc3 8.Dxc3 Dc1#. Les Blancs prennent souvent le mauvais chemin.',
+      'Dans la version 2…Fc5, le fou vise f2. Si les Blancs jouent mal (par exemple Cf3 puis e3 sans roquer), …Fxf2+ peut arriver. Mais ne le tente que si le calcul tient : le pion de moins reste.',
+    ],
+    lines: [
+      { n: 'L’Englund classique', side: 'b', moves: 'd4 e5 dxe5 Nc6 Nf3 Qe7 Qd5 f6 exf6 Nxf6 Qb3 d5',
+        idee: 'Les Noirs donnent le pion e5 puis un deuxième pour ouvrir des lignes : en échange, toutes leurs pièces sortent vite.',
+        notes: { 3: '…Cc6 attaque e5.', 5: '…De7 attaque e5 une deuxième fois et prépare …Db4+.', 7: '…f6 ouvre des lignes au lieu de défendre.', 11: '…d5 : développement libre pour le fou c8.' } },
+      { n: 'Le piège de l’Englund', side: 'b', moves: 'd4 e5 dxe5 Nc6 Nf3 Qe7 Bf4 Qb4+ Bd2 Qxb2 Bc3 Bb4 Qd2 Bxc3 Qxc3 Qc1#',
+        idee: 'À connaître par cœur : si les Blancs défendent b2 de travers, la dame noire finit par mater en c1.',
+        notes: { 7: '…Db4+ attaque le roi et b2 en même temps.', 9: 'La dame prend b2 et attaque la tour a1.', 11: '…Fb4 ! cloue le fou c3.', 15: 'Mat : le roi blanc n’a pas de case.' } },
+      { n: 'La version 2…Fc5', side: 'b', moves: 'd4 e5 dxe5 Bc5 Nf3 d6 exd6 Bxd6 e4 Nf6 Nc3 O-O',
+        idee: 'Reprends tout de suite le pion d6 (…Fxd6) plutôt que de laisser les Blancs garder deux pions : un seul pion de moins, roque rapide.',
+        notes: { 3: 'Le fou vise f2.', 5: '…d6 offre un deuxième pion pour ouvrir le jeu.', 7: 'Reprends : ne reste pas avec deux pions de moins.', 11: 'Roque : ton roi est à l’abri, tes pièces sont sorties.' } },
+    ],
+  },
+  {
+    id: 'fou', nom: 'Partie du fou (2.Fc4)', eco: 'C23 à C24', group: 'w',
+    start: 'e4 e5 Bc4',
+    tag: 'Le fou vise f7 tout de suite, sans s’engager avec le cavalier.',
+    histoire: [
+      'L’une des plus anciennes ouvertures écrites : elle figure dans le traité de l’Espagnol Lucena, en 1497. Au XVIIIe siècle, Philidor la tient pour le meilleur deuxième coup des Blancs.',
+      'Elle cède ensuite la place à 2.Cf3, plus souple. Aujourd’hui, elle sert surtout de chemin détourné vers les positions de l’italienne, en évitant certaines défenses noires comme la Petrov.',
+    ],
+    idees: {
+      w: 'Fc4, d3, Cf3, c3, petit roque : un plan d’italienne lente. Garder la possibilité de f4 pour attaquer.',
+      b: 'Le contre le plus simple est 2…Cf6, qui attaque e4. Puis …c6 et …d5 pour prendre le centre avec gain de temps sur le fou.',
+    },
+    pieges: [
+      'Après 2.Fc4, le coup du berger reste dans l’air : Dh5 ou Df3 avec le fou visent f7. Exemple : 2…d6 3.Dh5 Cf6 ?? 4.Dxf7#. Avec les Noirs, avant chaque coup, regarde f7.',
+      'Avec les Noirs, 2…Dh4 ?! gagne parfois le pion e4, mais la dame sortie tôt se fait chasser avec gain de temps par Cf3, Cc3 et d4.',
+    ],
+    lines: [
+      { n: 'Avec les Blancs : le plan lent', side: 'w', moves: 'e4 e5 Bc4 Nf6 d3 Bc5 Nf3 d6 c3 O-O O-O',
+        idee: 'd3 défend e4 sans risque, puis c3 prépare d4 : tu retrouves les plans de l’italienne.',
+        notes: { 4: 'd3 défend e4, attaqué par le cavalier.', 8: 'c3 prépare d4 et une retraite pour le fou.' } },
+      { n: 'Avec les Noirs : 2…Cf6 et …d5', side: 'b', moves: 'e4 e5 Bc4 Nf6 d3 c6 Nf3 d5 Bb3 Bd6',
+        idee: '…c6 puis …d5 prend le centre en chassant le fou : les Noirs obtiennent une belle position sans risque.',
+        notes: { 3: '…Cf6 attaque e4.', 5: '…c6 prépare …d5.', 7: '…d5 frappe le centre et chasse le fou.', 9: 'Le fou défend e5 et prépare le roque.' } },
+      { n: 'Avec les Noirs : contre 3.Df3', side: 'b', moves: 'e4 e5 Bc4 Nf6 Qf3 Nc6 Ne2 Bc5 c3 O-O',
+        idee: 'La dame et le fou visent f7, qui est défendu par le roi et bientôt par le roque. …Cc6 défend e5, …Fc5 se développe vers f2.',
+        notes: { 4: 'La dame s’ajoute sur f7 : f7 est défendu, ne panique pas.', 5: '…Cc6 défend e5 en se développant.', 9: 'Roque : f7 est défendu par la tour.' } },
+    ],
+  },
+  {
+    id: 'petrov', nom: 'Défense Petrov (2…Cf6)', eco: 'C42 à C43', group: 'e4',
+    start: 'e4 e5 Nf3 Nf6',
+    tag: 'Contre-attaquer e4 au lieu de défendre e5 : la défense la plus symétrique.',
+    histoire: [
+      'Aussi appelée défense russe : elle doit son nom au Russe Alexandre Petrov, qui l’analyse dans les années 1840 avec Carl Jaenisch.',
+      'Réputée très solide, elle est devenue au XXe et au XXIe siècle une arme de champions du monde quand ils veulent annuler avec les Noirs sans risque, comme Karpov et Kramnik. Elle demande de connaître un ou deux pièges très précis.',
+    ],
+    idees: {
+      w: 'Prendre e5 (3.Cxe5) ou ouvrir le centre par 3.d4 : les Blancs gardent une petite avance de développement.',
+      b: 'Rendre coup pour coup, sans copier aveuglément : après 3.Cxe5, d’abord …d6, puis seulement …Cxe4.',
+    },
+    pieges: [
+      'Le piège de la Petrov : 3.Cxe5 Cxe4 ? 4.De2 ! et si 4…Cf6 ?? 5.Cc6+, échec à la découverte : le cavalier attaque la dame d8, qui tombe. Joue toujours 3…d6 avant de reprendre en e4.',
+      'Avec les Blancs, contre 2…Cf6, le coup 3.Fc4 est fréquent : si 3…Cxe4, 4.Cc3 donne un gambit dangereux (Boden-Kieseritzky), mais 4.Fxf7+ ? Rxf7 5.Cxe5+ ne gagne rien de solide.',
+    ],
+    lines: [
+      { n: 'Classique : 3.Cxe5 d6', side: 'b', moves: 'e4 e5 Nf3 Nf6 Nxe5 d6 Nf3 Nxe4 d4 d5 Bd3 Nc6 O-O Be7',
+        idee: 'D’abord …d6 pour chasser le cavalier, ensuite seulement …Cxe4 : le matériel est rétabli sans piège.',
+        notes: { 5: '…d6 ! chasse le cavalier avant de reprendre e4.', 7: 'Maintenant …Cxe4 est sans danger.', 9: '…d5 soutient le cavalier e4.', 13: 'Le fou se développe et prépare le roque.' } },
+      { n: 'Contre 3.d4', side: 'b', moves: 'e4 e5 Nf3 Nf6 d4 Nxe4 Bd3 d5 Nxe5 Nd7 Nxd7 Bxd7 O-O Bd6',
+        idee: 'Les Noirs prennent e4, le soutiennent par …d5 et échangent le cavalier e5 : position équilibrée et saine.',
+        notes: { 5: '…Cxe4 : le pion e4 est pris tout de suite.', 7: '…d5 soutient le cavalier.', 9: '…Cd7 propose l’échange du cavalier actif.' } },
+      { n: 'Avec les Blancs : le gambit 3.Fc4', side: 'w', moves: 'e4 e5 Nf3 Nf6 Bc4 Nxe4 Nc3 Nxc3 dxc3 f6 O-O',
+        idee: 'Tu donnes le pion e4 pour une grosse avance de développement : colonnes ouvertes, roque rapide, attaque sur le roi noir.',
+        notes: { 4: 'Le fou vise f7 ; e4 n’est plus défendu.', 6: 'Le gambit : Cc3 développe au lieu de récupérer le pion.', 8: 'dxc3 ouvre la colonne d et la diagonale du fou c1.', 10: 'Roque : tes pièces sont prêtes, les Noirs ne le sont pas.' } },
+    ],
+  },
+  {
+    id: 'philidor', nom: 'Défense Philidor (2…d6)', eco: 'C41', group: 'w',
+    start: 'e4 e5 Nf3 d6',
+    tag: 'Très fréquente chez les adversaires sous 1000 : solide mais passive.',
+    histoire: [
+      'Elle porte le nom de François-André Danican Philidor, meilleur joueur du XVIIIe siècle et compositeur d’opéras, dont le traité de 1749 affirme que « les pions sont l’âme des échecs ».',
+      'Longtemps jugée trop passive, elle a connu un regain à partir des années 1990 sous une forme moderne (…Cf6, …Cbd7, …Fe7). Sous 1000, elle est surtout jouée par des adversaires qui veulent éviter la théorie : à toi de profiter de l’espace qu’elle te laisse.',
+    ],
+    idees: {
+      w: 'Prendre le centre par d4, se développer vite (Cc3, Fc4 ou Fe2, roque) et profiter du manque d’espace des Noirs.',
+      b: 'Tenir e5 avec …d6, …Cf6, …Cbd7, …Fe7, puis libérer le jeu plus tard par …c6 et …d5.',
+    },
+    pieges: [
+      'Le mat de Légal : après 3.Fc4 Fg4, si les Noirs jouent mal, 4.Cc3 g6 ? 5.Cxe5 ! Fxd1 ?? 6.Fxf7+ Re7 7.Cd5#. Tu sacrifies ta dame et tu mates avec trois pièces mineures.',
+      'Contre 3.Fc4 Fg4, 4.h3 Fxf3 5.Dxf3 est bon, mais beaucoup de joueurs s’y perdent ensuite : après 5.Dxf3, la dame et le fou visent f7, garde cette pression avec d3 et Cd2 au lieu de chercher un mat trop tôt.',
+    ],
+    lines: [
+      { n: 'La ligne principale : 3.d4', side: 'w', moves: 'e4 e5 Nf3 d6 d4 exd4 Nxd4 Nf6 Nc3 Be7 Be2 O-O O-O',
+        idee: 'Le meilleur contre la Philidor : d4 force les Noirs à lâcher le centre. Tu gardes plus d’espace et un développement facile.',
+        notes: { 4: 'd4 attaque e5 tout de suite.', 6: 'Le cavalier reprend au centre.', 8: 'Cc3 défend e4.' } },
+      { n: 'Contre 3.Fc4 Fg4', side: 'w', moves: 'e4 e5 Nf3 d6 Bc4 Bg4 h3 Bxf3 Qxf3 Nf6 d3 Nc6 c3 Be7 Nd2',
+        idee: 'Après l’échange en f3, ta dame et ton fou visent f7. d3 et Cd2 consolident ; le plan est ensuite Cf1-g3 ou Cf1-e3, vers f5 ou d5.',
+        notes: { 4: 'h3 demande au fou de choisir.', 8: 'La dame reprend et vise f7 avec le fou.', 10: 'd3 défend e4.', 14: 'Le cavalier part vers f1 puis g3 ou e3.' } },
+      { n: 'Le mat de Légal', side: 'w', moves: 'e4 e5 Nf3 d6 Bc4 Bg4 Nc3 g6 Nxe5 Bxd1 Bxf7+ Ke7 Nd5#',
+        idee: 'Le piège le plus célèbre de l’histoire : la dame est offerte, et si les Noirs la prennent, trois pièces mineures matent.',
+        notes: { 8: 'Cxe5 ! laisse la dame en prise.', 10: 'Fxf7+ chasse le roi.', 12: 'Mat : le roi est entouré par ses propres pièces et les cavaliers.' } },
+    ],
+  },
 ];
 
 export const byId = (id) => OPENINGS.find((o) => o.id === id);

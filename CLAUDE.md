@@ -34,7 +34,7 @@ Site statique sans build, servi par GitHub Pages depuis `main` (racine). Tout to
 | `js/classify.js` | Classement des erreurs à partir des évaluations brutes : seuils, thèmes, suites. Calcul pur, sans moteur. `VERSION` des règles |
 | `js/stats.js` | Agrégats, ouvertures, forces et faiblesses, erreurs selon la pendule (`clockErrors`), erreurs qui reviennent dans la même position (`repeatedErrors`) |
 | `js/alltime.js` | Page Stats (depuis la première partie) |
-| `js/openings.js` | Catalogue des 10 ouvertures à apprendre : histoire et utilisation dans le temps, idées des deux camps, pièges, lignes principales (coups, camp joué, commentaires par demi-coup). `matchGame` reconnaît une partie par ses premiers coups |
+| `js/openings.js` | Catalogue des 15 ouvertures à apprendre (les 5 dernières : les plus jouées par Gaëtan hors des 10 premières, relevé du 15/11 ; texte neutre, sans ses chiffres, car le site est partageable) : histoire et utilisation dans le temps, idées des deux camps, pièges, lignes principales (coups, camp joué, commentaires par demi-coup). `matchGame` reconnaît une partie par ses premiers coups |
 | `js/lessons.js` | Fiches de cours statiques (principe, routine), règles courtes par thème |
 | `js/explain.js` | Explications sans IA : description de chaque coup, idée du meilleur coup, raison de l'échec du coup joué, bilan matériel, coupe d'une suite sur une position calme (`settle`). Source unique de `fr()` (notation française) et de `VAL` (valeur des pièces) |
 | `js/drills.js` | Échauffements : 4 exercices de vérification générés depuis les positions des parties, réponse établie par les règles |

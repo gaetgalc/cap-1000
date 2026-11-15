@@ -143,7 +143,7 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
 
   // ---- Apprendre les ouvertures ----
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#ouvertures/apprendre`); await sleep(500);
-  check(await S(() => document.querySelectorAll('#view a.card.lesson').length) === 10, 'Apprendre : les 10 ouvertures sont listées');
+  check(await S(() => document.querySelectorAll('#view a.card.lesson').length) === 15, 'Apprendre : les 15 ouvertures sont listées');
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#ouvertures/italienne`); await sleep(600);
   check(/Histoire et utilisation dans le temps/.test(await bar('#view')) && await S(() => !!document.querySelector('#opb cg-board')), 'fiche : histoire, lignes et position de l’ouverture');
   const playLine = async (moves, w, wrongAt) => {

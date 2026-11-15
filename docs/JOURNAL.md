@@ -224,6 +224,14 @@ Fait : onglet « Apprendre » dans Ouvertures (l'ancien contenu devient « Mes o
 
 Non vérifié : les faits historiques sont écrits de mémoire, sans source consultée ; à relire.
 
+## 22. Les 5 ouvertures les plus jouées (15/11)
+
+> tu peux ajouter les 5 ouvertures que j'ai le plus fait en dehors de celle déjà là ?
+
+L'environnement cloud bloquait `api.chess.com` : création, avec accord, d'un environnement personnel « cap-1000 » qui l'autorise. Relevé sur 6 096 parties (4 548 rapides), hors des 10 ouvertures déjà présentes : 2.Dh5 (385 parties), gambit Englund (346), partie du fou (290), Petrov (163), Philidor (118, surtout face à elle avec les Blancs). « Queen's Pawn Opening » (211) écartée : ce n'est qu'une étiquette pour un 1.d4 sans suite reconnue.
+
+Fait : 5 fiches de plus (histoire, idées, pièges, 15 lignes), lignes choisies d'après les suites réellement jouées (par exemple la version 2…Fc5 de l'Englund, 3.Fc4 contre la Petrov et la Philidor, le mat de Légal). Les chiffres personnels ne sont pas écrits dans les fiches (dépôt public, site partageable) : chaque fiche montre à la place « Tes suites les plus fréquentes », calculé sur les parties de la personne qui consulte.
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |
