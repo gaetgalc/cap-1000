@@ -66,6 +66,10 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#accueil`);
   await page.waitForFunction(() => window.__cap?.data && window.__cap.job.total > 0 && !window.__cap.job.running, null, { timeout: 180000 });
   check(await S(() => Object.keys(window.__cap.an).length) === GAMES.length, 'import et analyse des parties simulées');
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#accueil`); await sleep(600);
+  check(await S(() => document.querySelectorAll('.home .stepper li').length === 4 && document.querySelectorAll('.home .btn.pri').length === 1 && !!document.querySelector('.gstrip') && !!document.querySelector('.lgame a[href^="#erreur/"]')), 'accueil : objectif, séance à un seul bouton, dernière partie avec son erreur');
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#bilan`); await sleep(600);
+  check(await S(() => !!document.querySelector('#rc svg') && !!document.querySelector('.focus') && !!document.querySelector('.sig')), 'Mon jeu : classement, chantier détaillé, points forts et faibles');
 
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#puzzles`); await sleep(600);
   let c = await cur();

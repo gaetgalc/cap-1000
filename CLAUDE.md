@@ -21,7 +21,7 @@ Site statique sans build, servi par GitHub Pages depuis `main` (racine). Tout to
 
 | Fichier | Rôle |
 |---|---|
-| `index.html` | Coquille, navigation (onglet « Coach » = `#accueil` et `#plan`, reliés par les sous-onglets `COACH_TABS` ; sur ordinateur, entrée « Leçons » qui ouvre au survol un volet Puzzles / Cours / Ouvertures : `.grp`, `.fly` ; sur téléphone, le volet s'efface et ses liens restent dans la barre du bas) |
+| `index.html` | Coquille, navigation (onglet « Coach » = `#accueil`, `#bilan` et `#plan`, reliés par les sous-onglets `COACH_TABS` ; sur ordinateur, entrée « Leçons » qui ouvre au survol un volet Puzzles / Cours / Ouvertures : `.grp`, `.fly` ; sur téléphone, le volet s'efface et ses liens restent dans la barre du bas) |
 | `css/app.css` | Thème unique sombre, jetons dans `:root` |
 | `js/app.js` | État `S`, routage par hash, toutes les vues, événements |
 | `js/ui.js` | Aides d'affichage sans état : `$`, `esc`, formats, icônes `ico()`, bulle du coach, barre victoires/nulles/défaites |
@@ -46,7 +46,7 @@ Site statique sans build, servi par GitHub Pages depuis `main` (racine). Tout to
 | `tests/*.test.mjs` | Tests unitaires sans navigateur : légalité de chaque ligne de `openings.js`, règles de `progress.js`, positions de référence de `explain.js`, classement de `classify.js` sur des évaluations enregistrées, pendule et erreurs répétées de `stats.js`, format de `backup.js` |
 | `vendor/` | chess.js 0.10.3, chessground 9, Stockfish 19 lite single-thread (WASM), polices Sora et IBM Plex Sans |
 
-Routes : `#accueil`, `#puzzles`, `#historique` (journal des exercices faits), `#erreur/<end_time>/<ply>` (travail d'une erreur précise), `#plus` (menu mobile), `#exos`, `#inedits` (puzzles Lichess), `#drill/<sur|menace|cadeau|compte>`, `#cours`, `#cours/<id>[/fiche]`, `#gagner` (parties gagnantes gâchées), `#gagner/<end_time>` (la rejouer contre le moteur), `#ouvertures`, `#ouvertures/apprendre` (catalogue), `#ouvertures/<id>` (fiche), `#ligne/<id>/<k>[/voir]` (réciter une ligne de mémoire, ou la découvrir commentée), `#parties`, `#partie/<end_time>[/<ply>]`, `#plan`, `#stats`.
+Routes : `#accueil` (séance du jour), `#bilan` (Mon jeu : objectif détaillé, courbe du classement, chantier complet, points forts et faibles, tendance, bilan), `#puzzles`, `#historique` (journal des exercices faits), `#erreur/<end_time>/<ply>` (travail d'une erreur précise), `#plus` (menu mobile), `#exos`, `#inedits` (puzzles Lichess), `#drill/<sur|menace|cadeau|compte>`, `#cours`, `#cours/<id>[/fiche]`, `#gagner` (parties gagnantes gâchées), `#gagner/<end_time>` (la rejouer contre le moteur), `#ouvertures`, `#ouvertures/apprendre` (catalogue), `#ouvertures/<id>` (fiche), `#ligne/<id>/<k>[/voir]` (réciter une ligne de mémoire, ou la découvrir commentée), `#parties`, `#partie/<end_time>[/<ply>]`, `#plan`, `#stats`.
 
 ## Écran d'exercice (`js/exercise.js`)
 
@@ -79,6 +79,10 @@ Mise en page (CSS `body.fit`) : `.bwrap` (échiquier + bandeau) et `.fitside` (`
 - **Classer** (`classify.classify(game, raw)`, instantané) : en déduit `errs`, `acc`, `maxAdv`, `last`. Une analyse stockée dans `S.an[id]` contient les deux, plus `v` (version des règles).
 - Changer un seuil ou un thème : modifier `classify.js`, augmenter `VERSION`, ajouter le cas dans `tests/classify.test.mjs`. À l'ouverture du site, `reclassify()` reclasse les parties déjà évaluées sans relancer Stockfish.
 - Les analyses d'avant le 15/11 n'ont pas de données brutes (`pv` absent) : `autoAnalyse()` les réévalue une fois en arrière-plan, après les nouvelles parties. L'ancienne analyse reste en place tant que la nouvelle n'est pas prête.
+
+## Accueil (`viewAccueil`, refait le 15/11)
+
+Une seule décision par écran, dans cet ordre : objectif sur une ligne (`goalStrip`), séance du jour avec un seul bouton principal sur l'étape en cours et les 4 étapes en barre cliquable (`sessionCard`), chantier en 3 lignes (`focusMini`), dernière partie de la cadence suivie avec sa pire faute et deux boutons « Voir ce que j'ai joué » / « Rejouer l'erreur » (`lastGameCard`), liens rapides. Tout le détail chiffré est dans « Mon jeu » (`viewBilan`, `mountBilan`) ; le Plan ne garde que la semaine et les réglages. Ne pas rajouter de bloc d'analyse sur l'accueil : il va dans « Mon jeu ».
 
 ## Boucle pédagogique
 
