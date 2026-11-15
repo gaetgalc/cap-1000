@@ -208,6 +208,10 @@ Une trentaine de dépôts passés en revue (chess-academy, personalized-chess-tr
 
 Tests : 31 tests unitaires (8 nouveaux), test de bout en bout à 27 vérifications (11 nouvelles : avis, partie rejouée et reprise, pendule, sauvegarde et restauration, complément des anciennes analyses). Captures en 390 × 664 et 1366 × 768 : pas de défilement sur les écrans d'échiquier.
 
+## 20. Meilleur coup dans la relecture (15/11)
+
+Demande : dans l'onglet Parties, voir le meilleur coup sur l'échiquier par défaut. Fait : à chaque position de la relecture, flèche verte du coup du moteur (`a.best[k]`, déjà calculé à l'analyse, sans nouveau calcul) et « meilleur coup X » sur la ligne du coup, avec « (joué) » s'il a été joué en partie. Aux moments clés, flèches rouge (coup joué) et verte inchangées. Rien sur une partie non analysée. Test de bout en bout : 3 vérifications de plus. Captures aux 4 tailles : pas de défilement.
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |
