@@ -1287,7 +1287,7 @@ function render(keepScroll) {
   const v = $('#view'), [r, a, b] = route();
   paintJob();
   $('#nav').hidden = !S.data;
-  document.querySelectorAll('#nav a').forEach((x) => x.classList.toggle('on', x.getAttribute('href') === '#' + ({ partie: 'parties', erreur: 'puzzles', inedits: 'puzzles', drill: 'puzzles', historique: 'puzzles' }[r] || r) || (x.getAttribute('href') === '#plus' && ['ouvertures', 'plan', 'stats', 'exos', 'gagner'].includes(r))));
+  document.querySelectorAll('#nav a').forEach((x) => x.classList.toggle('on', x.dataset.grp ? x.dataset.grp.split(' ').includes(r) : x.getAttribute('href') === '#' + ({ partie: 'parties', erreur: 'puzzles', inedits: 'puzzles', drill: 'puzzles', historique: 'puzzles' }[r] || r) || (x.getAttribute('href') === '#plus' && ['ouvertures', 'plan', 'stats', 'exos', 'gagner'].includes(r))));
   if (!S.data) { v.innerHTML = viewWelcome(); exo.attach(); header(); const f = $('#wf'); f.onsubmit = (ev) => { ev.preventDefault(); const u = $('#wu').value.trim(); if (u) doImport(u); }; return; }
   if (r !== 'partie') S.gv = null;
   if (r !== 'drill' && S.dr && S.dr.i >= S.dr.items.length) S.dr = null; // une série en cours se reprend, une série finie repart de zéro
@@ -1313,6 +1313,11 @@ function render(keepScroll) {
   keepUi();
   if (keepScroll) scrollTo(0, y); else scrollTo(0, 0);
 }
+// Volet « Leçons » de la barre latérale : se referme après un choix, se rouvre au prochain survol
+document.querySelectorAll('#nav .grp').forEach((g) => {
+  g.addEventListener('click', (ev) => { if (ev.target.closest('.fly a')) { g.classList.add('shut'); document.activeElement?.blur(); } });
+  g.addEventListener('mouseleave', () => g.classList.remove('shut'));
+});
 document.addEventListener('click', (ev) => {
   const x = ev.target.closest('[data-x]'); // action de l'exercice en cours : indice, solution, lecture d'une suite…
   if (x) { exo.act(x.dataset.x, x); return; }
