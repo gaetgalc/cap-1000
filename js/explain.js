@@ -78,7 +78,7 @@ function describe(fen, mv, me, next, prev) {
   const m = play(ch, mv); if (!m) return null;
   const B1 = ch.board(), mine = m.color === me, opp = m.color === 'w' ? 'b' : 'w';
   const S = mine ? 'Tu' : 'Ton adversaire', v = (a, b) => (mine ? a : b);
-  const tags = { mine, capture: !!m.captured, check: ch.in_check(), mate: ch.in_checkmate(), gain: 0 };
+  const tags = { mine, capture: !!m.captured, check: ch.in_check(), mate: ch.in_checkmate(), gain: 0, shapes: [] };
   const piece = poss(m.piece, m.color, me);
   let t;
   // Dangers avant le coup, pour reconnaître une fuite ou une défense.
@@ -132,24 +132,32 @@ function describe(fen, mv, me, next, prev) {
   // La pièce jouée peut-elle être prise ? Si oui, ses menaces ne valent rien.
   const selfHang = hanging(B1, m.color).find((h) => h.sq === m.to);
   const P = cap(il(m.piece));
-  if (selfHang) tags.selfHang = selfHang;
-  else if (tags.check && targets.length) { out.push(`Fourchette : ${il(m.piece)} attaque en même temps le roi et ${poss(targets[0].type, opp, me)} en ${targets[0].sq}.`); tags.fork = targets[0]; }
-  else if (targets.length >= 2) { out.push(`Fourchette : ${il(m.piece)} attaque à la fois ${poss(targets[0].type, opp, me)} en ${targets[0].sq} et ${poss(targets[1].type, opp, me)} en ${targets[1].sq}.`); tags.fork = targets[0]; }
-  else if (targets.length === 1) { out.push(`${P} menace ${poss(targets[0].type, opp, me)} en ${targets[0].sq}${targets[0].undefended ? `, qui n’est pas défendu${e_(targets[0].type)}` : ''}.`); tags.threat = targets[0]; }
+  // Flèches à dessiner après le coup : by 'mover' = menace de celui qui vient de jouer, 'other' = menace contre lui.
+  const shapes = [], aim = (sq) => shapes.push({ orig: m.to, dest: sq, by: 'mover' });
+  if (selfHang) { tags.selfHang = selfHang; shapes.push({ orig: selfHang.by.sq, dest: m.to, by: 'other', hang: true }); }
+  else if (tags.check && targets.length) {
+    out.push(`Fourchette : ${il(m.piece)} attaque en même temps le roi et ${poss(targets[0].type, opp, me)} en ${targets[0].sq}.`); tags.fork = targets[0];
+    const k = attacksFrom(B1, tr, tf).map(([a, b]) => sqOf(a, b)).find((sq) => { const q = B1[rf(sq)[0]][rf(sq)[1]]; return q && q.type === 'k' && q.color === opp; });
+    if (k) aim(k);
+    aim(targets[0].sq);
+  }
+  else if (targets.length >= 2) { out.push(`Fourchette : ${il(m.piece)} attaque à la fois ${poss(targets[0].type, opp, me)} en ${targets[0].sq} et ${poss(targets[1].type, opp, me)} en ${targets[1].sq}.`); tags.fork = targets[0]; aim(targets[0].sq); aim(targets[1].sq); }
+  else if (targets.length === 1) { out.push(`${P} menace ${poss(targets[0].type, opp, me)} en ${targets[0].sq}${targets[0].undefended ? `, qui n’est pas défendu${e_(targets[0].type)}` : ''}.`); tags.threat = targets[0]; aim(targets[0].sq); }
+  const through = (a, b) => { if (!shapes.some((q) => q.dest === b.sq)) aim(b.sq); shapes.push({ orig: a.sq, by: 'mover' }); }; // ligne qui traverse la pièce clouée ou enfilée
   // Clouage ou enfilade créés par la pièce jouée.
   if (!selfHang) for (const [a, b] of xrays(B1, tr, tf)) {
-    if (a.type === 'k' && VAL[b.type] >= 3) { out.push(`Enfilade : le roi doit quitter la ligne, et ${poss(b.type, opp, me)} en ${b.sq} sera en prise.`); tags.skewer = b; break; }
+    if (a.type === 'k' && VAL[b.type] >= 3) { out.push(`Enfilade : le roi doit quitter la ligne, et ${poss(b.type, opp, me)} en ${b.sq} sera en prise.`); tags.skewer = b; through(a, b); break; }
     if (a.type === 'k' || a.type === 'p') continue;
-    if (b.type === 'k') { out.push(`Clouage : ${poss(a.type, opp, me)} en ${a.sq} ne peut plus bouger, ${il(a.type)} protège le roi.`); tags.pin = a; break; }
-    if (VAL[b.type] > VAL[a.type] && VAL[b.type] > VAL[m.piece]) { out.push(`Clouage : si ${poss(a.type, opp, me)} en ${a.sq} bouge, ${poss(b.type, opp, me)} en ${b.sq} tombe.`); tags.pin = a; break; }
-    if (VAL[a.type] > VAL[b.type] && VAL[a.type] > VAL[m.piece] && attackers(B1, b.sq, opp).length <= 1) { out.push(`Enfilade : quand ${poss(a.type, opp, me)} en ${a.sq} s’écartera, ${poss(b.type, opp, me)} en ${b.sq} sera en prise.`); tags.skewer = b; break; }
+    if (b.type === 'k') { out.push(`Clouage : ${poss(a.type, opp, me)} en ${a.sq} ne peut plus bouger, ${il(a.type)} protège le roi.`); tags.pin = a; through(a, b); break; }
+    if (VAL[b.type] > VAL[a.type] && VAL[b.type] > VAL[m.piece]) { out.push(`Clouage : si ${poss(a.type, opp, me)} en ${a.sq} bouge, ${poss(b.type, opp, me)} en ${b.sq} tombe.`); tags.pin = a; through(a, b); break; }
+    if (VAL[a.type] > VAL[b.type] && VAL[a.type] > VAL[m.piece] && attackers(B1, b.sq, opp).length <= 1) { out.push(`Enfilade : quand ${poss(a.type, opp, me)} en ${a.sq} s’écartera, ${poss(b.type, opp, me)} en ${b.sq} sera en prise.`); tags.skewer = b; through(a, b); break; }
   }
   // Attaque à la découverte : en bougeant, la pièce ouvre la ligne d'une autre.
   for (let r = 0; r < 8 && !tags.discovered; r++) for (let f = 0; f < 8; f++) {
     const y = B1[r][f]; if (!y || y.color !== m.color || !'brq'.includes(y.type) || sqOf(r, f) === m.to) continue;
     const was = new Set(attacksFrom(B0, r, f).map(([a, b]) => sqOf(a, b)));
     const hit = attacksFrom(B1, r, f).map(([a, b]) => ({ ...B1[a][b], sq: sqOf(a, b) })).find((q) => q.type && q.color === opp && !was.has(q.sq) && q.sq !== m.to && (q.type === 'k' || (q.type !== 'p' && !attackers(B1, sqOf(r, f), opp).some((z) => z.sq === q.sq) && (VAL[q.type] > VAL[y.type] || attackers(B1, q.sq, opp).length === 0))));
-    if (hit) { out.push(hit.type === 'k' ? `Échec à la découverte : en bougeant, ${poss(m.piece, m.color, me)} ouvre la ligne de ${poss(y.type, m.color, me)} sur le roi.` : `Attaque à la découverte : en bougeant, ${poss(m.piece, m.color, me)} ouvre la ligne de ${poss(y.type, m.color, me)} sur ${poss(hit.type, opp, me)} en ${hit.sq}.`); tags.discovered = hit; break; }
+    if (hit) { out.push(hit.type === 'k' ? `Échec à la découverte : en bougeant, ${poss(m.piece, m.color, me)} ouvre la ligne de ${poss(y.type, m.color, me)} sur le roi.` : `Attaque à la découverte : en bougeant, ${poss(m.piece, m.color, me)} ouvre la ligne de ${poss(y.type, m.color, me)} sur ${poss(hit.type, opp, me)} en ${hit.sq}.`); tags.discovered = hit; shapes.push({ orig: sqOf(r, f), dest: hit.sq, by: 'mover' }); break; }
   }
   // Défense d'une pièce qui était en danger.
   if (!m.captured && !fled) {
@@ -157,6 +165,7 @@ function describe(fen, mv, me, next, prev) {
     const saved = dangerBefore.find((h) => h.sq !== m.from && !still.has(h.sq));
     if (saved) { out.push(`Ce coup protège ${poss(saved.type, m.color, me)} en ${saved.sq}, qui était attaqué${e_(saved.type)}.`); tags.defend = saved; }
   }
+  tags.shapes = shapes;
   return { m, fen: ch.fen(), tags, text: out.join(' ') };
 }
 
@@ -167,6 +176,9 @@ export function buildLine(fen, moves, me, winning) {
     const d = describe(cur, moves[i], me, moves[i + 1], steps.length ? steps[steps.length - 1].raw : null);
     if (!d) break;
     if (winning && d.tags.bad && d.tags.mine) d.text = d.text.replace(/ : (ton|ta) [^.]*?ce qui est pris/, ' : c’est un sacrifice, la suite montre ce qu’il rapporte');
+    const h = d.tags.selfHang;
+    if (winning && d.tags.mine) d.tags.shapes = d.tags.shapes.filter((q) => !q.hang); // dans la bonne suite, une pièce « en prise » est un piège, pas un danger
+    else if (h && !d.tags.mate) d.text += ` ${cap(il(h.type))} peut être pris${e_(h.type)} par ${poss(h.by.type, d.m.color === 'w' ? 'b' : 'w', me)}.`;
     steps.push({ raw: { to: d.m.to, captured: d.m.captured, piece: d.m.piece }, san: d.m.san, from: d.m.from, to: d.m.to, fen: d.fen, text: d.text, tags: d.tags, mat: material(d.fen, me), no: +cur.split(' ')[5], white: d.m.color === 'w' });
     cur = d.fen;
     if (d.tags.mate) break;

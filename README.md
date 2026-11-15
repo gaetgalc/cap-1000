@@ -7,7 +7,8 @@ Coach d'échecs personnel, 100 % dans le navigateur.
 - Chantier du moment : un seul type d'erreur travaillé à la fois, avec son taux par partie avant et depuis.
 - Séance du jour en quatre étapes : échauffement, puzzles, cours, parties.
 - Échauffements : quatre exercices de vérification rapide générés depuis tes positions.
-- Puzzles tirés de tes propres erreurs (répétition espacée), avec suites commentées coup par coup, idée du meilleur coup et comparaison avec le tien.
+- Puzzles tirés de tes propres erreurs (répétition espacée). Après la solution, la bonne suite se joue toute seule, commentée coup par coup, puis ce que ton coup permettait.
+- Historique : chaque puzzle et chaque échauffement est noté avec son résultat ; tu reprends là où tu t'es arrêté, même après avoir fermé la page.
 - Positions inédites : puzzles de la base Lichess, par thème et par niveau.
 - Cours par type d'erreur, illustrés par tes positions ; cours privés rédigés par Claude en option.
 - Relecture de partie commentée, statistiques d'ouvertures, explorateur de tes coups, page de statistiques complètes, plan hebdomadaire et suivi de l'objectif Elo.
@@ -18,7 +19,7 @@ Coach d'échecs personnel, 100 % dans le navigateur.
 2. Dans le dépôt : Settings > Pages > Source « Deploy from a branch », branche `main`, dossier `/ (root)`.
 3. Ouvre `https://<ton-compte>.github.io/<depot>/?u=<pseudo-chess.com>`.
 
-En local : `python3 -m http.server` dans ce dossier, puis http://localhost:8000.
+En local : `python3 -m http.server` dans ce dossier, puis http://localhost:8000. Test de bout en bout : `node tests/parcours.js` (Playwright).
 
 ## Données
 

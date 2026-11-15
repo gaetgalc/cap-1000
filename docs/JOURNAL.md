@@ -1,6 +1,6 @@
 # Journal du projet Cap 1000
 
-Compte rendu de la conversation du samedi 14 novembre 2026 entre Gaëtan et Claude, dans l'ordre.
+Compte rendu des conversations entre Gaëtan et Claude depuis le samedi 14 novembre 2026, dans l'ordre.
 Les demandes de Gaëtan sont citées telles quelles ; le reste est résumé.
 
 ## 1. Demande initiale (16:26)
@@ -135,6 +135,26 @@ Précision demandée, réponse : « Des puzzles inédits ». Fait : onglet « Po
 
 Corrigé : rendus d'arrière-plan qui interrompaient un exercice en cours, échec de mise à jour silencieux, vérification d'un coup qui aboutissait après avoir quitté l'écran, analyses illisibles comptées dans les statistiques, chantier épuisé affichant « tout est à jour », étape puzzles impossible à valider sans puzzle dû, touches hors pièce comptées comme réponses dans les échauffements, puzzle Lichess désynchronisé après un nouveau rendu, clé de semaine en UTC, plan non aligné sur le chantier, chiffre non sourcé (« 100 Elo »), collision d'attributs `data-ex`, file d'attente du moteur sans priorité, code mort, README périmé, fichier LICENSE manquant. Points laissés à l'arbitrage listés dans `CLAUDE.md` (points ouverts).
 
+## 15. Simplicité d'usage : historique, animation, points de déplacement (15 novembre)
+
+> réfléchis à tout ce qui pourrait m'aider à ce que l'app soit plus user friendly. par exemple, il n'y a pas d'historique quand je fais le puzzle. je viens d'en faire 8, j'ai quitté la page et ça a oublié que j'avais tout fait. résultat je suis frustré.
+> Pareil après un bon coup j'aimerai avoir une animation qui me montre l'enchainement logique des coups ensuite pour comprendre l'idée d'un échange ou d'une prise. globalement je veux rendre le plus simple possible l'utilisation, qui n'est pas encore idéal. je veux aussi des petits points pour montrer les cases potentiels d'une pièce
+
+Causes trouvées de l'impression d'oubli : un puzzle raté (un seul mauvais essai ou un indice suffisait) était reprogrammé 5 minutes plus tard et repassait en tête de file ; aucun écran ne listait ce qui avait été fait ; le compteur « maîtrisés » restait à 0 tant qu'un puzzle n'avait pas été réussi trois fois à plusieurs jours d'écart ; le puzzle en cours, l'étape d'un cours et un échauffement entamé étaient perdus au rechargement ; les puzzles faits depuis un cours ou depuis « Comprendre cette erreur » n'étaient pas comptés. Cause précise chez Gaëtan non confirmée (pas de capture).
+
+Fait :
+- Journal d'entraînement : chaque puzzle, position inédite et échauffement terminé est enregistré tout de suite avec son résultat (du premier coup, trouvé avec aide, solution vue). Nouvel onglet « Historique » dans Puzzles, par jour, avec « Refaire ».
+- Avancée du jour visible partout : pastilles colorées et « 3 / 8 » pendant les puzzles, sur l'accueil et dans le bilan.
+- Un puzzle fait aujourd'hui ne revient plus aujourd'hui : raté, il revient demain ; réussi, après 1, 3, 7, 21 puis 60 jours. Un seul résultat par jour compte.
+- Bilan quand l'objectif du jour est atteint : résultats, bouton « Étape suivante » de la séance, « Refaire mes ratés du jour », « Continuer ». Même bouton « Étape suivante » à la fin d'un échauffement et d'un cours.
+- Reprise : puzzle en cours, étape du cours, échauffement entamé et position inédite sont retrouvés après avoir quitté ou rechargé la page.
+- Animation : après la solution, la bonne suite se joue toute seule (flèche qui annonce le coup, pièce qui bouge, commentaire, flèches sur ce que le coup attaque, bilan matériel), puis « Voir mon erreur » joue ce que le coup de la partie permettait. Pause, pas à pas, « Revoir », clavier (flèches, espace). Les suites ne s'arrêtent plus au milieu d'un échange, ce qui faussait le bilan matériel.
+- Points sur les cases où la pièce choisie peut aller, anneau sur une pièce à prendre, roi en échec signalé en rouge.
+- Téléphone : l'échiquier remonte sous la barre du haut, le texte du coach passe dessous ; l'indice et le message d'erreur ne sont plus cachés par la barre d'actions. Ordinateur : le commentaire est à droite de l'échiquier, visible sans défiler.
+- Icônes dessinées à la place des flèches Unicode (affichées en émojis sur iPhone).
+- Corrigé au passage : plantage de l'explication quand une suite finissait par un mat ; course entre « Solution » et le retour d'un mauvais coup.
+- Test de bout en bout versionné : `node tests/parcours.js`.
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |
@@ -145,9 +165,12 @@ Corrigé : rendus d'arrière-plan qui interrompaient un exercice en cours, éche
 | Cours par Claude | Copier-coller via l'abonnement, ou clé API | L'abonnement n'ouvre pas l'API |
 | Identité visuelle | Inspirée de Chess.com, éléments propres | Ne pas copier leur marque |
 | Licence | GPL-3.0-or-later | Imposée par chessground et Stockfish |
+| Puzzle raté | Revient le lendemain, plus 5 minutes après | Donnait l'impression que l'app oubliait le travail fait |
+| Prédiction dans les suites | En pas à pas seulement, la lecture est automatique | Demande d'une animation après le bon coup |
 
 ## Non vérifié à ce jour
 
 - Import et analyse sur le vrai compte `gaetcc`.
 - Qualité des cours réellement générés par Claude.
 - Rendu du site en ligne (inaccessible depuis l'environnement de Claude).
+- Rythme de l'animation des suites (environ 3 secondes par coup) et lisibilité des points de déplacement sur le téléphone de Gaëtan.
