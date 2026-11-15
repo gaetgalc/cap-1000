@@ -34,7 +34,18 @@ p { margin: 0; } a { color: var(--accent-ink); }
 .nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex; background: #262522; border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
 .nav a { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 1px 9px; font-size: 10.5px; letter-spacing: -.1px; font-weight: 500; color: var(--ink2); text-decoration: none; border-top: 2px solid transparent; }
 .nav a.on { color: var(--accent-ink); border-top-color: var(--accent); }
+.grp, .fly { display: contents; }
 @media (min-width: 860px) {
+  .top { z-index: 40; }
+  .grp { display: block; position: relative; }
+  .fly { display: none; position: absolute; left: calc(100% + 13px); top: -8px; min-width: 240px; padding: 8px; background: #1f1e1c; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 12px 32px rgba(0,0,0,.5); flex-direction: column; gap: 2px; }
+  .fly::before { content: ''; position: absolute; left: -14px; top: 0; bottom: 0; width: 14px; } /* pont : la souris passe de l'entrée au volet sans le fermer */
+  .grp:hover .fly, .grp:focus-within .fly { display: flex; }
+  .grp.shut .fly { display: none; }
+  .grp:hover .grp-h, .grp:focus-within .grp-h { background: var(--sunken); }
+  .fly a { padding: 12px 14px; font-size: 16px; }
+  .fly a svg { width: 22px; height: 22px; }
+  .fly a.on { box-shadow: none; }
   body { padding: 0 0 0 208px; }
   .top { position: fixed; left: 0; top: 0; bottom: 0; width: 208px; flex-direction: column; align-items: stretch; flex-wrap: nowrap; gap: 20px; padding: 20px 12px; border-bottom: 0; border-right: 1px solid var(--line); }
   .brand { padding: 0 8px; font-size: 20px; }

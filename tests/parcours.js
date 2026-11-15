@@ -111,6 +111,20 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#ouvertures`); await sleep(400);
   check(/Ouvertures/.test(await bar('#view')), 'la page Ouvertures s’affiche avec le bloc des erreurs qui reviennent');
 
+  // ---- Relecture d'une partie : meilleur coup affiché par défaut ----
+  const g0 = await S(() => { const s = window.__cap, g = s.data.games.find((x) => s.an[x.id] && !s.an[x.id].bad); return { t: g.t, id: g.id }; });
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#partie/${g0.t}`); await sleep(700);
+  const shapes = () => S(() => { const v = window.__cap.gv; return { k: v.k, best: v.a.best[v.k], err: !!v.errAt[v.k], sh: v.cg.state.drawable.autoShapes.map((x) => x.orig + (x.dest || '') + ':' + x.brush) }; });
+  let okAll = true;
+  for (let i = 0; i < 8; i++) {
+    const s = await shapes();
+    if (s.best && !s.sh.includes(s.best.slice(0, 4) + ':green')) { okAll = false; console.log('  position', s.k, s); }
+    await page.click('#xbar [aria-label="Coup suivant"]'); await sleep(150);
+  }
+  check(okAll, 'relecture : flèche verte du meilleur coup sur chaque position, sans clic');
+  check(/meilleur coup/i.test(await bar('#xcap')) || (await shapes()).err, 'relecture : le bandeau nomme le meilleur coup');
+  check(await page.locator('#xb svg.cg-shapes g, #xb svg g').count() > 0, 'relecture : la flèche est dessinée sur l’échiquier');
+
   // ---- Gagner les parties gagnées ----
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#gagner`); await sleep(500);
   const firstCv = await S(() => document.querySelector('#view .menu a.mrow')?.getAttribute('href'));
