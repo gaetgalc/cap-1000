@@ -18,7 +18,7 @@ const SIZES = [
 
 // Écrans : route fixe, ou fonction qui la calcule sur l'état chargé (window.__cap).
 const SCREENS = [
-  ['accueil'], ['plan'], ['puzzles'], ['historique'], ['exos'], ['drill-sur', 'drill/sur'], ['drill-compte', 'drill/compte'],
+  ['accueil'], ['bilan'], ['plan'], ['puzzles'], ['historique'], ['exos'], ['drill-sur', 'drill/sur'], ['drill-compte', 'drill/compte'],
   ['cours'], ['cours-fiche', 'cours/en_prise_pose/fiche'], ['cours-prive', 'cours/en_prise_pose'],
   ['gagner'], ['ouvertures'], ['ouvertures-apprendre', 'ouvertures/apprendre'], ['ouverture-fiche', 'ouvertures/italienne'],
   ['ligne-reciter', 'ligne/italienne/0'], ['ligne-voir', 'ligne/italienne/0/voir'],

@@ -6,6 +6,8 @@ Site : https://gaetgalc.github.io/cap-1000/?u=gaetcc
 
 Le journal complet des échanges et des décisions est dans `docs/JOURNAL.md`. Le lire avant toute évolution.
 
+Refonte de l'interface en cours (depuis le 15/11) : décisions, état des lieux et étapes dans `docs/REFONTE.md`. Toute retouche visuelle suit ses règles (Geist, échelle de texte, un bouton plein par vue, cibles de 44 px).
+
 ## Ce que veut l'utilisateur
 
 - Arriver sur le site et comprendre tout de suite quoi faire (séance du jour, un seul bouton principal).
@@ -42,7 +44,9 @@ Site statique sans build, servi par GitHub Pages depuis `main` (racine). Tout to
 | `js/coach.js` | Cours privés Claude : faits vérifiés, prompt, appel API, lecture du JSON |
 | `js/backup.js` | Sauvegarde et restauration en un fichier JSON (parties, analyses, cours, toutes les clés `cap1000:` sauf `key`). `pack` / `unpack` purs |
 | `js/store.js` | IndexedDB (`data:<user>`, `an:<user>`, `ai:<user>`) et localStorage (préfixe `cap1000:` ; clés principales : `pz` répétition espacée, `hist` journal d'entraînement, `ui` état de l'écran à reprendre, `act` activité par jour, `focus` chantier, `bak` date de la dernière sauvegarde) |
+| `tests/fixture.js` | Parties simulées au format Chess.com, serveur local, interception de `api.chess.com` : commun aux tests navigateur |
 | `tests/parcours.js` | Test de bout en bout (Playwright, parties simulées, `api.chess.com` intercepté) |
+| `tests/audit-ui.js` | Audit de l'interface : 22 écrans aux 4 tailles, captures et mesures (défilement, tailles de texte, contraste, cibles de 44 px, boutons pleins, arrondis) |
 | `tests/*.test.mjs` | Tests unitaires sans navigateur : légalité de chaque ligne de `openings.js`, règles de `progress.js`, positions de référence de `explain.js`, classement de `classify.js` sur des évaluations enregistrées, pendule et erreurs répétées de `stats.js`, format de `backup.js` |
 | `vendor/` | chess.js 0.10.3, chessground 9, Stockfish 19 lite single-thread (WASM), polices Sora et IBM Plex Sans |
 
@@ -111,6 +115,7 @@ python3 -m http.server 8000   # puis http://localhost:8000/?u=gaetcc
 ```bash
 node --test tests/*.test.mjs  # règles de planification et explications ; moins d'une seconde
 node tests/parcours.js        # parcours puzzles, journal, reprise, échauffement ; 1 à 2 minutes
+node tests/audit-ui.js        # captures et mesures de chaque écran aux 4 tailles (tests/out/audit) ; 3 à 4 minutes
 ```
 
 Le test génère des parties par coups semi-aléatoires au format Chess.com, intercepte `api.chess.com` et pilote Chromium avec Playwright. Ajouter `&debug` à l'URL expose l'état `S` dans `window.__cap`. Pour un cours privé, injecter un cours dans `S.ai` ; pour Lichess, intercepter `lichess.org`. Toujours vérifier le rendu par captures en 390 × 664 (iPhone avec les barres de Safari), 390 × 760, 1366 × 768 et 1280 × 860 : la page ne doit jamais défiler sur un écran d'échiquier.

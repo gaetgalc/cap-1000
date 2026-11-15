@@ -260,6 +260,16 @@ Le reste part dans un nouveau sous-onglet « Mon jeu » (`#bilan`) : objectif d�
 
 Captures 390 × 664 : séance et chantier visibles sans défiler, la dernière partie juste en dessous. Ordinateur 1366 × 768 : l'accueil tient sur l'écran.
 
+## 25. Refonte de l'interface, étape 1 : état des lieux (15/11)
+
+> https://github.com/leonxlnx/taste-skill fais un plan pour reprendre le site avec ce skill, tout en pensant à l'ux et la facilité d'utilisation et à la logique
+
+Plan proposé : garder du skill le système (jetons, typographie, contraste, un bouton plein, mouvement court), laisser sa partie site vitrine (héro, photos, effets), et revoir la navigation (5 entrées au lieu de 3 niveaux). Choix de Gaëtan : bouton principal en relief gardé, polices laissées au skill, maquette d'abord. Maquette (Aujourd'hui et Puzzle, téléphone et ordinateur) validée avec Geist.
+
+Fait : `tests/fixture.js` (parties simulées communes, sorties de `parcours.js`), `tests/audit-ui.js` (22 écrans, 4 tailles, captures et mesures), `docs/REFONTE.md` (décisions, écarts, étapes). Principaux écarts : 21 tailles de texte, 14 arrondis, texte jusqu'à 10 px, libellé du bouton principal à 3.16:1, jusqu'à 8 boutons pleins sur un écran, la plupart des boutons sous 44 px. Aucun écran d'échiquier ne défile.
+
+Non fait : le script de contrôle du skill (`gate.mjs`) et son tirage de polices (`start.mjs`) n'ont pas pu être lancés dans l'environnement de Claude ; la table de polices a été lue directement.
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |
@@ -274,6 +284,7 @@ Captures 390 × 664 : séance et chantier visibles sans défiler, la dernière p
 | Prédiction dans les suites | En pas à pas seulement, la lecture est automatique | Demande d'une animation après le bon coup |
 | Anciennes analyses | Réévaluées une fois, automatiquement, en arrière-plan | Sans données brutes, elles ne pourraient pas suivre un changement de règle |
 | Synchronisation | Fichier de sauvegarde, pas de serveur | Le site reste statique, sans compte |
+| Refonte | Système du skill taste-skill, sans sa partie site vitrine ; Geist ; bouton principal en relief | Maquette validée le 15/11 ; voir `docs/REFONTE.md` |
 | Puzzles flous | Écartés s'ils n'ont pas de motif tactique et que 3 coups tenaient | Un puzzle sans réponse nette n'apprend rien |
 
 ## Non vérifié à ce jour
