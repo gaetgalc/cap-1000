@@ -236,6 +236,23 @@ L'environnement cloud bloquait `api.chess.com` : création, avec accord, d'un en
 
 Fait : 5 fiches de plus (histoire, idées, pièges, 15 lignes), lignes choisies d'après les suites réellement jouées (par exemple la version 2…Fc5 de l'Englund, 3.Fc4 contre la Petrov et la Philidor, le mat de Légal). Les chiffres personnels ne sont pas écrits dans les fiches (dépôt public, site partageable) : chaque fiche montre à la place « Tes suites les plus fréquentes », calculé sur les parties de la personne qui consulte.
 
+## 23. Accueil épuré (15/11)
+
+> réfléchis à une homepage pour le site, épuré et utile — puis « go »
+
+Avant : 9 blocs empilés (salutation, séance en 4 étapes à boutons, chantier avec courbe, tuiles, objectif détaillé, courbe Elo, points forts et faibles, tendance, bilan), environ 4 écrans de défilement sur téléphone.
+
+Fait : l'accueil répond à trois questions, quoi faire maintenant, est-ce que ça marche, que s'est-il passé dans ma dernière partie.
+- Objectif sur une ligne : Elo, barre jusqu'à l'objectif, points manquants, jours restants, rythme nécessaire, évolution sur 30 jours (si non nulle), série sur ordinateur (déjà dans la barre du haut sur téléphone).
+- Séance : barre de 4 étapes cliquables, l'étape en cours avec un seul bouton vert. Séance finie : « Refaire mes ratés du jour » et lignes d'ouverture à réviser, s'il y en a.
+- Chantier : thème, règle, avant → maintenant, objectif ; « Détail » vers Mon jeu.
+- Nouveau : dernière partie de la cadence suivie, avec sa pire faute (coup joué, coup juste, thème, perte) et deux boutons vers la relecture à ce coup et vers l'exercice `#erreur`.
+- Liens rapides : Puzzles (nombre à faire), Lignes à réviser (ou Ouvertures), Parties, Échauffements, Mon jeu.
+
+Le reste part dans un nouveau sous-onglet « Mon jeu » (`#bilan`) : objectif détaillé, courbe du classement, chantier complet avec sa courbe et son sélecteur, points forts et faibles, tendance par thème, bilan. Le Plan perd l'objectif détaillé (doublon). Salutation supprimée.
+
+Captures 390 × 664 : séance et chantier visibles sans défiler, la dernière partie juste en dessous. Ordinateur 1366 × 768 : l'accueil tient sur l'écran.
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |
