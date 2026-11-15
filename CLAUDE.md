@@ -21,7 +21,7 @@ Site statique sans build, servi par GitHub Pages depuis `main` (racine). Tout to
 
 | Fichier | Rôle |
 |---|---|
-| `index.html` | Coquille, navigation (sur ordinateur, entrée « Leçons » qui ouvre au survol un volet Puzzles / Cours / Ouvertures : `.grp`, `.fly` ; sur téléphone, le volet s'efface et ses liens restent dans la barre du bas) |
+| `index.html` | Coquille, navigation (onglet « Coach » = `#accueil` et `#plan`, reliés par les sous-onglets `COACH_TABS` ; sur ordinateur, entrée « Leçons » qui ouvre au survol un volet Puzzles / Cours / Ouvertures : `.grp`, `.fly` ; sur téléphone, le volet s'efface et ses liens restent dans la barre du bas) |
 | `css/app.css` | Thème unique sombre, jetons dans `:root` |
 | `js/app.js` | État `S`, routage par hash, toutes les vues, événements |
 | `js/ui.js` | Aides d'affichage sans état : `$`, `esc`, formats, icônes `ico()`, bulle du coach, barre victoires/nulles/défaites |
@@ -95,7 +95,7 @@ Idées non faites : import des parties Lichess, comptes et synchronisation (la s
 - L'environnement cloud de Claude ne peut pas joindre `api.chess.com` ni `*.github.io` : impossible d'y tester sur les vraies parties ou de vérifier le site en ligne. Les tests se font avec des parties simulées.
 - Claude peut pousser sur ce dépôt (app GitHub installée) mais pas modifier ses réglages (Pages).
 - L'abonnement Claude Pro n'inclut pas l'API : les cours passent soit par copier-coller dans une conversation Claude, soit par une clé API saisie dans le site (stockée en localStorage, jamais dans le dépôt).
-- Pas de synchronisation entre appareils : analyses, cours et progression sont locaux. Transfert possible par fichier (Plan et réglages ou Plus > Sauvegarde).
+- Pas de synchronisation entre appareils : analyses, cours et progression sont locaux. Transfert possible par fichier (Coach > Plan et réglages ou Plus > Sauvegarde).
 - Dépôt public : ne jamais y écrire de clé, d'e-mail ni de donnée personnelle.
 
 ## Tester
