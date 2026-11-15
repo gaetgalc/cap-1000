@@ -21,7 +21,7 @@ Site statique sans build, servi par GitHub Pages depuis `main` (racine). Tout to
 
 | Fichier | Rôle |
 |---|---|
-| `index.html` | Coquille, navigation |
+| `index.html` | Coquille, navigation (sur ordinateur, entrée « Leçons » qui ouvre au survol un volet Puzzles / Cours / Ouvertures : `.grp`, `.fly` ; sur téléphone, le volet s'efface et ses liens restent dans la barre du bas) |
 | `css/app.css` | Thème unique sombre, jetons dans `:root` |
 | `js/app.js` | État `S`, routage par hash, toutes les vues, événements |
 | `js/ui.js` | Aides d'affichage sans état : `$`, `esc`, formats, icônes `ico()`, bulle du coach, barre victoires/nulles/défaites |
