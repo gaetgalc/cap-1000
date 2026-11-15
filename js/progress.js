@@ -32,7 +32,8 @@ export function makeProgress(store = ls, now = () => Date.now()) {
   }
 
   // ---- Journal : chaque exercice terminé est noté tout de suite ----
-  // k : 'm' puzzle sur une erreur, 'l' position inédite Lichess, 'd' série d'échauffement, 'c' partie gagnante rejouée.
+  // k : 'm' puzzle sur une erreur, 'l' position inédite Lichess, 'd' série d'échauffement, 'c' partie gagnante rejouée,
+  //     'o' ligne d'ouverture récitée.
   // re : 1 si déjà fait ce jour-là.
   const hist = () => store.get('hist', []);
   function log(x) {
@@ -45,13 +46,14 @@ export function makeProgress(store = ls, now = () => Date.now()) {
   // ---- Répétition espacée ----
   // Un seul résultat par jour et par puzzle compte. Un puzzle fait aujourd'hui ne revient pas aujourd'hui :
   // raté, il revient demain ; réussi du premier coup, après 1, 3, 7, 21 puis 60 jours.
-  function mark(id, res) {
-    const prog = store.get('pz', {}), p = prog[id], day = dkey();
+  // key : 'pz' pour les puzzles, 'ln' pour les lignes d'ouverture (même règle, mémoires séparées).
+  function mark(id, res, key = 'pz') {
+    const prog = store.get(key, {}), p = prog[id], day = dkey();
     if (p?.d === day) return false;
     const box = res === 2 ? Math.min(STEPS.length - 1, (p?.box ?? -1) + 1) : -1;
     // b : case prévue par la règle, point de départ si l'élève juge ensuite le puzzle facile ou difficile.
     prog[id] = { box, b: box, due: dayStart() + (box < 0 ? 1 : STEPS[box]) * DAY, ok: (p?.ok || 0) + (res === 2 ? 1 : 0), d: day };
-    store.set('pz', prog);
+    store.set(key, prog);
     return true;
   }
   // File des puzzles à faire, parmi `puzzles` ({ id, g: { t }, e: { theme, drop } }) : déjà vus d'abord, puis les plus récents.
@@ -96,6 +98,20 @@ export function makeProgress(store = ls, now = () => Date.now()) {
     if (!replay) { const all = store.get('listat', {}), s = all[angle] || { n: 0, ok: 0 }; s.n++; if (res === 2) s.ok++; all[angle] = s; store.set('listat', all); bump('li'); }
     log({ k: 'l', id: P.id, r: res, a: angle, rt: P.rating, re: replay ? 1 : 0, p: { fen: P.fen, prevFen: P.prevFen, last: P.last, lastSan: P.lastSan, sol: P.sol, white: P.white, themes: P.themes } });
   }
+  // Ligne d'ouverture récitée : 2 sans faute, 1 avec des fautes ou un indice, 0 suite montrée. Même répétition espacée
+  // que les puzzles, dans sa propre mémoire. Une ligne jamais récitée n'est pas « à réviser » : elle est nouvelle.
+  function recordLine(id, res) {
+    const fresh = mark(id, res, 'ln');
+    if (fresh) bump('op');
+    log({ k: 'o', id, r: res, re: fresh ? 0 : 1 });
+    return fresh;
+  }
+  // État d'une ligne : null si jamais récitée, sinon { due, box, ok, acquise, aReviser }.
+  function lineState(id) {
+    const p = store.get('ln', {})[id];
+    return p ? { due: p.due, box: p.box, ok: p.ok, acquise: p.box >= 2, aReviser: p.due <= now() } : null;
+  }
+  const linesDue = (ids) => { const ln = store.get('ln', {}), t = now(); return ids.filter((id) => ln[id] && ln[id].due <= t); };
   // Partie gagnante rejouée contre le moteur : r = 2 gagnée, 0 pas gagnée (nulle, défaite, abandon). n : demi-coups joués.
   function recordConversion(id, r, n) { bump('cv'); log({ k: 'c', id: String(id), r, n }); }
   const conversions = () => hist().filter((h) => h.k === 'c');
@@ -127,7 +143,7 @@ export function makeProgress(store = ls, now = () => Date.now()) {
     return { done, due, goal: Math.max(1, Math.min(GOAL, done + due)), t };
   }
 
-  return { dkey, dayStart, act, bump, streak, hist, queue, acquired, recordPuzzle, rateInfo, ratePuzzle, recordLichess, lichessStat, recordDrill, recordConversion, conversions, drills, lessonsRead, setLessonRead, todayPuzzles, failedToday, day };
+  return { dkey, dayStart, act, bump, streak, hist, queue, acquired, recordPuzzle, rateInfo, ratePuzzle, recordLichess, lichessStat, recordDrill, recordConversion, conversions, recordLine, lineState, linesDue, drills, lessonsRead, setLessonRead, todayPuzzles, failedToday, day };
 }
 
 export const progress = makeProgress();

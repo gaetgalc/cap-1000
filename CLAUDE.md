@@ -34,6 +34,7 @@ Site statique sans build, servi par GitHub Pages depuis `main` (racine). Tout to
 | `js/classify.js` | Classement des erreurs à partir des évaluations brutes : seuils, thèmes, suites. Calcul pur, sans moteur. `VERSION` des règles |
 | `js/stats.js` | Agrégats, ouvertures, forces et faiblesses, erreurs selon la pendule (`clockErrors`), erreurs qui reviennent dans la même position (`repeatedErrors`) |
 | `js/alltime.js` | Page Stats (depuis la première partie) |
+| `js/openings.js` | Catalogue des 10 ouvertures à apprendre : histoire et utilisation dans le temps, idées des deux camps, pièges, lignes principales (coups, camp joué, commentaires par demi-coup). `matchGame` reconnaît une partie par ses premiers coups |
 | `js/lessons.js` | Fiches de cours statiques (principe, routine), règles courtes par thème |
 | `js/explain.js` | Explications sans IA : description de chaque coup, idée du meilleur coup, raison de l'échec du coup joué, bilan matériel, coupe d'une suite sur une position calme (`settle`). Source unique de `fr()` (notation française) et de `VAL` (valeur des pièces) |
 | `js/drills.js` | Échauffements : 4 exercices de vérification générés depuis les positions des parties, réponse établie par les règles |
@@ -42,10 +43,10 @@ Site statique sans build, servi par GitHub Pages depuis `main` (racine). Tout to
 | `js/backup.js` | Sauvegarde et restauration en un fichier JSON (parties, analyses, cours, toutes les clés `cap1000:` sauf `key`). `pack` / `unpack` purs |
 | `js/store.js` | IndexedDB (`data:<user>`, `an:<user>`, `ai:<user>`) et localStorage (préfixe `cap1000:` ; clés principales : `pz` répétition espacée, `hist` journal d'entraînement, `ui` état de l'écran à reprendre, `act` activité par jour, `focus` chantier, `bak` date de la dernière sauvegarde) |
 | `tests/parcours.js` | Test de bout en bout (Playwright, parties simulées, `api.chess.com` intercepté) |
-| `tests/*.test.mjs` | Tests unitaires sans navigateur : règles de `progress.js`, positions de référence de `explain.js`, classement de `classify.js` sur des évaluations enregistrées, pendule et erreurs répétées de `stats.js`, format de `backup.js` |
+| `tests/*.test.mjs` | Tests unitaires sans navigateur : légalité de chaque ligne de `openings.js`, règles de `progress.js`, positions de référence de `explain.js`, classement de `classify.js` sur des évaluations enregistrées, pendule et erreurs répétées de `stats.js`, format de `backup.js` |
 | `vendor/` | chess.js 0.10.3, chessground 9, Stockfish 19 lite single-thread (WASM), polices Sora et IBM Plex Sans |
 
-Routes : `#accueil`, `#puzzles`, `#historique` (journal des exercices faits), `#erreur/<end_time>/<ply>` (travail d'une erreur précise), `#plus` (menu mobile), `#exos`, `#inedits` (puzzles Lichess), `#drill/<sur|menace|cadeau|compte>`, `#cours`, `#cours/<id>[/fiche]`, `#gagner` (parties gagnantes gâchées), `#gagner/<end_time>` (la rejouer contre le moteur), `#ouvertures`, `#parties`, `#partie/<end_time>[/<ply>]`, `#plan`, `#stats`.
+Routes : `#accueil`, `#puzzles`, `#historique` (journal des exercices faits), `#erreur/<end_time>/<ply>` (travail d'une erreur précise), `#plus` (menu mobile), `#exos`, `#inedits` (puzzles Lichess), `#drill/<sur|menace|cadeau|compte>`, `#cours`, `#cours/<id>[/fiche]`, `#gagner` (parties gagnantes gâchées), `#gagner/<end_time>` (la rejouer contre le moteur), `#ouvertures`, `#ouvertures/apprendre` (catalogue), `#ouvertures/<id>` (fiche), `#ligne/<id>/<k>[/voir]` (réciter une ligne de mémoire, ou la découvrir commentée), `#parties`, `#partie/<end_time>[/<ply>]`, `#plan`, `#stats`.
 
 ## Écran d'exercice (`js/exercise.js`)
 
@@ -66,6 +67,7 @@ Mise en page (CSS `body.fit`) : `.bwrap` (échiquier + bandeau) et `.fitside` (`
 - `pzRecord` (dans `app.js`) appelle `progress.recordPuzzle` dès la solution puis rafraîchit l'avancée affichée, quel que soit l'écran d'où le puzzle est fait (file, `#erreur`, cours privé). Un seul résultat par puzzle et par jour compte ; les suivants sont notés « révision ».
 - Résultat : 2 du premier coup, 1 trouvé avec aide (mauvais essai ou indice), 0 solution vue. Raté : revient le lendemain. Réussi : 1, 3, 7, 21, 60 jours. Jamais de retour le jour même, sauf « Refaire mes ratés du jour » (`S.pz.redo`).
 - Après une réussite du premier coup, l'élève peut juger le puzzle facile (un palier de plus) ou difficile (un palier de moins, jamais moins d'un jour) : `progress.rateInfo` / `ratePuzzle`, modifiable dans la journée, noté `q` dans le journal.
+- Ligne d'ouverture récitée : `progress.recordLine` (mémoire `ln`, même calendrier que les puzzles, ligne `k: 'o'` du journal ; 2 sans faute, 1 avec faute ou indice, 0 suite vue). Une ligne jamais récitée est « nouvelle », pas « à réviser » (`linesDue`).
 - Partie gagnante rejouée (`#gagner`) : `progress.recordConversion`, ligne `k: 'c'` du journal (2 gagnée, 0 sinon). Moteur adverse séparé (`S.bot`, `Skill Level` 6, profondeur 10) ; partie en cours reprise après rechargement (`S.cv` dans `ui`).
 - Objectif du jour (`pzDay`) : 8 puzzles ; bilan `pzRecap` affiché une fois quand il est atteint, avec `nextStep` (prochaine étape de la séance).
 - `keepUi` / `restoreUi` : puzzle en cours, étape du cours, échauffement entamé, position inédite sont repris après rechargement.
@@ -141,4 +143,5 @@ Le test génère des parties par coups semi-aléatoires au format Chess.com, int
 - Puzzles Lichess codés d'après la documentation de l'API et testés avec une API simulée seulement : format réel de la réponse (coupe du PGN, `initialPly`) à confirmer au premier essai ; `fetchPuzzle` essaie plusieurs coupes et garde celle où la solution est légale.
 - Noms d'ouvertures en anglais (source Chess.com).
 - Licence : GPL-3.0-or-later (imposée par chessground et Stockfish).
+- Contenu historique des fiches d'ouvertures rédigé par Claude sans source consultée en ligne : à relire, et à corriger sur signalement.
 - Ajouts du 15/11 inspirés d'autres dépôts (voir `docs/JOURNAL.md` §19), testés sur parties simulées seulement : force réelle du moteur adverse de `#gagner` (`Skill Level` 6) à ajuster sur retour ; seuils de la pendule (moins de 1 min, moins de 5 s) pensés pour le 10 minutes ; téléchargement du fichier de sauvegarde sur iPhone non vérifié.

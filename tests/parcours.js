@@ -127,6 +127,32 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
     check((await ls('hist')).some((h) => h.k === 'c') && /Recommencer/.test(await bar('#xbar')), 'fin de partie notée au journal, avec Recommencer');
   } else check(true, 'aucune partie gagnante gâchée dans les parties simulées (écran non testé)');
 
+  // ---- Apprendre les ouvertures ----
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#ouvertures/apprendre`); await sleep(500);
+  check(await S(() => document.querySelectorAll('#view a.card.lesson').length) === 10, 'Apprendre : les 10 ouvertures sont listées');
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#ouvertures/italienne`); await sleep(600);
+  check(/Histoire et utilisation dans le temps/.test(await bar('#view')) && await S(() => !!document.querySelector('#opb cg-board')), 'fiche : histoire, lignes et position de l’ouverture');
+  const playLine = async (moves, w, wrongAt) => {
+    const c2 = new Chess();
+    for (const [i, sanM] of moves.entries()) {
+      const before = c2.fen(), m = c2.move(sanM);
+      if ((i % 2 === 0) !== w) { await page.waitForFunction((n) => window.__cap && document.querySelector('#lnmoves')?.textContent.split(' ').length >= n, i + 1, { timeout: 5000 }).catch(() => {}); await sleep(150); continue; }
+      if (i === wrongAt) { const alt = new Chess(before).moves({ verbose: true }).find((x) => x.san !== sanM); await tap('#xb', alt.from, w); await sleep(150); await tap('#xb', alt.to, w); await sleep(1200); }
+      await tap('#xb', m.from, w); await sleep(150); await tap('#xb', m.to, w); await sleep(300);
+    }
+    await sleep(600);
+  };
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#ligne/italienne/1`); await sleep(600);
+  await playLine('e4 e5 Nf3 Nc6 Bc4 Nf6 d3 Be7 O-O O-O Re1 d6 c3'.split(' '), true);
+  let o1 = (await ls('hist')).filter((h) => h.k === 'o').at(-1);
+  check(o1 && o1.id === 'italienne:1' && o1.r === 2 && /Ligne récitée sans faute/.test(await bar('#xcap')), 'ligne récitée de mémoire avec les Blancs : notée sans faute');
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#ligne/francaise/1`); await sleep(600);
+  await playLine('e4 e6 d4 d5 exd5 exd5 Bd3 Nc6 c3 Bd6 Nf3 Nge7 O-O Bg4'.split(' '), false, 3);
+  o1 = (await ls('hist')).filter((h) => h.k === 'o').at(-1);
+  check(o1 && o1.id === 'francaise:1' && o1.r === 1, 'ligne avec les Noirs : les coups blancs viennent seuls, une faute donne « avec aide »');
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#ligne/italienne/0/voir`); await sleep(1200);
+  check(/Pause/.test(await bar('#xbar')) && await S(() => document.querySelectorAll('#lnp ol.line li').length) === 17, 'Découvrir : la ligne se joue toute seule, commentée');
+
   // ---- Sauvegarde et restauration ----
   await S(() => localStorage.setItem('cap1000:key', JSON.stringify('sk-ant-test')));
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#plan`); await sleep(500);

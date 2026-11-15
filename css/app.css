@@ -380,3 +380,5 @@ body.fit .cap { max-width: none; overflow-y: auto; }
 /* Avis sur un puzzle réussi : facile, normal, difficile */
 .rate { display: flex; flex-direction: column; gap: 4px; }
 .rate .seg2 button { font-variant-numeric: tabular-nums; }
+/* Fiche d'ouverture : la position de départ reste un repère, pas l'écran entier */
+#opb { max-width: 280px; width: 100%; }

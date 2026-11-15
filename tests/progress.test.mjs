@@ -161,3 +161,20 @@ test('partie gagnante rejouée : notée au journal et dans l’activité, sans c
   assert.equal(P.act()[P.dkey()].cv, 2);
   assert.equal(P.todayPuzzles().length, 0);
 });
+
+test('lignes d’ouverture : même calendrier que les puzzles, mémoire séparée, nouvelle tant que jamais récitée', () => {
+  const { P, clock, store } = setup();
+  assert.equal(P.lineState('italienne:0'), null);
+  assert.deepEqual(P.linesDue(['italienne:0']), [], 'une ligne jamais apprise n’est pas à réviser');
+  assert.ok(P.recordLine('italienne:0', 2));
+  assert.ok(!P.recordLine('italienne:0', 0), 'un seul résultat par jour');
+  assert.equal(store.get('pz', null), null, 'les puzzles ne sont pas touchés');
+  assert.equal(P.acquired(), 0);
+  const d0 = P.dayStart();
+  clock.t = d0 + DAY + 3600000;
+  assert.deepEqual(P.linesDue(['italienne:0', 'x']), ['italienne:0']);
+  P.recordLine('italienne:0', 2); clock.t = P.dayStart() + 3 * DAY + 3600000; P.recordLine('italienne:0', 2);
+  assert.ok(P.lineState('italienne:0').acquise, 'acquise après trois réussites espacées');
+  assert.equal(P.act()[P.dkey()].op, 1);
+  assert.deepEqual(P.hist().map((h) => [h.k, h.r, h.re]).slice(0, 2), [['o', 2, 0], ['o', 0, 1]]);
+});

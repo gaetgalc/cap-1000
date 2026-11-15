@@ -208,6 +208,18 @@ Une trentaine de dépôts passés en revue (chess-academy, personalized-chess-tr
 
 Tests : 31 tests unitaires (8 nouveaux), test de bout en bout à 27 vérifications (11 nouvelles : avis, partie rejouée et reprise, pendule, sauvegarde et restauration, complément des anciennes analyses). Captures en 390 × 664 et 1366 × 768 : pas de défilement sur les écrans d'échiquier.
 
+## 20. Apprendre les ouvertures (15/11)
+
+> dans l'onglet ouverture je veux pouvoir apprendre, travailler les ouvertures pour ma culture G (utilisation dans le temps, etc..) et par les principales lignes à savoir
+
+Fait : onglet « Apprendre » dans Ouvertures (l'ancien contenu devient « Mes ouvertures »).
+- 10 ouvertures (italienne, espagnole, écossaise, Londres ; sicilienne, française, Caro-Kann, scandinave ; gambit Dame, est-indienne), 29 lignes. Ton répertoire conseillé (italienne, gambit Dame) est marqué.
+- Fiche : position de départ, plan des deux camps, lignes à connaître avec leur état, « Histoire et utilisation dans le temps », pièges à connaître, et « Dans tes parties » (nombre, score par couleur, première et dernière fois, courbe par trimestre).
+- « Utilisation dans le temps » compris des deux façons : l'histoire de l'ouverture au fil des siècles, et ton propre usage au fil des trimestres.
+- Ligne : « Découvrir » la joue toute seule, commentée ; « M'entraîner » te la fait réciter de mémoire, les coups adverses viennent seuls, une faute montre le bon coup. Révision espacée comme les puzzles.
+
+Non vérifié : les faits historiques sont écrits de mémoire, sans source consultée ; à relire.
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |

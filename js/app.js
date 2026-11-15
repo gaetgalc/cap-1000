@@ -14,6 +14,7 @@ import { board, destroyBoards, destsOf, arrow, errShapes } from './board.js';
 import * as exo from './exercise.js';
 import { LI_ANGLES, LI_FOR, LI_DIFF, fetchPuzzle } from './lichess.js';
 import { DRILLS, DRILL_FOR, makeRound } from './drills.js';
+import { OPENINGS, GROUPS, byId, lineKey, movesOf, matchGame } from './openings.js';
 import { MODELS, coachKey, coachModel, facts, genLesson, askCoach, buildPrompt, parseLesson } from './coach.js';
 import * as backup from './backup.js';
 
@@ -379,6 +380,7 @@ function viewHistory() {
   const hm = (t) => new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   const row = (x) => {
     if (x.k === 'd') { const D = DRILLS[x.ty]; return `<div class="hrow"><i class="hres ${x.ok >= x.n * 0.8 ? 'r2' : x.ok >= x.n * 0.5 ? 'r1' : 'r0'}"></i><span class="stepc"><b>Échauffement${D ? ' : ' + D.t : ''}</b><span>${x.ok} / ${x.n} justes · ${hm(x.t)}</span></span>${D ? `<a class="btn sm" href="#drill/${x.ty}">Refaire</a>` : ''}</div>`; }
+    if (x.k === 'o') { const [oid, ok] = String(x.id).split(':'), o = byId(oid), l = o?.lines[+ok]; const [cls, lab] = RES[x.r] || RES[0]; return `<div class="hrow"><i class="hres ${cls}"></i><span class="stepc"><b>Ligne d’ouverture${o ? ` : ${o.nom}` : ''}</b><span>${l ? esc(l.n) + ' · ' : ''}${x.r === 2 ? 'Sans faute' : x.r === 1 ? 'Avec aide' : 'Suite vue'}${x.re ? ' (révision)' : ''} · ${hm(x.t)}</span></span>${l ? `<a class="btn sm" href="${lineHref(x.id)}">Refaire</a>` : ''}</div>`; }
     if (x.k === 'c') { const g = S.data.games.find((y) => String(y.t) === x.id); return `<div class="hrow"><i class="hres ${x.r === 2 ? 'r2' : 'r0'}"></i><span class="stepc"><b>Partie gagnante rejouée${g ? ` · ${dfmt(g.t)} contre ${esc(g.opp)}` : ''}</b><span>${x.r === 2 ? 'Gagnée' : 'Pas gagnée'} en ${Math.ceil(x.n / 2)} coups · ${hm(x.t)}</span></span>${g ? `<a class="btn sm" href="#gagner/${g.t}">Refaire</a>` : ''}</div>`; }
     const [cls, lab] = RES[x.r] || RES[0], sub = `${lab}${x.q ? (x.q === 'e' ? ', jugé facile' : ', jugé difficile') : ''}${x.re ? ' (révision)' : ''} · ${hm(x.t)}`;
     if (x.k === 'l') return `<div class="hrow"><i class="hres ${cls}"></i><span class="stepc"><b>Position inédite${LI_NAME[x.a] ? ' : ' + LI_NAME[x.a] : ''}</b><span>${sub}${x.rt ? ' · niveau ' + x.rt : ''}</span></span>${x.p ? `<button class="btn sm" data-act="lireplay" data-t="${x.t}">Refaire</button>` : `<a class="btn sm" href="https://lichess.org/training/${esc(x.id)}" target="_blank" rel="noopener">Lichess</a>`}</div>`;
@@ -390,7 +392,7 @@ function viewHistory() {
   const yest = dkey(new Date(d0 - DAY / 2));
   const label = (k) => (k === today ? 'Aujourd’hui' : k === yest ? 'Hier' : new Date(k + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }));
   const isPz = (x) => x.k === 'm' || x.k === 'l';
-  const sum = (l) => { const z = l.filter((x) => isPz(x) && !x.re), dr = l.filter((x) => x.k === 'd').length, cv = l.filter((x) => x.k === 'c').length, rv = l.filter((x) => isPz(x) && x.re).length; return [z.length ? `${pl(z.length, 'puzzle')}, ${z.filter((x) => x.r === 2).length} du premier coup` : '', rv ? pl(rv, 'révision') : '', dr ? pl(dr, 'échauffement') : '', cv ? pl(cv, 'partie rejouée').replace('parties rejouée', 'parties rejouées') : ''].filter(Boolean).join(' · '); };
+  const sum = (l) => { const z = l.filter((x) => isPz(x) && !x.re), dr = l.filter((x) => x.k === 'd').length, cv = l.filter((x) => x.k === 'c').length, ol = l.filter((x) => x.k === 'o').length, rv = l.filter((x) => isPz(x) && x.re).length; return [z.length ? `${pl(z.length, 'puzzle')}, ${z.filter((x) => x.r === 2).length} du premier coup` : '', rv ? pl(rv, 'révision') : '', dr ? pl(dr, 'échauffement') : '', cv ? pl(cv, 'partie rejouée').replace('parties rejouée', 'parties rejouées') : '', ol ? `${ol} ligne${ol > 1 ? 's' : ''} d’ouverture` : ''].filter(Boolean).join(' · '); };
   return head + tiles + `<div class="legend"><span style="--c:var(--good)">Du premier coup</span><span style="--c:var(--warn)">Trouvé avec aide</span><span style="--c:var(--bad)">Solution vue</span></div>`
     + [...days].map(([k, l]) => `<div class="card hday"><h2><span class="hcap">${label(k)}</span><span class="small">${sum(l)}</span></h2>${l.map(row).join('')}</div>`).join('')
     + (h.length > S.histN ? '<div><button class="btn" data-act="histmore">Afficher les exercices plus anciens</button></div>' : '');
@@ -537,6 +539,167 @@ function mountPuzzle() {
   });
 }
 
+// ---------- Apprendre les ouvertures ----------
+// Fiches (histoire, idées, pièges, lignes) et lignes récitées de mémoire, en révision espacée comme les puzzles.
+const OP_TABS = (on) => `<div class="seg2 pztabs"><a class="${on === 'mine' ? 'on' : ''}" href="#ouvertures">Mes ouvertures</a><a class="${on === 'learn' ? 'on' : ''}" href="#ouvertures/apprendre">Apprendre</a></div>`;
+const allLineKeys = () => OPENINGS.flatMap((o) => o.lines.map((_, k) => lineKey(o, k)));
+const lineHref = (key, voir) => '#ligne/' + key.replace(':', '/') + (voir ? '/voir' : '');
+const opGames = (o) => (S.data ? S.data.games.filter((g) => matchGame(o, g)) : []);
+const dshort = (t) => new Date(t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+function lineChip(key) {
+  const s = progress.lineState(key);
+  if (!s) return '<span class="chip">Nouvelle</span>';
+  if (s.aReviser) return '<span class="chip warn">À réviser</span>';
+  return `<span class="chip ${s.acquise ? 'good' : ''}">${s.acquise ? 'Acquise' : 'Apprise'} · révision le ${dshort(s.due)}</span>`;
+}
+// Ligne suivante : une ligne à réviser d'abord, sinon la ligne d'après dans la même ouverture, sinon la fiche.
+function nextLine(key) {
+  const due = progress.linesDue(allLineKeys()).filter((k) => k !== key);
+  if (due.length) return [lineHref(due[0]), 'Ligne à réviser suivante'];
+  const [id, k] = key.split(':'), o = byId(id);
+  return o.lines[+k + 1] ? [lineHref(lineKey(o, +k + 1)), 'Ligne suivante'] : [`#ouvertures/${id}`, 'Retour à la fiche'];
+}
+function viewApprendre() {
+  const due = progress.linesDue(allLineKeys());
+  const card = (o) => {
+    const keys = o.lines.map((_, k) => lineKey(o, k)), learned = keys.filter((k) => progress.lineState(k)).length, n = opGames(o).length;
+    return `<a class="card lesson" href="#ouvertures/${o.id}"><div class="row">${o.rep ? '<span class="chip good">Ton répertoire</span>' : ''}<span class="chip">${o.eco}</span>${n ? `<span class="chip">${pl(n, 'partie')} chez toi</span>` : ''}</div>
+      <h2>${o.nom}</h2><p class="sub">${esc(o.tag)}</p><span class="small">${learned} / ${keys.length} lignes apprises</span></a>`;
+  };
+  return OP_TABS('learn') + `<h1>Apprendre les ouvertures</h1>
+    ${coach('Chaque fiche raconte l’histoire de l’ouverture, ses idées, ses pièges, puis les lignes principales à savoir. Découvre une ligne coup par coup, puis rejoue-la de mémoire : elle revient en révision le lendemain, puis à 3, 7 et 21 jours, comme tes puzzles.')}
+    ${due.length ? `<div class="card recap"><h2>À réviser aujourd’hui</h2><p class="sub">${pl(due.length, 'ligne')} à rejouer de mémoire.</p><div><a class="btn pri lg" href="${lineHref(due[0])}">Réviser mes lignes</a></div></div>` : ''}
+    ${GROUPS.map(([g, t]) => `<h2>${t}</h2><div class="grid">${OPENINGS.filter((o) => o.group === g).map(card).join('')}</div>`).join('')}`;
+}
+function viewOpening(id) {
+  const o = byId(id);
+  if (!o) return viewApprendre();
+  const gs = opGames(o).sort((a, b) => a.t - b.t), wG = gs.filter((g) => g.w), bG = gs.filter((g) => !g.w);
+  const startSan = o.start ? o.start.split(' ') : ['d4', 'd5', 'Bf4'];
+  const ch = new Chess(); for (const m of startSan) ch.move(m);
+  S.op = { o, fen: ch.fen(), gs };
+  const res = (l) => (l.length ? `${pl(l.length, 'partie')}, ${st.score(st.tally(l))} % de score` : 'aucune partie');
+  return `<p class="small"><a href="#ouvertures/apprendre">Toutes les ouvertures</a></p><h1>${o.nom}</h1>
+  <div class="row">${o.rep ? '<span class="chip good">Ton répertoire</span>' : ''}<span class="chip">${o.eco}</span><span class="chip">${GROUPS.find((x) => x[0] === o.group)[1]}</span></div>
+  <div class="split"><div class="board mini" id="opb"></div>
+    <div class="card"><h2>En bref</h2><p class="rulet">${esc(st.lineText(startSan))}${o.start ? '' : ' (ou 1…Cf6)'}</p><p class="prose">${esc(o.tag)}</p>
+      <h3>Le plan des Blancs</h3><p class="prose">${esc(o.idees.w)}</p><h3>Le plan des Noirs</h3><p class="prose">${esc(o.idees.b)}</p></div></div>
+  <div class="card"><h2>Les lignes à connaître</h2><p class="small">Point blanc : tu joues les Blancs. Point noir : tu joues les Noirs.</p>
+    ${o.lines.map((l, k) => { const key = lineKey(o, k); return `<div class="hrow"><i class="dot ${l.side}"></i><span class="stepc"><b>${esc(l.n)}</b><span>${esc(st.lineText(movesOf(l)))}</span><span>${lineChip(key)}</span></span><span class="stack"><a class="btn sm" href="${lineHref(key, true)}">Découvrir</a><a class="btn sm pri" href="${lineHref(key)}">M’entraîner</a></span></div>`; }).join('')}</div>
+  <div class="card"><h2>Histoire et utilisation dans le temps</h2><div class="prose stack">${o.histoire.map((x) => `<p>${esc(x)}</p>`).join('')}</div></div>
+  <div class="card"><h2>Pièges à connaître</h2><ul class="prose stack">${o.pieges.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>
+  <div class="card"><h2>Dans tes parties</h2>${gs.length ? `<dl class="kv"><dt>Avec les Blancs</dt><dd>${res(wG)}</dd><dt>Avec les Noirs</dt><dd>${res(bG)}</dd><dt>Première fois</dt><dd>${dfmt(gs[0].t)}</dd><dt>Dernière fois</dt><dd>${dfmt(gs[gs.length - 1].t)}</dd></dl>
+    <div class="chart" id="opc"></div>
+    <div class="stack">${gs.slice(-3).reverse().map((g) => `<a class="row" href="#partie/${g.t}" style="justify-content:space-between"><span>${dfmt(g.t)} contre ${esc(g.opp)} (${g.or}), ${g.w ? 'Blancs' : 'Noirs'}</span><span class="chip ${g.out === 'W' ? 'good' : g.out === 'L' ? 'bad' : ''}">${g.out === 'W' ? 'Victoire' : g.out === 'L' ? 'Défaite' : 'Nulle'}</span></a>`).join('')}</div>`
+    : `<p class="sub">Tu ne l’as jamais jouée ni rencontrée dans tes parties importées.</p>`}</div>`;
+}
+function mountOpening() {
+  const P = S.op; if (!P) return;
+  board($('#opb'), { fen: P.fen, orientation: P.o.group === 'w' ? 'white' : 'black', viewOnly: true, coordinates: false });
+  const el = $('#opc'); if (!el || !S.data.games.length) return;
+  // Parties dans cette ouverture, par trimestre, depuis ta première partie importée.
+  const q = (t) => { const d = new Date(t * 1000); return d.getFullYear() * 4 + Math.floor(d.getMonth() / 3); };
+  const all = S.data.games, q0 = q(all[0].t), q1 = q(all[all.length - 1].t), cnt = new Map();
+  for (const g of P.gs) cnt.set(q(g.t), (cnt.get(q(g.t)) || 0) + 1);
+  const name = (k) => `T${(k % 4) + 1} ${Math.floor(k / 4)}`, pts = [];
+  for (let k = q0; k <= q1; k++) pts.push({ x: k, y: cnt.get(k) || 0, tip: `${name(k)} : ${pl(cnt.get(k) || 0, 'partie')}` });
+  lineChart(el, pts, { h: 130, min: 0, label: 'Tes parties dans cette ouverture, par trimestre', x0: name(q0), x1: name(q1), yfmt: (v) => String(Math.round(v)) });
+}
+// Écran d'une ligne : « voir » la joue commentée, sinon l'élève la récite de mémoire (les coups adverses viennent seuls).
+function viewLigne(id, k, mode) {
+  const o = byId(id), l = o?.lines[+k];
+  if (!l) return viewApprendre();
+  const key = lineKey(o, +k), voir = mode === 'voir', mv = movesOf(l), side = l.side === 'w' ? 'Blancs' : 'Noirs';
+  const mine = mv.filter((_, i) => (i % 2 === 0) === (l.side === 'w')).length;
+  S.lnCur = { o, l, k: +k, key, voir };
+  const chips = `<span class="chip">${voir ? 'Découverte' : 'De mémoire'}</span><span class="chip">Ligne ${+k + 1} / ${o.lines.length}</span>`;
+  return exo.screen({
+    live: true, top: () => chips,
+    head: `<div class="pzhead main"><h1>${esc(o.nom)}</h1><div class="row">${chips}</div></div>`
+      + coach(voir ? `<b>${esc(l.n)}.</b> ${esc(l.idee)}` : `<b>${esc(l.n)}.</b> Joue les ${mine} coups des ${side} de mémoire. Les réponses adverses viennent toutes seules.`, 'intro'),
+    cap: voir ? `<p><b>${esc(l.n)}.</b> Regarde la ligne se dérouler, coup par coup.</p>` : `<p><i class="dot ${l.side}"></i> Tu as les ${side}. <span class="m-txt">${esc(l.n)} : </span>joue ${mine} coups de mémoire.</p>`,
+    panel: (voir ? '<div id="lnp"></div>' : `<div class="card ghost"><h3>L’idée</h3><p class="sub">${esc(l.idee)}</p></div><div class="card ghost"><h3>Coups joués</h3><p class="small" id="lnmoves">Aucun pour l’instant.</p></div>`)
+      + `<div class="meta small"><a href="#ouvertures/${o.id}">Fiche de l’ouverture</a>${voir ? '' : ` · <a href="${lineHref(key, true)}">Revoir la ligne</a>`}</div>`,
+    bar: voir ? '' : '<button class="btn" data-x="hint">Indice</button><button class="btn" data-x="show">Voir la suite</button><button class="btn" data-act="back">Retour</button>',
+  });
+}
+function mountLigne() {
+  const X = exo.current(), c = S.lnCur;
+  if (!X || !c) return;
+  const { o, l, key } = c, mv = movesOf(l), me = l.side, color = me === 'w' ? 'white' : 'black', START = new Chess().fen();
+  if (c.voir) {
+    const steps = buildLine(START, mv, me, true).map((q, i) => (l.notes?.[i] ? { ...q, text: l.notes[i] + ' ' + q.text } : q));
+    const cg = X.board({ fen: START, orientation: color, viewOnly: true });
+    X.player({
+      view: (fen, last, shapes) => cg.set({ fen, lastMove: last, drawable: { autoShapes: (shapes || []).filter(Boolean) } }), arrows: (a) => cg.setAutoShapes(a),
+      films: { line: { steps, start: { fen: START, shape: null }, startText: 'Position de départ.', tone: 'ok', brush: (i) => (steps[i].tags.mine ? 'green' : 'blue') } },
+      exit: `<a class="btn" href="${lineHref(key)}">M’entraîner</a>`, from: 0,
+      panel: $('#lnp'), panelHtml: () => `<ol class="line">${steps.map((q, i) => `<li data-x="jump" data-v="${i + 1}"><b>${q.white ? q.no + '.' : (i === 0 ? q.no + '…' : '')} ${fr(q.san)}</b><span>${esc(q.text)}</span></li>`).join('')}</ol>`,
+    });
+    return;
+  }
+  const ch = new Chess(), stt = { i: 0, errs: 0, hints: 0, shown: false, done: false, tk: 0 };
+  const mov = () => ({ free: false, color, dests: destsOf(ch), showDests: true, events: { after: onMove } });
+  const cg = X.board({ fen: START, orientation: color, turnColor: 'white', movable: me === 'w' ? mov() : { color: undefined } });
+  const paint = () => { const el = $('#lnmoves'); if (el) el.textContent = ch.history().length ? st.lineText(ch.history()) : 'Aucun pour l’instant.'; };
+  const want = () => new Chess(ch.fen()).move(mv[stt.i]);
+  function finish() {
+    if (stt.done) return;
+    stt.done = true; stt.tk++;
+    const res = stt.shown ? 0 : stt.errs || stt.hints ? 1 : 2;
+    progress.recordLine(key, res); header();
+    cg.set({ movable: { color: undefined } });
+    const s = progress.lineState(key), [href, label] = nextLine(key);
+    X.say(res ? 'ok' : '', `<p>${res === 2 ? '<b class="ok">Ligne récitée sans faute.</b>' : res === 1 ? `<b class="ok">Ligne terminée</b> avec ${pl(stt.errs + stt.hints, 'aide')}.` : 'Voici la ligne complète.'} ${s ? `Prochaine révision le ${dshort(s.due)}.` : ''}</p><p class="small">${esc(l.idee)}</p>`);
+    X.solved();
+    X.setBar(`<button class="btn" data-x="again">Recommencer</button><a class="btn" href="${lineHref(key, true)}">Revoir</a><a class="btn pri" href="${href}">${label}</a>`);
+  }
+  // Coups adverses joués seuls, jusqu'à ton tour ou la fin de la ligne.
+  function opp() {
+    if (stt.i >= mv.length) return finish();
+    if (ch.turn() === me) { cg.set({ turnColor: color, movable: mov() }); return; }
+    const t = stt.tk;
+    setTimeout(() => {
+      if (!X.alive() || t !== stt.tk || stt.done) return;
+      const m = ch.move(mv[stt.i]); stt.i++; paint();
+      cg.set({ fen: ch.fen(), lastMove: [m.from, m.to], turnColor: color, movable: mov() });
+      if (stt.i >= mv.length) return finish();
+      const note = l.notes?.[stt.i - 1];
+      X.say(stt.ok ? 'ok' : '', `${stt.ok || ''}<p>Réponse : <b>${fr(m.san)}</b>${note ? ' : ' + esc(note) : '.'} À toi.</p>`);
+      stt.ok = '';
+    }, 550);
+  }
+  function onMove(from, to) {
+    const w = want(), m = ch.move({ from, to, promotion: 'q' });
+    if (!m) { cg.set({ fen: ch.fen(), movable: mov() }); return; }
+    if (m.san === w.san) {
+      stt.i++; paint();
+      const note = l.notes?.[stt.i - 1];
+      stt.ok = `<p><b class="ok">${fr(m.san)}</b>${note ? ' : ' + esc(note) : '.'}</p>`;
+      X.say('ok', stt.ok);
+      cg.set({ fen: ch.fen(), movable: { color: undefined }, drawable: { autoShapes: [] } });
+      return opp();
+    }
+    stt.errs++; ch.undo();
+    const t = ++stt.tk;
+    cg.set({ movable: { color: undefined } }); cg.setAutoShapes([{ orig: to, brush: 'red' }]);
+    X.say('ko', `<p><b class="ko">Pas le coup de la ligne.</b> Après ${fr(m.san)}, la ligne continue par <b>${fr(w.san)}</b> : joue-le.</p>`);
+    setTimeout(() => { if (!X.alive() || t !== stt.tk || stt.done) return; cg.set({ fen: ch.fen(), turnColor: color, movable: mov(), drawable: { autoShapes: [arrow(w.from + w.to, 'green')] } }); }, 900);
+  }
+  X.on({
+    hint() {
+      if (stt.done || ch.turn() !== me) return;
+      const w = want(); stt.hints++;
+      cg.setAutoShapes(stt.hints % 2 ? [{ orig: w.from, brush: 'green' }] : [arrow(w.from + w.to, 'green')]);
+      X.say('', `<p><b>Indice.</b> ${stt.hints % 2 ? 'La pièce entourée joue. Touche encore « Indice » pour voir le coup.' : `La ligne continue par ${fr(w.san)}.`}</p>`);
+    },
+    show() { if (stt.done) return; stt.shown = true; while (stt.i < mv.length) { ch.move(mv[stt.i]); stt.i++; } paint(); cg.set({ fen: ch.fen(), lastMove: undefined, drawable: { autoShapes: [] } }); finish(); },
+    again() { render(); },
+  });
+  X.say('', `<p><i class="dot ${me}"></i> ${me === 'w' ? 'À toi de commencer.' : 'Les Blancs commencent.'}</p>`);
+  if (me === 'b') opp();
+}
+
 // ---------- Gagner les parties gagnées ----------
 // Parties où tu as eu au moins +5 sans gagner : tu reprends la position et tu la joues jusqu'au mat contre un moteur bridé.
 const CV_MIN = 500, BOT = { 'Skill Level': 6 }, BOT_DEPTH = 10;
@@ -660,10 +823,10 @@ function filtersHtml() {
     <select data-f="days" aria-label="Période"><option value="0">Depuis le début</option><option value="90" ${S.f.days === 90 ? 'selected' : ''}>90 derniers jours</option><option value="30" ${S.f.days === 30 ? 'selected' : ''}>30 derniers jours</option></select>
     <button class="btn sm" data-act="refresh" title="Récupérer les nouvelles parties de ${esc(S.user)}">Mettre à jour</button>`;
 }
-const TITLES = { puzzles: 'Puzzles', erreur: 'Comprendre', partie: 'Partie', cours: 'Cours', drill: 'Échauffement', inedits: 'Positions inédites', gagner: 'Gagner' };
+const TITLES = { ouvertures: 'Ouverture', ligne: 'Ouverture', puzzles: 'Puzzles', erreur: 'Comprendre', partie: 'Partie', cours: 'Cours', drill: 'Échauffement', inedits: 'Positions inédites', gagner: 'Gagner' };
 function header() {
   const t = $('#tools'), [r, a] = route();
-  const imm = !!S.data && (!!exo.current() || r === 'erreur' || (r === 'cours' && !!a)); // écran d'exercice ou page de cours : barre du haut avec retour
+  const imm = !!S.data && (!!exo.current() || r === 'erreur' || (r === 'cours' && !!a) || (r === 'ouvertures' && !!a && a !== 'apprendre')); // écran d'exercice ou page de cours : barre du haut avec retour
   document.body.classList.toggle('imm', imm);
   $('#ttl').textContent = imm ? TITLES[r] : '';
   if (!S.data) { t.innerHTML = ''; return; }
@@ -1015,7 +1178,7 @@ function viewOuvertures() {
   const reps = st.repeatedErrors(gs, S.an).slice(0, 6);
   const repCard = reps.length ? `<div class="card"><h2>Tes erreurs qui reviennent</h2><p class="small">Même position, même faute, dans plusieurs parties. Une position travaillée ici, c’est une erreur de moins dans toutes les parties qui y passent.</p>
     ${reps.map((r) => `<div class="hrow"><i class="dot ${r.w ? 'w' : 'b'}"></i><span class="stepc"><b>${esc(st.lineText(r.line, Math.max(0, r.line.length - 6)))}</b><span>${r.games} parties : ${esc(st.repText(r))}</span></span><a class="btn sm pri" href="#erreur/${r.last.g.t}/${r.last.e.ply}">Travailler</a></div>`).join('')}</div>` : '';
-  return `<div class="row" style="justify-content:space-between"><h1>Ouvertures</h1><div class="row" role="group" aria-label="Couleur">
+  return `${OP_TABS('mine')}<div class="row" style="justify-content:space-between"><h1>Ouvertures</h1><div class="row" role="group" aria-label="Couleur">
     <button class="btn ${S.white ? 'pri' : ''}" data-act="color" data-w="1"><i class="dot w"></i>Blancs</button><button class="btn ${S.white ? '' : 'pri'}" data-act="color" data-w="0"><i class="dot b"></i>Noirs</button></div></div>
   ${repCard}
   <div class="card"><h2>Tes ouvertures avec les ${S.white ? 'Blancs' : 'Noirs'} <span class="small">${side.n} parties, ${st.score(side)} % de score</span></h2>
@@ -1029,7 +1192,7 @@ function viewOuvertures() {
       <p class="small">${node.n} partie${node.n > 1 ? 's' : ''} dans cette position, ${st.score(node)} % de score. ${kids.length ? (myTurn ? 'Tes coups ici :' : 'Les réponses de tes adversaires :') : ''}</p>
       ${kids.length ? `<table><tbody>${kids.map(([s, k]) => `<tr class="click" data-act="exmove" data-san="${esc(s)}"><td><b>${fr(s)}</b></td><td class="r">${k.n}</td><td style="width:40%">${wdl(k)}</td><td class="r">${st.score(k)} %</td></tr>`).join('')}</tbody></table>` : '<p class="sub">Fin des coups enregistrés pour cette ligne.</p>'}
     </div></div>
-  <div class="card"><h2>Répertoire conseillé sous 1000</h2><div class="prose stack">
+  <div class="card"><h2>Répertoire conseillé sous 1000</h2><div class="row"><a class="btn pri sm" href="#ouvertures/italienne">Apprendre l’italienne</a><a class="btn sm" href="#ouvertures/gambitdame">Apprendre le gambit Dame</a></div><div class="prose stack">
     ${first ? `<p>Tu ouvres par <b>${fr(first[0])}</b> dans ${st.pct(first[1].n, side.n)} % de tes parties avec les Blancs (${st.score(first[1])} % de score).</p>` : ''}
     <p><b>Un seul système par couleur.</b> À ce niveau, les parties se décident sur les pièces en prise, pas sur la théorie. Jouer toujours la même structure te donne des positions connues et libère du temps pour vérifier tes coups.</p>
     <p><b>Avec les Blancs :</b> 1.e4, puis Cf3, Fc4, petit roque, d3 (partie italienne). Développement naturel, roi en sécurité en cinq coups.</p>
@@ -1182,7 +1345,7 @@ function viewPlus() {
   const svg = (d) => `<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">${d}</svg>`;
   return `<h1>Plus</h1><div class="menu">
     ${row('#exos', 'Échauffements', '4 exercices rapides pour automatiser la vérification', svg('<path d="M13 2L4 14h6l-1 8 9-12h-6z"/>'))}
-    ${row('#ouvertures', 'Ouvertures', 'Tes résultats par ouverture, ton répertoire', svg('<path d="M11 3h2v5h5v4h-2v-2h-3v3h3v8H8v-8h3v-3H8v2H6V8h5z"/>'))}
+    ${row('#ouvertures', 'Ouvertures', 'Tes résultats, ton répertoire, apprendre les grandes ouvertures', svg('<path d="M11 3h2v5h5v4h-2v-2h-3v3h3v8H8v-8h3v-3H8v2H6V8h5z"/>'))}
     ${row('#stats', 'Stats', 'Toutes tes données depuis ta première partie', svg('<path d="M4 20V10h4v10zm6 0V4h4v16zm6 0v-7h4v7z"/>'))}
     ${row('#gagner', 'Gagner les parties gagnées', 'Rejoue tes avantages gâchés contre le moteur', svg('<path d="M5 3h14v3a5 5 0 0 1-4 4.900V14h2v3H7v-3h2v-3.100A5 5 0 0 1 5 6zm2 18h10v-2H7z"/>'))}
     ${row('#plan', 'Plan et réglages', 'Plan de la semaine, objectif, coach Claude, sauvegarde', svg('<path d="M7 2h2v2h6V2h2v2h3v17H4V4h3zm-1 7v10h12V9z"/>'))}</div>
@@ -1277,19 +1440,21 @@ function render(keepScroll) {
   const y = scrollY;
   destroyBoards();
   $('#tip').hidden = true;
-  const v = $('#view'), [r, a, b] = route();
+  const v = $('#view'), [r, a, b, c] = route();
   paintJob();
   $('#nav').hidden = !S.data;
-  document.querySelectorAll('#nav a').forEach((x) => x.classList.toggle('on', x.getAttribute('href') === '#' + ({ partie: 'parties', erreur: 'puzzles', inedits: 'puzzles', drill: 'puzzles', historique: 'puzzles' }[r] || r) || (x.getAttribute('href') === '#plus' && ['ouvertures', 'plan', 'stats', 'exos', 'gagner'].includes(r))));
+  document.querySelectorAll('#nav a').forEach((x) => x.classList.toggle('on', x.getAttribute('href') === '#' + ({ partie: 'parties', erreur: 'puzzles', inedits: 'puzzles', drill: 'puzzles', historique: 'puzzles', ligne: 'ouvertures' }[r] || r) || (x.getAttribute('href') === '#plus' && ['ouvertures', 'ligne', 'plan', 'stats', 'exos', 'gagner'].includes(r))));
   if (!S.data) { v.innerHTML = viewWelcome(); exo.attach(); header(); const f = $('#wf'); f.onsubmit = (ev) => { ev.preventDefault(); const u = $('#wu').value.trim(); if (u) doImport(u); }; return; }
   if (r !== 'partie') S.gv = null;
   if (r !== 'drill' && S.dr && S.dr.i >= S.dr.items.length) S.dr = null; // une série en cours se reprend, une série finie repart de zéro
-  const html = r === 'puzzles' ? viewPuzzles() : r === 'erreur' ? viewPuzzles([a, b]) : r === 'plus' ? viewPlus() : r === 'historique' ? viewHistory() : r === 'exos' ? viewExos() : r === 'inedits' ? viewInedits() : r === 'drill' ? viewDrill(a) : r === 'cours' ? (a ? viewLecon(a, b) : viewCours()) : r === 'ouvertures' ? viewOuvertures() : r === 'parties' ? viewParties() : r === 'partie' ? viewPartie(a, b) : r === 'plan' ? viewPlan() : r === 'stats' ? viewStats(S) : r === 'gagner' ? viewGagner(a) : viewAccueil();
+  const html = r === 'puzzles' ? viewPuzzles() : r === 'erreur' ? viewPuzzles([a, b]) : r === 'plus' ? viewPlus() : r === 'historique' ? viewHistory() : r === 'exos' ? viewExos() : r === 'inedits' ? viewInedits() : r === 'drill' ? viewDrill(a) : r === 'cours' ? (a ? viewLecon(a, b) : viewCours()) : r === 'ouvertures' ? (a === 'apprendre' ? viewApprendre() : a ? viewOpening(a) : viewOuvertures()) : r === 'ligne' ? viewLigne(a, b, c) : r === 'parties' ? viewParties() : r === 'partie' ? viewPartie(a, b) : r === 'plan' ? viewPlan() : r === 'stats' ? viewStats(S) : r === 'gagner' ? viewGagner(a) : viewAccueil();
   v.innerHTML = html;
   exo.attach(); // avant de créer les échiquiers : ils naissent à leur taille définitive
   if (r === 'puzzles' || r === 'erreur') { mountPuzzle(); const s = $('#pzt'); if (s) s.onchange = () => { S.pz.theme = s.value; S.pz.cur = null; S.pz.show = null; render(); }; }
   else if (r === 'cours' && a) mountLecon();
-  else if (r === 'ouvertures') board($('#exb'), { fen: S.exFen, orientation: S.white ? 'white' : 'black', viewOnly: true });
+  else if (r === 'ouvertures' && !a) board($('#exb'), { fen: S.exFen, orientation: S.white ? 'white' : 'black', viewOnly: true });
+  else if (r === 'ouvertures' && a !== 'apprendre') mountOpening();
+  else if (r === 'ligne') mountLigne();
   else if (r === 'partie') mountPartie();
   else if (r === 'drill') mountDrill();
   else if (r === 'inedits') mountInedits();
@@ -1321,6 +1486,8 @@ document.addEventListener('click', (ev) => {
     const r = route()[0];
     if (r === 'erreur') { if (history.length > 1) history.back(); else location.hash = '#puzzles'; }
     else if (r === 'gagner') location.hash = route()[1] ? '#gagner' : '#exos';
+    else if (r === 'ligne') location.hash = '#ouvertures/' + route()[1];
+    else if (r === 'ouvertures') location.hash = '#ouvertures/apprendre';
     else location.hash = { partie: '#parties', cours: '#cours', drill: '#exos', inedits: '#puzzles' }[r] || '#accueil';
   }
   else if (act === 'linext') liLoad();
