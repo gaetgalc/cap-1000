@@ -122,7 +122,7 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
     await page.click('#xbar [aria-label="Coup suivant"]'); await sleep(150);
   }
   check(okAll, 'relecture : flèche verte du meilleur coup sur chaque position, sans clic');
-  check(/meilleur coup/i.test(await bar('#xcap')) || (await shapes()).err, 'relecture : le bandeau nomme le meilleur coup');
+  check(/Meilleur /.test(await bar('#xcap')) || (await shapes()).err, 'relecture : le bandeau nomme le meilleur coup');
   check(await page.locator('#xb svg.cg-shapes g, #xb svg g').count() > 0, 'relecture : la flèche est dessinée sur l’échiquier');
 
   // ---- Gagner les parties gagnées ----
