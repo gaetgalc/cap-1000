@@ -1217,13 +1217,20 @@ function gvBest(v, k) {
   const m = uciMove(new Chess(v.fens[k]), uci);
   return m ? { uci, san: m.san, played: v.mv[k] && v.mv[k].from + v.mv[k].to === uci.slice(0, 4) } : null;
 }
+// Flèches de la relecture : coup joué en partie depuis cette position (rouge) et meilleur coup (vert, par-dessus).
+function gvShapes(v, k) {
+  const e = v.errAt[k]; if (e) return errShapes(e);
+  const b = gvBest(v, k); if (!b) return [];
+  const m = v.mv[k];
+  return [b.played || !m ? null : { orig: m.from, dest: m.to, brush: 'red' }, arrow(b.uci, 'green')].filter(Boolean);
+}
 // Bandeau de la relecture : cls est la classe d'état du bandeau (sans « cap »).
 function gvCap(v) {
   const k = v.k, g = v.g, a = v.a, e = v.errAt[k], prevErr = v.errAt[k - 1], me = g.w ? 'w' : 'b';
   const kindChip = (x) => `<span class="chip ${x.kind === 'gaffe' ? 'bad' : x.kind === 'erreur' ? 'warn' : ''}">${x.kind === 'gaffe' ? 'Gaffe' : x.kind === 'erreur' ? 'Erreur' : 'Imprécision'}</span>`;
   if (e) return { cls: 'ko', html: `<div class="capm"><span class="capn">Moment clé, coup ${moveNo(e)}</span>${kindChip(e)}</div><p>${explain(e)}</p><a class="btn pri sm" href="#erreur/${g.t}/${e.ply}">Comprendre cette erreur</a>` };
   const txtK = k > 0 ? moveText(g, k, me) : 'Position de départ. Avance coup par coup : chaque coup est commenté ici.';
-  const b = gvBest(v, k), bestP = b ? `<span class="capbest">Meilleur <b>${fr(b.san)}</b>${b.played ? ' (joué)' : ''}</span>` : '';
+  const b = gvBest(v, k), bestP = b ? `<span class="capbest">Meilleur <b>${fr(b.san)}</b>${b.played ? ' (joué)' : ''}</span>${!b.played && v.mv[k] ? `<span class="capbest ko">Joué <b>${fr(v.mv[k].san)}</b></span>` : ''}` : '';
   return { cls: '', html: `<div class="capm"><span class="capn">${k > 0 ? `<i class="dot ${k % 2 ? 'w' : 'b'}"></i>${Math.ceil(k / 2)}${k % 2 ? '.' : '…'} ${fr(v.mv[k - 1].san)}` : 'Début'}</span>${prevErr ? kindChip(prevErr) : ''}${a ? `<span class="small">éval ${fmtEval(g.w ? a.ev[k] : -a.ev[k])}</span>` : ''}${bestP}</div><p>${esc(txtK)}</p>` };
 }
 function gvBar(v) {
@@ -1256,8 +1263,8 @@ function viewPartie(t, plyArg) {
 }
 // Met à jour l'écran de relecture sans le reconstruire : les pièces s'animent d'un coup à l'autre.
 function gvSync() {
-  const v = S.gv, k = v.k, e = v.errAt[k], cap = gvCap(v);
-  v.cg.set({ fen: v.fens[k], lastMove: k > 0 ? [v.mv[k - 1].from, v.mv[k - 1].to] : undefined, drawable: { autoShapes: e ? errShapes(e) : gvBest(v, k) ? [arrow(gvBest(v, k).uci, 'green')] : [] } });
+  const v = S.gv, k = v.k, cap = gvCap(v);
+  v.cg.set({ fen: v.fens[k], lastMove: k > 0 ? [v.mv[k - 1].from, v.mv[k - 1].to] : undefined, drawable: { autoShapes: gvShapes(v, k) } });
   v.x.say(cap.cls, cap.html);
   v.x.setBar(gvBar(v));
   document.querySelectorAll('.moves button').forEach((b, i) => b.classList.toggle('cur', i + 1 === k));

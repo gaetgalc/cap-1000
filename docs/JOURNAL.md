@@ -214,6 +214,8 @@ Demande : dans l'onglet Parties, voir le meilleur coup sur l'échiquier par déf
 
 Puis, à la demande, couleurs plus vives : flèches de tous les échiquiers (vert #2bd46a, rouge #f0443c, bleu, orange) au lieu des teintes sombres de chessground, opacité 85 % au lieu de 60 %, ombre légère pour le contraste sur les cases claires ; « Meilleur Cf3 » en pastille verte sur la ligne du coup.
 
+Puis : coup joué depuis la position en flèche rouge (sous la verte), seulement s'il diffère du meilleur, avec une pastille rouge « Joué h4 ». Couleurs du site ravivées dans `:root` (accent, bouton principal, vert, orange, rouge, cases de l'échiquier) ; ombre du bouton principal en jeton `--btn-edge`.
+
 ## 21. Apprendre les ouvertures (15/11)
 
 > dans l'onglet ouverture je veux pouvoir apprendre, travailler les ouvertures pour ma culture G (utilisation dans le temps, etc..) et par les principales lignes à savoir
