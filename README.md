@@ -19,7 +19,7 @@ Coach d'échecs personnel, 100 % dans le navigateur.
 2. Dans le dépôt : Settings > Pages > Source « Deploy from a branch », branche `main`, dossier `/ (root)`.
 3. Ouvre `https://<ton-compte>.github.io/<depot>/?u=<pseudo-chess.com>`.
 
-En local : `python3 -m http.server` dans ce dossier, puis http://localhost:8000. Test de bout en bout : `node tests/parcours.js` (Playwright).
+En local : `python3 -m http.server` dans ce dossier, puis http://localhost:8000. Tests : `node --test tests/*.test.mjs` (règles, sans navigateur) et `node tests/parcours.js` (bout en bout, Playwright).
 
 ## Données
 

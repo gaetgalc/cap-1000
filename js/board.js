@@ -1,0 +1,55 @@
+// Échiquier (chessground) : création, roi en échec signalé, flèches, lecture animée d'une suite.
+/* global Chess */
+import { Chessground } from '../vendor/chessground.min.js';
+
+export const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches; // pas de lecture automatique si l'appareil le demande
+const boards = []; // échiquiers de l'écran courant, détruits au rendu suivant
+export function destroyBoards() { for (const b of boards.splice(0)) { try { b.destroy(); } catch { /* déjà détruit */ } } }
+export function destsOf(ch) {
+  const d = new Map();
+  for (const m of ch.moves({ verbose: true })) { if (!d.has(m.from)) d.set(m.from, []); d.get(m.from).push(m.to); }
+  return d;
+}
+const chkOf = (fen) => { try { const c = new Chess(fen); return c.in_check() ? (c.turn() === 'w' ? 'white' : 'black') : false; } catch { return false; } };
+export function board(el, cfg) {
+  const cg = Chessground(el, { coordinates: true, animation: { duration: 220 }, drawable: { enabled: false, visible: true, autoShapes: cfg.shapes || [] }, ...(cfg.fen ? { check: chkOf(cfg.fen) } : {}), ...cfg });
+  const set0 = cg.set; // le roi en échec est signalé à chaque changement de position
+  cg.set = (c) => set0(c.fen ? { check: chkOf(c.fen), ...c } : c);
+  boards.push(cg);
+  return cg;
+}
+export const arrow = (uci, brush) => (uci ? { orig: uci.slice(0, 2), dest: uci.slice(2, 4), brush } : null);
+export const errShapes = (e) => [arrow(e.playedUci, 'red'), arrow(e.best, 'green')].filter(Boolean);
+// Flèches d'un coup commenté : ce que la pièce jouée attaque (jaune : ta menace, rouge : celle de l'adversaire).
+export const stepShapes = (s) => (s.tags.shapes || []).map((q) => ({ orig: q.orig, ...(q.dest ? { dest: q.dest } : {}), brush: (q.by === 'mover') === s.tags.mine ? 'yellow' : 'red' }));
+
+// Lecture animée d'une suite : la flèche annonce le coup, la pièce se déplace, le commentaire suit.
+// o : { len(), step(k), brush(k), arrows(liste), show(), alive() }
+export function film(o) {
+  const f = { i: 0, play: false, tm: 0 };
+  const read = (s) => Math.max(1500, Math.min(3000, 700 + 21 * s.text.length)); // temps de lecture du commentaire
+  f.stop = () => { clearTimeout(f.tm); f.play = false; };
+  function tick() {
+    if (!f.play) return;
+    if (!o.alive()) { f.stop(); return; }
+    if (f.i >= o.len()) { f.play = false; o.show(); return; }
+    const nx = o.step(f.i);
+    o.arrows([{ orig: nx.from, dest: nx.to, brush: o.brush(f.i) }]);
+    f.tm = setTimeout(() => {
+      if (!o.alive()) { f.stop(); return; }
+      f.i++;
+      if (f.i >= o.len()) f.play = false;
+      o.show();
+      if (f.play) f.tm = setTimeout(tick, read(nx));
+    }, 750);
+  }
+  f.start = (from, delay) => {
+    f.stop();
+    if (from != null) f.i = from;
+    f.i = Math.max(0, Math.min(f.i, o.len()));
+    f.play = f.i < o.len();
+    o.show();
+    if (f.play) f.tm = setTimeout(tick, delay ?? (f.i ? read(o.step(f.i - 1)) : 700));
+  };
+  return f;
+}

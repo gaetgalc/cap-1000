@@ -161,6 +161,20 @@ Fait :
 - Corrigé au passage : plantage de l'explication quand une suite finissait par un mat ; course entre « Solution » et le retour d'un mauvais coup.
 - Test de bout en bout versionné : `node tests/parcours.js`.
 
+## 17. Rangement du code et revue d'architecture (15/11)
+
+> https://github.com/mattpocock/skills utilise ce skill pour ranger le code du projet. ensuite, réfléchis à des améliorations de structure en pronfondeur du projet
+
+Skill retenu dans ce dépôt : `improve-codebase-architecture` (avec le vocabulaire de `codebase-design` : module, interface, profondeur, couture, adaptateur, levier, localité). Exploration faite dans la conversation, sans sous-agent ; rapport publié comme page privée au lieu d'un fichier temporaire.
+
+Rangé, sans changement de comportement :
+- `app.js` passe de 1490 à 1300 lignes. Quatre modules en sortent : `ui.js` (aides d'affichage), `charts.js` (courbes), `board.js` (échiquier et lecture animée), `progress.js` (répétition espacée, journal, activité, objectif du jour).
+- `progress.js` reçoit son stockage et son horloge : ses règles se testent sans navigateur. C'est là que vivait le défaut des puzzles qui revenaient 5 minutes après.
+- Supprimés : le sac d'aides passé à la page Stats, trois copies de `fr()`, deux copies de `VAL`, deux exports inutiles. `settle` (coupe d'une suite) rejoint `explain.js`.
+- 17 tests unitaires (`node --test tests/*.test.mjs`) en plus du test de bout en bout.
+
+Revue d'architecture : six pistes d'approfondissement présentées (écran d'exercice, analyse en deux temps, plan d'entraînement, écrans autonomes, données versionnées et sauvegarde, feuille de style par composant). Recommandation : commencer par l'écran d'exercice. Aucune n'est engagée : le choix revient à Gaëtan.
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |

@@ -1,5 +1,8 @@
 // Page « Stats » : toutes les données depuis la première partie, sans filtre de période.
 import { tally, score, pct } from './stats.js';
+import { esc, dfmt, TC, HOW, wdl, WDL_LEGEND } from './ui.js';
+import { lineChart } from './charts.js';
+import { fr } from './explain.js';
 
 const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 const SLOTS = [['Nuit (0 h à 6 h)', 0, 6], ['Matin (6 h à 12 h)', 6, 12], ['Après-midi (12 h à 18 h)', 12, 18], ['Soir (18 h à 24 h)', 18, 24]];
@@ -19,7 +22,7 @@ function duration(g) {
   return Math.max(0, g.base - (lw ?? g.base)) + Math.max(0, g.base - (lb ?? g.base));
 }
 
-export function viewStats(S, h) {
+export function viewStats(S) {
   const all = S.data.games;
   if (!all.length) return '<h1>Stats</h1><div class="card"><p class="sub">Aucune partie importée.</p></div>';
   const has = [...new Set(all.map((g) => g.tc))];
@@ -27,7 +30,7 @@ export function viewStats(S, h) {
   const gs = sel === 'all' ? all : all.filter((g) => g.tc === sel);
   const T = tally(gs), first = gs[0], last = gs[gs.length - 1];
   const tbl = (head, rows) => `<div class="scroll"><table><thead><tr>${head.map((x, i) => `<th class="${i && i !== 2 ? 'r' : ''}">${x}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
-  const row = (label, s, extra = '') => (s.n ? `<tr><td>${label}</td><td class="r">${nf(s.n)}</td><td style="min-width:100px">${h.wdl(s)}</td><td class="r"><b>${score(s)} %</b></td>${extra}</tr>` : '');
+  const row = (label, s, extra = '') => (s.n ? `<tr><td>${label}</td><td class="r">${nf(s.n)}</td><td style="min-width:100px">${wdl(s)}</td><td class="r"><b>${score(s)} %</b></td>${extra}</tr>` : '');
   const group = (keyFn) => { const m = new Map(); for (const g of gs) { const k = keyFn(g); if (k == null) continue; if (!m.has(k)) m.set(k, []); m.get(k).push(g); } return m; };
   const link = (g, txt) => (g ? `<a href="#partie/${g.t}">${txt}</a>` : '—');
 
@@ -44,7 +47,7 @@ export function viewStats(S, h) {
   const cad = ['rapid', 'blitz', 'bullet', 'daily'].filter((k) => has.includes(k)).map((k) => {
     const g = all.filter((x) => x.tc === k), r = g.filter((x) => x.rated && x.r);
     const peak = r.reduce((a, x) => (!a || x.r > a.r ? x : a), null), low = r.reduce((a, x) => (!a || x.r < a.r ? x : a), null);
-    return row(h.TC[k], tally(g), `<td class="r">${r.length ? r[r.length - 1].r : '—'}</td><td class="r">${peak ? `${peak.r} <span class="small">${h.dfmt(peak.t)}</span>` : '—'}</td><td class="r">${low ? low.r : '—'}</td>`);
+    return row(TC[k], tally(g), `<td class="r">${r.length ? r[r.length - 1].r : '—'}</td><td class="r">${peak ? `${peak.r} <span class="small">${dfmt(peak.t)}</span>` : '—'}</td><td class="r">${low ? low.r : '—'}</td>`);
   });
 
   // Activité par mois et par année
@@ -68,18 +71,18 @@ export function viewStats(S, h) {
   const stk = streaks(gs);
   const upset = wins.reduce((a, g) => (!a || g.or - g.r > a.or - a.r ? g : a), null);
   const kv = (a, b) => `<dt>${a}</dt><dd>${b}</dd>`;
-  const records = kv('Première partie', link(first, h.dfmt(first.t))) + kv('Dernière partie', link(last, h.dfmt(last.t)))
-    + kv('Adversaire le mieux classé battu', bestWin ? link(bestWin, `${h.esc(bestWin.opp)} (${bestWin.or})`) : '—')
-    + kv('Plus gros exploit (écart Elo)', upset && upset.or > upset.r ? link(upset, `+${upset.or - upset.r} contre ${h.esc(upset.opp)}`) : '—')
-    + kv('Défaite contre le moins bien classé', worstLoss ? link(worstLoss, `${h.esc(worstLoss.opp)} (${worstLoss.or})`) : '—')
+  const records = kv('Première partie', link(first, dfmt(first.t))) + kv('Dernière partie', link(last, dfmt(last.t)))
+    + kv('Adversaire le mieux classé battu', bestWin ? link(bestWin, `${esc(bestWin.opp)} (${bestWin.or})`) : '—')
+    + kv('Plus gros exploit (écart Elo)', upset && upset.or > upset.r ? link(upset, `+${upset.or - upset.r} contre ${esc(upset.opp)}`) : '—')
+    + kv('Défaite contre le moins bien classé', worstLoss ? link(worstLoss, `${esc(worstLoss.opp)} (${worstLoss.or})`) : '—')
     + kv('Plus longue série de victoires', stk.bw) + kv('Plus longue série de défaites', stk.bl)
     + kv('Partie la plus longue', link(longest, Math.ceil(longest.san.length / 2) + ' coups'))
     + kv('Mat le plus rapide', fastWin ? link(fastWin, Math.ceil(fastWin.san.length / 2) + ' coups') : '—')
-    + kv('Journée la plus chargée', busiest ? `${busiest[1].length} parties le ${h.dfmt(busiest[1][0].t)}` : '—');
+    + kv('Journée la plus chargée', busiest ? `${busiest[1].length} parties le ${dfmt(busiest[1][0].t)}` : '—');
 
   // Fins de partie
   const hb = (pairs, total) => { const mx = Math.max(1, ...pairs.map((p) => p[1])); return pairs.map(([l, n]) => `<div class="hbar"><span>${l}</span><span class="track"><i style="width:${(100 * n) / mx}%"></i></span><span class="v" style="white-space:nowrap">${n}${total ? ' <span class="small">' + pct(n, total) + ' %</span>' : ''}</span></div>`).join(''); };
-  const ends = (list) => { const m = new Map(); for (const g of list) { const k = h.HOW[g.how] || g.how; m.set(k, (m.get(k) || 0) + 1); } return [...m.entries()].sort((a, b) => b[1] - a[1]).map(([k, n]) => [k[0].toUpperCase() + k.slice(1), n]); };
+  const ends = (list) => { const m = new Map(); for (const g of list) { const k = HOW[g.how] || g.how; m.set(k, (m.get(k) || 0) + 1); } return [...m.entries()].sort((a, b) => b[1] - a[1]).map(([k, n]) => [k[0].toUpperCase() + k.slice(1), n]); };
 
   // Quand
   const wd = group((g) => (new Date(g.t * 1000).getDay() + 6) % 7);
@@ -88,7 +91,7 @@ export function viewStats(S, h) {
   // Adversaires
   const BK = [['Bien moins bien classé (−100 et moins)', -1e9, -100], ['Moins bien classé (−99 à −25)', -100, -25], ['Niveau proche (±24)', -25, 25], ['Mieux classé (+25 à +99)', 25, 100], ['Bien mieux classé (+100 et plus)', 100, 1e9]];
   const diff = BK.map(([l, a, b]) => row(l, tally(gs.filter((g) => g.or - g.r >= a && g.or - g.r < b))));
-  const opp = [...group((g) => g.opp).entries()].filter((e) => e[1].length >= 2).sort((a, b) => b[1].length - a[1].length).slice(0, 6).map(([n, g]) => row(h.esc(n), tally(g)));
+  const opp = [...group((g) => g.opp).entries()].filter((e) => e[1].length >= 2).sort((a, b) => b[1].length - a[1].length).slice(0, 6).map(([n, g]) => row(esc(n), tally(g)));
   const LEN = [['Moins de 15 coups', 0, 15], ['15 à 24 coups', 15, 25], ['25 à 39 coups', 25, 40], ['40 à 59 coups', 40, 60], ['60 coups et plus', 60, 1e9]];
   const lens = LEN.map(([l, a, b]) => row(l, tally(gs.filter((g) => { const n = Math.ceil(g.san.length / 2); return n >= a && n < b; }))));
 
@@ -106,7 +109,7 @@ export function viewStats(S, h) {
     if (g.w) firstMv.set(g.san[0], (firstMv.get(g.san[0]) || 0) + 1);
   }
   const pieces = [['Pions', P.P], ['Cavaliers', P.N], ['Fous', P.B], ['Tours', P.R], ['Dame', P.Q], ['Roi', P.K]].sort((a, b) => b[1] - a[1]);
-  const fm = [...firstMv.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([s, n]) => [h.fr(s), n]);
+  const fm = [...firstMv.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([s, n]) => [fr(s), n]);
   const whiteN = gs.filter((g) => g.w).length;
   const accs = gs.filter((g) => g.acc != null);
   const es = Object.values(S.an).filter((a) => a && !a.bad && a.acc != null);
@@ -120,11 +123,11 @@ export function viewStats(S, h) {
   const H4 = ['', 'Parties', 'Résultats', 'Score'];
 
   return `<div class="row" style="justify-content:space-between"><h1>Stats depuis le début</h1>
-    <div class="row" role="group" aria-label="Cadence">${['all', ...['rapid', 'blitz', 'bullet', 'daily'].filter((k) => has.includes(k))].map((k) => `<button class="btn sm ${sel === k ? 'pri' : ''}" data-act="stattc" data-tc="${k}">${k === 'all' ? 'Toutes' : h.TC[k]}</button>`).join('')}</div></div>
-  <p class="sub">Depuis ta première partie du ${h.dfmt(first.t)}. Cette page ignore le filtre de période.</p>
+    <div class="row" role="group" aria-label="Cadence">${['all', ...['rapid', 'blitz', 'bullet', 'daily'].filter((k) => has.includes(k))].map((k) => `<button class="btn sm ${sel === k ? 'pri' : ''}" data-act="stattc" data-tc="${k}">${k === 'all' ? 'Toutes' : TC[k]}</button>`).join('')}</div></div>
+  <p class="sub">Depuis ta première partie du ${dfmt(first.t)}. Cette page ignore le filtre de période.</p>
   <div class="tiles">${tiles}</div>
-  <div class="card"><h2>Par cadence</h2>${tbl(['Cadence', 'Parties', 'Résultats', 'Score', 'Elo actuel', 'Record', 'Plus bas'], cad)}${h.WDL}</div>
-  <div class="grid">${['rapid', 'blitz', 'bullet', 'daily'].filter((k) => all.filter((g) => g.tc === k && g.rated && g.r).length >= 2).map((k) => `<div class="card"><h2>Classement ${h.TC[k]}</h2><div class="chart" data-rc="${k}"></div></div>`).join('')}</div>
+  <div class="card"><h2>Par cadence</h2>${tbl(['Cadence', 'Parties', 'Résultats', 'Score', 'Elo actuel', 'Record', 'Plus bas'], cad)}${WDL_LEGEND}</div>
+  <div class="grid">${['rapid', 'blitz', 'bullet', 'daily'].filter((k) => all.filter((g) => g.tc === k && g.rated && g.r).length >= 2).map((k) => `<div class="card"><h2>Classement ${TC[k]}</h2><div class="chart" data-rc="${k}"></div></div>`).join('')}</div>
   <div class="card"><h2>Activité par mois <span class="small">${months.length} mois</span></h2><div class="bars">${bars}</div>
     <div class="row small" style="justify-content:space-between"><span>${mName(months[0])}</span><span>${mName(months[months.length - 1])}</span></div>
     ${tbl(['Année', 'Parties', 'Résultats', 'Score', sel === 'all' ? 'Elo Rapide en fin d’année' : 'Elo en fin d’année'], years)}</div>
@@ -153,9 +156,9 @@ export function viewStats(S, h) {
   </div>`;
 }
 
-export function mountStats(S, h) {
+export function mountStats(S) {
   document.querySelectorAll('[data-rc]').forEach((el) => {
-    const pts = S.data.games.filter((g) => g.tc === el.dataset.rc && g.rated && g.r).map((g) => ({ x: g.t, y: g.r, tip: `${h.dfmt(g.t)} : ${g.r}` }));
-    h.lineChart(el, pts, { h: 180, label: 'Classement ' + h.TC[el.dataset.rc], x0: h.dfmt(pts[0].x), x1: h.dfmt(pts[pts.length - 1].x) });
+    const pts = S.data.games.filter((g) => g.tc === el.dataset.rc && g.rated && g.r).map((g) => ({ x: g.t, y: g.r, tip: `${dfmt(g.t)} : ${g.r}` }));
+    lineChart(el, pts, { h: 180, label: 'Classement ' + TC[el.dataset.rc], x0: dfmt(pts[0].x), x1: dfmt(pts[pts.length - 1].x) });
   });
 }

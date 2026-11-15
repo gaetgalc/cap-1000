@@ -169,6 +169,20 @@ function describe(fen, mv, me, next, prev) {
   return { m, fen: ch.fen(), tags, text: out.join(' ') };
 }
 
+// Coupe une suite sur une position calme : jamais au milieu d'un échange (une prise qui peut être reprise),
+// sinon le bilan matériel affiché serait faux. Vise `base` coups, prolonge jusqu'à la fin de l'échange.
+export function settle(fen, moves, base = 5, max = 9) {
+  const c = new Chess(fen), open = [];
+  for (const u of moves.slice(0, max)) {
+    const m = play(c, u); if (!m) break;
+    open.push(!!m.captured && c.moves({ verbose: true }).some((x) => x.to === m.to));
+  }
+  let n = Math.min(open.length, base);
+  while (n < open.length && open[n - 1]) n++;
+  while (n > 1 && open[n - 1]) n--;
+  return moves.slice(0, Math.max(n, 1));
+}
+
 // Construit une suite commentée à partir d'une liste de coups (UCI ou SAN).
 export function buildLine(fen, moves, me, winning) {
   const steps = []; let cur = fen;

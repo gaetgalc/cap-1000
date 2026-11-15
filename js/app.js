@@ -1,40 +1,28 @@
 /* global Chess */
-import { Chessground } from '../vendor/chessground.min.js';
 import { dbGet, dbSet, dbDel, ls } from './store.js';
 import { importPlayer } from './chesscom.js';
 import { Engine, analyzeGame, winPct, fmtEval, uciMove } from './engine.js';
 import * as st from './stats.js';
 import { LESSONS, ENGINE_LESSONS, RULES } from './lessons.js';
 import { viewStats, mountStats } from './alltime.js';
-import { buildLine, insight, hintFor, lastMoveText, moveText, material, describeAt, justPlayed } from './explain.js';
+import { fr, settle, buildLine, insight, hintFor, lastMoveText, moveText, material, describeAt, justPlayed } from './explain.js';
+import { $, esc, dfmt, TC, HOW, coach, txt, pl, f1, ico, setHtml, wdl, WDL_LEGEND } from './ui.js';
+import { lineChart } from './charts.js';
+import { progress, DAY } from './progress.js';
+import { board, destroyBoards, destsOf, arrow, errShapes, stepShapes, film, REDUCED } from './board.js';
 import { LI_ANGLES, LI_FOR, LI_DIFF, fetchPuzzle } from './lichess.js';
 import { DRILLS, DRILL_FOR, makeRound } from './drills.js';
 import { MODELS, coachKey, coachModel, facts, genLesson, askCoach, buildPrompt, parseLesson } from './coach.js';
 
-const $ = (s, r = document) => r.querySelector(s);
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const fr = (san) => String(san).replace(/[NBRQK]/g, (c) => ({ N: 'C', B: 'F', R: 'T', Q: 'D', K: 'R' }[c]));
-const dfmt = (t) => new Date(t * 1000).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
-const TC = { rapid: 'Rapide', blitz: 'Blitz', bullet: 'Bullet', daily: 'Différé', all: 'Toutes cadences' };
-const HOW = { checkmated: 'mat', timeout: 'temps', resigned: 'abandon', abandoned: 'partie quittée', stalemate: 'pat', agreed: 'nulle par accord', repetition: 'répétition', insufficient: 'matériel insuffisant', '50move': '50 coups', timevsinsufficient: 'temps contre matériel insuffisant' };
 const DEPTH = 12; // même profondeur sur tous les appareils : une erreur est classée pareil partout
-const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches; // pas de lecture automatique si l'appareil le demande
-// Icônes dessinées : les flèches Unicode deviennent des émojis sur iPhone.
-const LN = 'fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"';
-const IC = {
-  prev: `<path d="M15 5l-7 7 7 7" ${LN}/>`, next: `<path d="M9 5l7 7-7 7" ${LN}/>`,
-  first: `<path d="M18 5l-7 7 7 7M7 5v14" ${LN}/>`, last: `<path d="M6 5l7 7-7 7M17 5v14" ${LN}/>`,
-  play: '<path d="M8 5v14l11-7z" fill="currentColor"/>', pause: '<path d="M7 5h3.500v14H7zM13.500 5H17v14h-3.500z" fill="currentColor"/>',
-  replay: '<path d="M12 6V2.500L7 6.500l5 4V8a4.500 4.500 0 1 1-4.500 4.500h-2A6.500 6.500 0 1 0 12 6z" fill="currentColor"/>',
-};
-const ico = (n) => `<svg class="ic" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">${IC[n]}</svg>`;
-const setHtml = (el, html) => { if (el && el._h !== html) { el._h = html; el.innerHTML = html; } }; // ne reconstruit pas un bouton sous le doigt
+
+const { dkey, dayStart, act, streak } = progress;
 
 const S = {
   user: ls.get('user', null), data: null, an: {},
   f: ls.get('filter', { tc: 'rapid', days: 0 }),
   job: { running: false, done: 0, total: 0, stop: false, msg: '' },
-  engine: null, play: null, ai: {}, gen: null, cl: null, solve: null, white: true, path: [], pz: null, boards: [], importing: null,
+  engine: null, play: null, ai: {}, gen: null, cl: null, solve: null, white: true, path: [], pz: null, importing: null,
 };
 
 // ---------- Données ----------
@@ -70,27 +58,6 @@ async function doImport(user) {
     else { S.importing = null; S.job.msg = 'Mise à jour impossible : ' + (e.message || String(e)); paintJob(); }
   }
 }
-
-// ---------- Activité quotidienne (séance du jour, série) ----------
-const dkey = (d = new Date()) => d.toLocaleDateString('sv');
-const act = () => ls.get('act', {});
-function bump(k, n = 1) {
-  const a = act(), d = dkey();
-  a[d] ||= {}; a[d][k] = Math.max(0, (a[d][k] || 0) + n);
-  if (!a[d][k]) delete a[d][k];
-  if (!Object.keys(a[d]).length) delete a[d];
-  const keys = Object.keys(a).sort(); // on garde un an d'historique
-  for (const old of keys.slice(0, Math.max(0, keys.length - 370))) delete a[old];
-  ls.set('act', a);
-}
-function streak() {
-  const a = act(); let n = 0; const d = new Date();
-  if (!a[dkey(d)]) d.setDate(d.getDate() - 1);
-  while (a[dkey(d)]) { n++; d.setDate(d.getDate() - 1); }
-  return n;
-}
-const coach = (html, cls = '') => `<div class="coach ${cls}"><span class="coach-av" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="7" r="3.6" fill="currentColor"/><path d="M8 20c0-4 1.5-6 4-8.5 2.5 2.5 4 4.500 4 8.500z" fill="currentColor"/><rect x="6" y="19.500" width="12" height="2.500" rx="1" fill="currentColor"/></svg></span><div class="coach-b">${html}</div></div>`;
-const txt = (t) => esc(t).replace(/\n/g, '<br>');
 
 // Rendu déclenché en arrière-plan (fin d'analyse, import, cours généré) : n'interrompt jamais un exercice en cours.
 function bgRender() {
@@ -143,107 +110,10 @@ function paintJob() {
 }
 
 // ---------- Échiquier ----------
-function destsOf(ch) {
-  const d = new Map();
-  for (const m of ch.moves({ verbose: true })) { if (!d.has(m.from)) d.set(m.from, []); d.get(m.from).push(m.to); }
-  return d;
-}
-const chkOf = (fen) => { try { const c = new Chess(fen); return c.in_check() ? (c.turn() === 'w' ? 'white' : 'black') : false; } catch { return false; } };
-function board(el, cfg) {
-  const cg = Chessground(el, { coordinates: true, animation: { duration: 220 }, drawable: { enabled: false, visible: true, autoShapes: cfg.shapes || [] }, ...(cfg.fen ? { check: chkOf(cfg.fen) } : {}), ...cfg });
-  const set0 = cg.set; // le roi en échec est signalé à chaque changement de position
-  cg.set = (c) => set0(c.fen ? { check: chkOf(c.fen), ...c } : c);
-  S.boards.push(cg);
-  return cg;
-}
-const arrow = (uci, brush) => (uci ? { orig: uci.slice(0, 2), dest: uci.slice(2, 4), brush } : null);
-const errShapes = (e) => [arrow(e.playedUci, 'red'), arrow(e.best, 'green')].filter(Boolean);
-// Flèches d'un coup commenté : ce que la pièce jouée attaque (jaune : ta menace, rouge : celle de l'adversaire).
-const stepShapes = (s) => (s.tags.shapes || []).map((q) => ({ orig: q.orig, ...(q.dest ? { dest: q.dest } : {}), brush: (q.by === 'mover') === s.tags.mine ? 'yellow' : 'red' }));
 const capStep = (s, i, n, extra = '') => `<div class="capm"><span class="capn"><i class="dot ${s.white ? 'w' : 'b'}"></i>${s.no}${s.white ? '.' : '…'} ${fr(s.san)}</span><span class="small">coup ${i} sur ${n}</span>${extra}</div><div class="prog" aria-hidden="true">${Array.from({ length: n }, (_, k) => `<i class="${k < i - 1 ? 'done' : k === i - 1 ? 'cur' : ''}"></i>`).join('')}</div>`;
 
-// Lecture animée d'une suite : la flèche annonce le coup, la pièce se déplace, le commentaire suit.
-// o : { len(), step(k), brush(k), arrows(liste), show(), alive() }
-function film(o) {
-  const f = { i: 0, play: false, tm: 0 };
-  const read = (s) => Math.max(1500, Math.min(3000, 700 + 21 * s.text.length)); // temps de lecture du commentaire
-  f.stop = () => { clearTimeout(f.tm); f.play = false; };
-  function tick() {
-    if (!f.play) return;
-    if (!o.alive()) { f.stop(); return; }
-    if (f.i >= o.len()) { f.play = false; o.show(); return; }
-    const nx = o.step(f.i);
-    o.arrows([{ orig: nx.from, dest: nx.to, brush: o.brush(f.i) }]);
-    f.tm = setTimeout(() => {
-      if (!o.alive()) { f.stop(); return; }
-      f.i++;
-      if (f.i >= o.len()) f.play = false;
-      o.show();
-      if (f.play) f.tm = setTimeout(tick, read(nx));
-    }, 750);
-  }
-  f.start = (from, delay) => {
-    f.stop();
-    if (from != null) f.i = from;
-    f.i = Math.max(0, Math.min(f.i, o.len()));
-    f.play = f.i < o.len();
-    o.show();
-    if (f.play) f.tm = setTimeout(tick, delay ?? (f.i ? read(o.step(f.i - 1)) : 700));
-  };
-  return f;
-}
 
 // ---------- Graphiques ----------
-function lineChart(el, pts, o = {}) {
-  if (pts.length < 2) { el.innerHTML = '<p class="small">Pas encore assez de données pour tracer la courbe.</p>'; return; }
-  const W = Math.max(280, el.clientWidth), H = o.h || 200, m = { l: 36, r: 16, t: 14, b: 22 };
-  const ys = pts.map((p) => p.y).concat(o.ref != null ? [o.ref] : []);
-  let y0 = o.min ?? Math.min(...ys), y1 = o.max ?? Math.max(...ys);
-  if (o.min == null) { const pad = Math.max(10, (y1 - y0) * 0.08); y0 -= pad; y1 += pad; }
-  if (y1 <= y0) y1 = y0 + 1;
-  const x0 = pts[0].x, x1 = pts[pts.length - 1].x === x0 ? x0 + 1 : pts[pts.length - 1].x;
-  const sx = (x) => m.l + ((x - x0) / (x1 - x0)) * (W - m.l - m.r), sy = (y) => H - m.b - ((y - y0) / (y1 - y0)) * (H - m.t - m.b);
-  const step = o.step || niceStep((y1 - y0) / 4);
-  let grid = '';
-  for (let v = Math.ceil(y0 / step) * step; v <= y1; v += step) grid += `<line x1="${m.l}" x2="${W - m.r}" y1="${sy(v)}" y2="${sy(v)}" stroke="var(--line)" stroke-width="1"/><text x="${m.l - 6}" y="${sy(v) + 4}" text-anchor="end">${o.yfmt ? o.yfmt(v) : Math.round(v)}</text>`;
-  const d = pts.map((p, i) => (i ? 'L' : 'M') + sx(p.x).toFixed(1) + ' ' + sy(p.y).toFixed(1)).join('');
-  const base = sy(o.base != null ? o.base : y0);
-  const area = `${d}L${sx(x1).toFixed(1)} ${base}L${sx(x0).toFixed(1)} ${base}Z`;
-  const ref = o.ref != null ? `<line x1="${m.l}" x2="${W - m.r}" y1="${sy(o.ref)}" y2="${sy(o.ref)}" stroke="var(--ink2)" stroke-width="1.5" stroke-dasharray="5 4"/><text x="${W - m.r}" y="${sy(o.ref) - 6}" text-anchor="end" style="fill:var(--ink2);font-weight:600">${esc(o.refLabel || '')}</text>` : '';
-  const marks = (o.marks || []).map((k) => `<circle cx="${sx(pts[k.i].x)}" cy="${sy(pts[k.i].y)}" r="4.5" fill="var(--${k.c})" stroke="var(--surface)" stroke-width="2"/>`).join('');
-  const last = pts[pts.length - 1];
-  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="${esc(o.label || '')}">${grid}
-    <path d="${area}" fill="var(--accent)" opacity=".1"/>${ref}
-    <path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>${marks}
-    ${o.marks ? '' : `<circle cx="${sx(last.x)}" cy="${sy(last.y)}" r="4.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/>`}
-    <text x="${m.l}" y="${H - 5}">${esc(o.x0 || '')}</text><text x="${W - m.r}" y="${H - 5}" text-anchor="end">${esc(o.x1 || '')}</text>
-    <g class="hov" visibility="hidden"><line y1="${m.t}" y2="${H - m.b}" stroke="var(--ink3)" stroke-width="1"/><circle r="5" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/></g>
-    ${o.cursor != null ? `<line x1="${sx(pts[o.cursor].x)}" x2="${sx(pts[o.cursor].x)}" y1="${m.t}" y2="${H - m.b}" stroke="var(--ink)" stroke-width="1.5"/>` : ''}
-    <rect x="${m.l}" y="0" width="${W - m.l - m.r}" height="${H}" fill="transparent" style="cursor:${o.onPick ? 'pointer' : 'crosshair'}"/></svg>`;
-  const svg = $('svg', el), hov = $('.hov', el), tip = $('#tip');
-  const near = (ev) => {
-    const r = svg.getBoundingClientRect(); const x = ((ev.clientX - r.left) / r.width) * W;
-    let bi = 0, bd = Infinity; pts.forEach((p, i) => { const dd = Math.abs(sx(p.x) - x); if (dd < bd) { bd = dd; bi = i; } });
-    return bi;
-  };
-  const rect = $('rect', el);
-  rect.onpointermove = (ev) => {
-    const i = near(ev), p = pts[i];
-    hov.setAttribute('visibility', 'visible');
-    $('line', hov).setAttribute('x1', sx(p.x)); $('line', hov).setAttribute('x2', sx(p.x));
-    $('circle', hov).setAttribute('cx', sx(p.x)); $('circle', hov).setAttribute('cy', sy(p.y));
-    tip.hidden = false; tip.textContent = p.tip;
-    const tw = tip.offsetWidth; tip.style.left = Math.max(4, Math.min(innerWidth - tw - 4, ev.clientX - tw / 2)) + 'px'; tip.style.top = Math.max(4, ev.clientY - 40) + 'px';
-  };
-  rect.onpointerleave = () => { hov.setAttribute('visibility', 'hidden'); tip.hidden = true; };
-  if (o.onPick) rect.onclick = (ev) => { tip.hidden = true; o.onPick(near(ev)); };
-}
-function niceStep(raw) { const p = 10 ** Math.floor(Math.log10(Math.max(raw, 1))); const n = raw / p; return (n < 1.5 ? 1 : n < 3.5 ? 2 : n < 7.5 ? 5 : 10) * p; }
-function wdl(s) {
-  if (!s.n) return '';
-  return `<span class="wdl" title="${s.w} victoires, ${s.d} nulles, ${s.l} défaites">${s.w ? `<i class="w" style="flex:${s.w}"></i>` : ''}${s.d ? `<i class="d" style="flex:${s.d}"></i>` : ''}${s.l ? `<i class="l" style="flex:${s.l}"></i>` : ''}</span>`;
-}
-const WDL_LEGEND = '<div class="legend"><span style="--c:var(--good)">Victoires</span><span style="--c:var(--neutral)">Nulles</span><span style="--c:var(--bad)">Défaites</span></div>';
 
 // ---------- Puzzles (tes propres erreurs) ----------
 function allPuzzles() {
@@ -256,58 +126,16 @@ function allPuzzles() {
   }
   return out;
 }
-const DAY = 86400000, STEPS = [1, 3, 7, 21, 60];
-const dayStart = (d = new Date()) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x.getTime(); };
-function pzQueue(theme, free) {
-  const prog = ls.get('pz', {}), now = Date.now(), day = dkey();
-  let list = allPuzzles().filter((p) => !theme || p.e.theme === theme);
-  if (!free) list = list.filter((p) => (prog[p.id]?.due || 0) <= now);
-  else { const rest = list.filter((p) => prog[p.id]?.d !== day); if (rest.length) list = rest; } // entraînement libre : pas ceux du jour
-  return list.sort((a, b) => ((prog[a.id] ? 0 : 1) - (prog[b.id] ? 0 : 1)) || (b.g.t - a.g.t) || (b.e.drop - a.e.drop));
-}
-// res : 2 = trouvé du premier coup, 1 = trouvé après une erreur ou un indice, 0 = solution vue.
-// Un seul résultat par jour et par puzzle compte. Un puzzle fait aujourd'hui ne revient pas aujourd'hui :
-// raté, il revient demain ; réussi du premier coup, après 1, 3, 7, 21 puis 60 jours.
-function pzMark(id, res) {
-  const prog = ls.get('pz', {}), p = prog[id], day = dkey();
-  if (p?.d === day) return false;
-  const box = res === 2 ? Math.min(STEPS.length - 1, (p?.box ?? -1) + 1) : -1;
-  prog[id] = { box, due: dayStart() + (box < 0 ? 1 : STEPS[box]) * DAY, ok: (p?.ok || 0) + (res === 2 ? 1 : 0), d: day };
-  ls.set('pz', prog);
-  return true;
-}
-
-// ---------- Journal d'entraînement : chaque exercice terminé est noté, rien ne se perd en quittant la page ----------
-// k : 'm' puzzle sur une erreur, 'l' position inédite Lichess, 'd' série d'échauffement. re : 1 si déjà fait ce jour-là.
-const hist = () => ls.get('hist', []);
-function logHist(x) {
-  const h = hist(); h.push({ t: Date.now(), ...x });
-  let n = 0; // la position complète d'un puzzle Lichess n'est gardée que pour les 60 derniers
-  for (let i = h.length - 1; i >= 0; i--) if (h[i].p && ++n > 60) delete h[i].p;
-  ls.set('hist', h.slice(-600));
-}
+const pzQueue = (theme, free) => progress.queue(allPuzzles(), theme, free);
+// Un puzzle terminé est noté tout de suite (répétition espacée, journal, séance), puis l'avancée affichée est rafraîchie.
 function pzRecord(p, res) {
-  const fresh = pzMark(p.id, res);
-  if (fresh) bump('pz');
-  logHist({ k: 'm', id: p.id, r: res, th: p.e.theme || '', re: fresh ? 0 : 1 });
+  progress.recordPuzzle(p, res);
   const el = $('#pzdayi'); if (el) el.innerHTML = pzDayHtml();
   header();
 }
 const pzById = (id) => { const [t, ply] = String(id).split(':'); return S.data ? findErr(t, ply) : null; };
-const todayPz = () => { const d0 = dayStart(); return hist().filter((h) => h.k === 'm' && !h.re && h.t >= d0); };
-// Ratés du jour qui n'ont pas été réussis depuis.
-function failedToday() {
-  const d0 = dayStart(), last = new Map();
-  for (const h of hist()) if (h.k === 'm' && h.t >= d0) last.set(h.id, h.r);
-  return [...last].filter(([id, r]) => r < 2 && pzById(id)).map(([id]) => id);
-}
-// Objectif du jour : 8 puzzles, ou moins s'il n'y en a pas autant en attente.
-function pzDay() {
-  const f = ls.get('focus', null), t = todayPz();
-  const done = Math.max(act()[dkey()]?.pz || 0, t.length);
-  const due = (f && pzQueue(f.id, false).length) || pzQueue('', false).length;
-  return { done, due, goal: Math.max(1, Math.min(8, done + due)), t };
-}
+const failedToday = () => progress.failedToday((id) => !!pzById(id));
+const pzDay = () => progress.day(allPuzzles(), ls.get('focus', null)?.id);
 function pzDots(d) {
   const n = Math.min(12, Math.max(d.goal, d.done)), res = d.t.map((h) => h.r);
   while (res.length < d.done) res.unshift(-1); // faits avant l'existence du journal : résultat inconnu
@@ -337,7 +165,6 @@ function explain(e) {
     default: return `Tu as joué ${p} (évaluation ${fmtEval(e.e0)} → ${fmtEval(e.e1)}). Le moteur préfère ${b}.`;
   }
 }
-const pl = (n, w) => `${n} ${w}${n > 1 ? 's' : ''}`;
 const moveNo = (e) => Math.floor(e.ply / 2) + 1;
 const gameRef = (g) => `partie du ${dfmt(g.t)} contre ${esc(g.opp)} (${g.or})`;
 
@@ -356,7 +183,7 @@ async function liLoad() {
 }
 function viewInedits() {
   if (!S.li) { const f = ls.get('focus', null), saved = ls.get('li', {}), keep = S.liKeep; S.liKeep = null; S.li = { angle: saved.angle || (f ? LI_FOR[f.id] : 'hangingPiece'), diff: saved.diff || 'easiest', cur: keep?.cur || null, failed: !!keep?.failed, replay: !!keep?.replay, loading: false, err: null }; }
-  const L = S.li, stat = ls.get('listat', {})[L.angle] || { n: 0, ok: 0 };
+  const L = S.li, stat = progress.lichessStat(L.angle);
   const sels = `<select data-f="liangle" aria-label="Thème">${LI_ANGLES.map(([v, l]) => `<option value="${v}" ${L.angle === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
       <select data-f="lidiff" aria-label="Niveau">${LI_DIFF.map(([v, l]) => `<option value="${v}" ${L.diff === v ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
   const head = pzTabs('li') + `<div class="pzhead main"><h1>Positions inédites</h1><div class="row">${sels}
@@ -386,8 +213,7 @@ function mountInedits() {
     L.done = true;
     const res = !ok ? 0 : L.failed || hinted ? 1 : 2;
     if (!L.counted) {
-      if (!L.replay) { const all = ls.get('listat', {}), stt = all[L.angle] || { n: 0, ok: 0 }; stt.n++; if (res === 2) stt.ok++; all[L.angle] = stt; ls.set('listat', all); bump('li'); }
-      logHist({ k: 'l', id: P.id, r: res, a: L.angle, rt: P.rating, re: L.replay ? 1 : 0, p: { fen: P.fen, prevFen: P.prevFen, last: P.last, lastSan: P.lastSan, sol: P.sol, white: P.white, themes: P.themes } });
+      progress.recordLichess(P, res, L.angle, L.replay);
       L.counted = true; keepUi();
     }
     const steps = buildLine(P.fen, P.sol, me, true), ins = insight(P.fen, me, steps, []), n = steps.length;
@@ -500,11 +326,11 @@ function pzRecap(title, msg, empty, filter) {
 }
 const RES = { 2: ['r2', 'Du premier coup'], 1: ['r1', 'Trouvé avec aide'], 0: ['r0', 'Solution vue'] };
 function viewHistory() {
-  const all = hist(), h = all.slice().reverse(), head = pzTabs('hist') + '<h1>Historique</h1>';
+  const all = progress.hist(), h = all.slice().reverse(), head = pzTabs('hist') + '<h1>Historique</h1>';
   if (!h.length) return head + `<div class="card">${coach('Chaque puzzle, chaque position inédite et chaque échauffement que tu termines est noté ici avec son résultat. Tu peux quitter la page ou fermer le site : rien ne se perd, et tu peux refaire une position d’un clic.')}<div><a class="btn pri" href="#puzzles">Faire mes puzzles</a></div></div>`;
   S.histN ||= 60;
   const pz = all.filter((x) => x.k !== 'd' && !x.re), d0 = dayStart(), today = dkey();
-  const acq = Object.values(ls.get('pz', {})).filter((p) => p.box >= 2).length;
+  const acq = progress.acquired();
   const tiles = `<div class="tiles"><div class="tile"><b class="num">${pz.filter((x) => x.t >= d0).length}</b><span>puzzles aujourd’hui</span></div>
     <div class="tile"><b class="num">${pz.filter((x) => x.t >= d0 - 6 * DAY).length}</b><span>sur 7 jours</span></div>
     <div class="tile"><b class="num">${pz.length ? st.pct(pz.filter((x) => x.r === 2).length, pz.length) + ' %' : '—'}</b><span>trouvés du premier coup</span></div>
@@ -529,19 +355,6 @@ function viewHistory() {
 
 // ---------- Explication : suites commentées, idée, comparaison ----------
 const LINES = new Map();
-// Coupe une suite sur une position calme : jamais au milieu d'un échange (une prise qui peut être reprise),
-// sinon le bilan matériel affiché serait faux. Vise `base` coups, prolonge jusqu'à la fin de l'échange.
-function settle(fen, moves, base = 5, max = 9) {
-  const c = new Chess(fen), open = [];
-  for (const u of moves.slice(0, max)) {
-    const m = uciMove(c, u); if (!m) break;
-    open.push(!!m.captured && c.moves({ verbose: true }).some((x) => x.to === m.to));
-  }
-  let n = Math.min(open.length, base);
-  while (n < open.length && open[n - 1]) n++;
-  while (n > 1 && open[n - 1]) n--;
-  return moves.slice(0, Math.max(n, 1));
-}
 function getLines(g, e) {
   const id = g.t + ':' + e.ply;
   if (LINES.has(id)) return LINES.get(id);
@@ -779,11 +592,10 @@ function priorityLessons() {
 }
 
 function nextLesson(ids) {
-  const read = ls.get('lus', {});
+  const read = progress.lessonsRead();
   return ids.find((id) => !read[id]) || ids[0] || 'principes';
 }
 // Chantier : un seul type d'erreur travaillé à la fois, jusqu'à ce que son taux baisse de moitié.
-const f1 = (x) => x.toFixed(1).replace('.', ',');
 function focus(es) {
   let f = ls.get('focus', null);
   if (f && st.THEMES[f.id]) return f;
@@ -912,7 +724,7 @@ function keyForm() {
 }
 function viewCours() {
   const { ids, es } = priorityLessons();
-  const read = ls.get('lus', {});
+  const read = progress.lessonsRead();
   const cnt = Object.fromEntries(es.themes.map((t) => [t.id, t.n]));
   const card = (id, prio) => `<a class="card lesson" href="#cours/${id}">
     <div class="row">${prio ? `<span class="chip bad">Priorité ${prio}</span>` : ''}${S.ai[id] ? '<span class="chip good">Cours privé prêt</span>' : ''}${read[id] ? '<span class="chip">Terminé</span>' : ''}</div>
@@ -1030,7 +842,7 @@ function viewLecon(id, mode) {
   const gs = games(), ex = ENGINE_LESSONS.includes(id) ? lessonExamples(id) : [];
   const nums = lessonNumbers(id, gs);
   const blown = id === 'conversion' ? gs.filter((g) => S.an[g.id]?.maxAdv >= 500 && g.out !== 'W').slice(-6).reverse() : [];
-  const read = ls.get('lus', {});
+  const read = progress.lessonsRead();
   const busy = S.gen && S.gen.id === id && !S.gen.err;
   S.lessonEx = ex;
   const coachCard = busy ? coach('Je prépare ton cours à partir de tes positions. Compte 20 à 40 secondes.')
@@ -1175,7 +987,7 @@ function mountPartie() {
 }
 
 function viewExos() {
-  const hist = ls.get('drills', []);
+  const hist = progress.drills();
   return `<h1>Échauffements</h1>${coach('Sous 1000 Elo, la plupart des parties se perdent sur une vérification oubliée. Ces exercices entraînent le geste lui-même, sur des positions tirées de tes parties : 10 positions, 2 minutes. La justesse d’abord, la vitesse vient ensuite.')}
   <div class="menu">${Object.entries(DRILLS).map(([k, d]) => {
     const h = hist.filter((x) => x.type === k), last = h[h.length - 1];
@@ -1191,7 +1003,7 @@ function viewDrill(type) {
   const d = S.dr, n = d.items.length;
   if (n < 3) return `<h1>${D.t}</h1><div class="card"><p class="sub">Pas assez de positions de ce type dans tes parties pour l’instant. Essaie un autre exercice.</p><div><a class="btn" href="#exos">Voir les exercices</a></div></div>`;
   if (d.i >= n) {
-    const sec = Math.round(d.ms / 1000 / n), hist = ls.get('drills', []).filter((x) => x.type === type), prev = hist[hist.length - 2];
+    const sec = Math.round(d.ms / 1000 / n), hist = progress.drills().filter((x) => x.type === type), prev = hist[hist.length - 2];
     const msg = d.ok >= n - 1 ? 'Le réflexe est là. Garde ce rythme en partie : la même question, avant chaque coup.' : d.ok >= n * 0.6 ? 'C’est en bonne voie. Refais une série en prenant une seconde de plus par position.' : 'Ralentis : la justesse d’abord. Refais une série sans regarder le temps.';
     return `<h1>${D.t}</h1><div class="card"><div class="row" style="align-items:baseline"><span class="big num">${d.ok}/${n}</span><span class="sub">${sec} s par position${prev ? ` · série précédente : ${prev.ok}/${prev.n}` : ''}</span></div>${coach(msg)}
       <div>${nextStep('dr')}</div><div class="row"><button class="btn" data-act="dragain">Refaire une série</button><a class="btn" href="#exos">Autres échauffements</a></div></div>`;
@@ -1208,8 +1020,7 @@ function viewDrill(type) {
 function drAdvance() {
   const d = S.dr; d.i++; d.ans = null;
   if (d.i < d.items.length) return;
-  const h = ls.get('drills', []); h.push({ d: dkey(), type: d.type, ok: d.ok, n: d.items.length, ms: d.ms }); ls.set('drills', h.slice(-200));
-  bump('dr'); logHist({ k: 'd', ty: d.type, ok: d.ok, n: d.items.length });
+  progress.recordDrill(d.type, d.ok, d.items.length, d.ms);
 }
 function drillAnswer(v) {
   const d = S.dr, it = d.items[d.i];
@@ -1303,12 +1114,11 @@ function restoreUi() {
 }
 
 // ---------- Routage et événements ----------
-const H = { esc, fr, dfmt, wdl, lineChart, TC, HOW, WDL: WDL_LEGEND };
 const route = () => (location.hash.slice(1) || 'accueil').split('/');
 function render(keepScroll) {
   const y = scrollY;
-  for (const b of S.boards) { try { b.destroy(); } catch { /* rien */ } }
-  S.boards = []; S.exui = null; $('#tip').hidden = true; document.body.classList.remove('solved');
+  destroyBoards();
+  S.exui = null; $('#tip').hidden = true; document.body.classList.remove('solved');
   const v = $('#view'), [r, a, b] = route();
   paintJob();
   $('#nav').hidden = !S.data;
@@ -1316,7 +1126,7 @@ function render(keepScroll) {
   if (!S.data) { document.body.classList.remove('fit'); header(); v.innerHTML = viewWelcome(); const f = $('#wf'); f.onsubmit = (ev) => { ev.preventDefault(); const u = $('#wu').value.trim(); if (u) doImport(u); }; return; }
   if (r !== 'partie') S.gv = null;
   if (r !== 'drill' && S.dr && S.dr.i >= S.dr.items.length) S.dr = null; // une série en cours se reprend, une série finie repart de zéro
-  const html = r === 'puzzles' ? viewPuzzles() : r === 'erreur' ? viewPuzzles([a, b]) : r === 'plus' ? viewPlus() : r === 'historique' ? viewHistory() : r === 'exos' ? viewExos() : r === 'inedits' ? viewInedits() : r === 'drill' ? viewDrill(a) : r === 'cours' ? (a ? viewLecon(a, b) : viewCours()) : r === 'ouvertures' ? viewOuvertures() : r === 'parties' ? viewParties() : r === 'partie' ? viewPartie(a, b) : r === 'plan' ? viewPlan() : r === 'stats' ? viewStats(S, H) : viewAccueil();
+  const html = r === 'puzzles' ? viewPuzzles() : r === 'erreur' ? viewPuzzles([a, b]) : r === 'plus' ? viewPlus() : r === 'historique' ? viewHistory() : r === 'exos' ? viewExos() : r === 'inedits' ? viewInedits() : r === 'drill' ? viewDrill(a) : r === 'cours' ? (a ? viewLecon(a, b) : viewCours()) : r === 'ouvertures' ? viewOuvertures() : r === 'parties' ? viewParties() : r === 'partie' ? viewPartie(a, b) : r === 'plan' ? viewPlan() : r === 'stats' ? viewStats(S) : viewAccueil();
   v.innerHTML = html;
   fitLayout(); // avant de créer les échiquiers : ils naissent à leur taille définitive
   if (r === 'puzzles' || r === 'erreur') { mountPuzzle(); const s = $('#pzt'); if (s) s.onchange = () => { S.pz.theme = s.value; S.pz.cur = null; S.pz.show = null; render(); }; }
@@ -1325,7 +1135,7 @@ function render(keepScroll) {
   else if (r === 'partie') mountPartie();
   else if (r === 'drill') mountDrill();
   else if (r === 'inedits') mountInedits();
-  else if (r === 'stats') mountStats(S, H);
+  else if (r === 'stats') mountStats(S);
   else if (r === 'plan') {
     $('#hrs').onchange = (e) => { ls.set('hours', +e.target.value); render(true); };
     const save = () => { const elo = +$('#gelo').value, date = $('#gdate').value; if (elo >= 100 && date) { ls.set('goal', { elo, date }); render(true); } };
@@ -1376,7 +1186,7 @@ document.addEventListener('click', (ev) => {
   else if (act === 'lihint') S.liapi?.hint();
   else if (act === 'lishow') S.liapi?.show();
   else if (act === 'lireplay') {
-    const x = hist().find((h) => String(h.t) === el.dataset.t); if (!x?.p) return;
+    const x = progress.hist().find((h) => String(h.t) === el.dataset.t); if (!x?.p) return;
     S.li = { angle: x.a || 'mix', diff: ls.get('li', {}).diff || 'easiest', cur: { id: x.id, rating: x.rt, url: 'https://lichess.org/training/' + x.id, ...x.p }, failed: false, counted: false, replay: true, loading: false, err: null };
     location.hash = '#inedits';
   }
@@ -1407,7 +1217,7 @@ document.addEventListener('click', (ev) => {
     render();
   }
   else if (act === 'pztheme') { pzReset(el.dataset.theme, true); location.hash = '#puzzles'; }
-  else if (act === 'lu') { const d = ls.get('lus', {}); d[el.dataset.id] = !d[el.dataset.id]; ls.set('lus', d); bump('les', d[el.dataset.id] ? 1 : -1); render(true); }
+  else if (act === 'lu') { progress.setLessonRead(el.dataset.id, !progress.lessonsRead()[el.dataset.id]); render(true); }
   else if (act === 'gen') genCourse(el.dataset.id);
   else if (act === 'brief') {
     const { ex, args } = lessonArgs(el.dataset.id), pr = buildPrompt(args), text = pr.system + '\n\n' + pr.user;
@@ -1418,7 +1228,7 @@ document.addEventListener('click', (ev) => {
   else if (act === 'clnext') {
     const L = S.ai[S.cl?.id]; if (!L) return;
     const n = 1 + L.positions.length + 1 + (L.quiz.length ? 1 : 0);
-    if (S.cl.step >= n - 1) { const d = ls.get('lus', {}); d[S.cl.id] = true; ls.set('lus', d); bump('les'); S.cl = null; location.hash = '#accueil'; }
+    if (S.cl.step >= n - 1) { progress.setLessonRead(S.cl.id, true); S.cl = null; location.hash = '#accueil'; }
     else { S.cl.step++; render(); }
   }
   else if (act === 'clq') { S.cl.quiz[+el.dataset.q] = +el.dataset.c; render(true); }
@@ -1476,7 +1286,7 @@ document.addEventListener('pointerover', (ev) => {
   tip.style.left = Math.max(4, Math.min(innerWidth - tw - 4, r.left + r.width / 2 - tw / 2)) + 'px'; tip.style.top = Math.max(4, r.top - 34) + 'px';
 });
 document.addEventListener('pointerout', (ev) => { if (ev.target.closest?.('[data-tip]')) $('#tip').hidden = true; });
-let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { const r = route()[0]; if (r === 'accueil') mountAccueil(); else if (r === 'stats') mountStats(S, H); else if (r === 'partie' && S.gv?.cg) gvSync(); }, 200); });
+let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { const r = route()[0]; if (r === 'accueil') mountAccueil(); else if (r === 'stats') mountStats(S); else if (r === 'partie' && S.gv?.cg) gvSync(); }, 200); });
 
 if (new URLSearchParams(location.search).has('debug')) window.__cap = S; // accès à l'état pour les tests
 (async function init() {

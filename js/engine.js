@@ -1,7 +1,7 @@
 // Stockfish (WASM, dans le navigateur) + détection et classement des erreurs.
 /* global Chess */
-export const MATE = 100000;
-const VAL = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+import { VAL } from './explain.js';
+const MATE = 100000;
 
 export class Engine {
   constructor() {

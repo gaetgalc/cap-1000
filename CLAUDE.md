@@ -24,17 +24,22 @@ Site statique sans build, servi par GitHub Pages depuis `main` (racine). Tout to
 | `index.html` | Coquille, navigation |
 | `css/app.css` | Thème unique sombre, jetons dans `:root` |
 | `js/app.js` | État `S`, routage par hash, toutes les vues, événements |
+| `js/ui.js` | Aides d'affichage sans état : `$`, `esc`, formats, icônes `ico()`, bulle du coach, barre victoires/nulles/défaites |
+| `js/charts.js` | `lineChart` : courbe SVG interactive |
+| `js/board.js` | Échiquier : `board()` (chessground, roi en échec signalé), flèches, `film()` (lecture animée d'une suite), `destroyBoards()` |
+| `js/progress.js` | Mémoire de l'entraînement : répétition espacée, journal, activité par jour, objectif du jour. Stockage et horloge injectés (`makeProgress(store, now)`), donc testable sans navigateur |
 | `js/chesscom.js` | Import via l'API publique Chess.com, normalisation des parties |
 | `js/engine.js` | Stockfish (worker), analyse d'une partie, classement des erreurs par thème |
 | `js/stats.js` | Agrégats, ouvertures, forces et faiblesses |
 | `js/alltime.js` | Page Stats (depuis la première partie) |
 | `js/lessons.js` | Fiches de cours statiques (principe, routine), règles courtes par thème |
-| `js/explain.js` | Explications sans IA : description de chaque coup, idée du meilleur coup, raison de l'échec du coup joué, bilan matériel |
+| `js/explain.js` | Explications sans IA : description de chaque coup, idée du meilleur coup, raison de l'échec du coup joué, bilan matériel, coupe d'une suite sur une position calme (`settle`). Source unique de `fr()` (notation française) et de `VAL` (valeur des pièces) |
 | `js/drills.js` | Échauffements : 4 exercices de vérification générés depuis les positions des parties, réponse établie par les règles |
 | `js/lichess.js` | Puzzles inédits : `GET lichess.org/api/puzzle/next?angle=&difficulty=` (anonyme), reconstruction de la position depuis le PGN |
 | `js/coach.js` | Cours privés Claude : faits vérifiés, prompt, appel API, lecture du JSON |
 | `js/store.js` | IndexedDB (`data:<user>`, `an:<user>`, `ai:<user>`) et localStorage (préfixe `cap1000:` ; clés principales : `pz` répétition espacée, `hist` journal d'entraînement, `ui` état de l'écran à reprendre, `act` activité par jour, `focus` chantier) |
 | `tests/parcours.js` | Test de bout en bout (Playwright, parties simulées, `api.chess.com` intercepté) |
+| `tests/*.test.mjs` | Tests unitaires sans navigateur : règles de `progress.js`, positions de référence de `explain.js` |
 | `vendor/` | chess.js 0.10.3, chessground 9, Stockfish 19 lite single-thread (WASM), polices Sora et IBM Plex Sans |
 
 Routes : `#accueil`, `#puzzles`, `#historique` (journal des exercices faits), `#erreur/<end_time>/<ply>` (travail d'une erreur précise), `#plus` (menu mobile), `#exos`, `#inedits` (puzzles Lichess), `#drill/<sur|menace|cadeau|compte>`, `#cours`, `#cours/<id>[/fiche]`, `#ouvertures`, `#parties`, `#partie/<end_time>[/<ply>]`, `#plan`, `#stats`.
@@ -49,7 +54,8 @@ Sur téléphone, pendant un exercice, l'en-tête (`.pzhead.main`) est masqué et
 
 ## Journal et reprise
 
-- `pzRecord` enregistre chaque puzzle dès la solution (`pzMark` pour la répétition espacée, `logHist` pour le journal, `bump` pour la séance), quel que soit l'écran d'où il est fait (file, `#erreur`, cours privé). Un seul résultat par puzzle et par jour compte ; les suivants sont notés « révision ».
+- Tout passe par `js/progress.js` : `recordPuzzle` (répétition espacée + journal + activité), `recordLichess`, `recordDrill`, `setLessonRead`, `queue`, `day`, `failedToday`. `app.js` n'écrit jamais directement les clés `pz`, `hist`, `act`, `drills`, `listat`, `lus`. Une règle de planification se change dans ce module, avec son test dans `tests/progress.test.mjs`.
+- `pzRecord` (dans `app.js`) appelle `progress.recordPuzzle` dès la solution puis rafraîchit l'avancée affichée, quel que soit l'écran d'où le puzzle est fait (file, `#erreur`, cours privé). Un seul résultat par puzzle et par jour compte ; les suivants sont notés « révision ».
 - Résultat : 2 du premier coup, 1 trouvé avec aide (mauvais essai ou indice), 0 solution vue. Raté : revient le lendemain. Réussi : 1, 3, 7, 21, 60 jours. Jamais de retour le jour même, sauf « Refaire mes ratés du jour » (`S.pz.redo`).
 - Objectif du jour (`pzDay`) : 8 puzzles ; bilan `pzRecap` affiché une fois quand il est atteint, avec `nextStep` (prochaine étape de la séance).
 - `keepUi` / `restoreUi` : puzzle en cours, étape du cours, échauffement entamé, position inédite sont repris après rechargement.
@@ -79,6 +85,7 @@ python3 -m http.server 8000   # puis http://localhost:8000/?u=gaetcc
 ```
 
 ```bash
+node --test tests/*.test.mjs  # règles de planification et explications ; moins d'une seconde
 node tests/parcours.js        # parcours puzzles, journal, reprise, échauffement ; 1 à 2 minutes
 ```
 
@@ -92,9 +99,10 @@ Le test génère des parties par coups semi-aléatoires au format Chess.com, int
 - Relecture de partie : `gvGo(k)` met l'écran à jour sur place (`gvSync`), sans `render()`.
 - Profondeur d'analyse unique (`DEPTH = 12`) sur tous les appareils.
 - `Engine.evalFen(fen, depth, urgent)` : `urgent` fait passer la vérification d'un coup devant les calculs de suites.
-- Tout exercice terminé est noté par `logHist` au moment où il se termine, jamais au changement d'écran.
+- Tout exercice terminé est noté par `progress.record…` au moment où il se termine, jamais au changement d'écran.
 - Boutons de contrôle : icônes SVG de `ico()`, pas de flèches Unicode (émojis sur iPhone). Une barre mise à jour pendant une lecture passe par `setHtml` pour ne pas remplacer un bouton sous le doigt.
-- `board()` signale l'échec à chaque `cg.set({ fen })` ; ne pas créer d'échiquier sans passer par `board()`.
+- `board()` (dans `board.js`) signale l'échec à chaque `cg.set({ fen })` et enregistre l'échiquier pour `destroyBoards()` ; ne pas créer d'échiquier sans passer par elle.
+- Pas de sac d'aides passé en paramètre : un module importe ce dont il a besoin depuis `ui.js`, `charts.js`, `explain.js`.
 
 ## Points ouverts
 

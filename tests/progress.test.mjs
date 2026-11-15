@@ -1,0 +1,134 @@
+// Règles de la mémoire d'entraînement, sans navigateur : node --test tests/
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { makeProgress, DAY } from '../js/progress.js';
+
+// Stockage en mémoire et horloge réglable : les deux adaptateurs de test.
+function setup(start = new Date(2026, 10, 15, 10, 0, 0).getTime()) {
+  const data = new Map(), clock = { t: start };
+  const store = { get: (k, d) => (data.has(k) ? JSON.parse(data.get(k)) : d), set: (k, v) => data.set(k, JSON.stringify(v)) };
+  const P = makeProgress(store, () => clock.t);
+  return { P, clock, store, tomorrow: (n = 1) => { clock.t = P.dayStart() + n * DAY + 3600000; } };
+}
+const pz = (id, theme = 'en_prise_pose', t = 1000, drop = 20) => ({ id, g: { t }, e: { theme, drop } });
+const ids = (list) => list.map((p) => p.id);
+
+test('un puzzle fait aujourd’hui ne revient pas aujourd’hui, quel que soit le résultat', () => {
+  for (const res of [0, 1, 2]) {
+    const { P, tomorrow } = setup(), all = [pz('a'), pz('b')];
+    P.recordPuzzle(all[0], res);
+    assert.deepEqual(ids(P.queue(all, '', false)), ['b'], `résultat ${res} : encore dans la file le jour même`);
+    tomorrow();
+    assert.ok(ids(P.queue(all, '', false)).includes('a'), `résultat ${res} : absent le lendemain`);
+  }
+});
+
+test('réussi du premier coup : revient après 1, 3, 7, 21 puis 60 jours', () => {
+  const { P, clock, tomorrow } = setup(), a = pz('a');
+  for (const gap of [1, 3, 7, 21, 60, 60]) {
+    const d0 = P.dayStart();
+    P.recordPuzzle(a, 2);
+    clock.t = d0 + gap * DAY - 60000;
+    assert.equal(P.queue([a], '', false).length, 0, `revenu avant ${gap} jours`);
+    clock.t = d0 + gap * DAY + 60000;
+    assert.equal(P.queue([a], '', false).length, 1, `pas revenu après ${gap} jours`);
+  }
+  tomorrow(0);
+});
+
+test('un raté remet le compteur à zéro : retour demain, puis à nouveau 1 jour après une réussite', () => {
+  const { P, clock } = setup(), a = pz('a');
+  P.recordPuzzle(a, 2); clock.t += DAY; P.recordPuzzle(a, 2); // 2 réussites : prochain retour dans 3 jours
+  clock.t += 3 * DAY; P.recordPuzzle(a, 1);                   // trouvé avec aide : raté
+  const d0 = P.dayStart();
+  clock.t = d0 + DAY + 1000; assert.equal(P.queue([a], '', false).length, 1, 'un raté revient le lendemain');
+  P.recordPuzzle(a, 2);
+  clock.t = P.dayStart() + DAY + 1000; assert.equal(P.queue([a], '', false).length, 1, 'après un raté, la première réussite revient au bout d’un jour');
+  assert.equal(P.acquired(), 0);
+});
+
+test('un seul résultat par jour compte ; les suivants sont notés comme révisions', () => {
+  const { P } = setup(), a = pz('a');
+  assert.equal(P.recordPuzzle(a, 0), true);
+  assert.equal(P.recordPuzzle(a, 2), false);
+  assert.deepEqual(P.hist().map((h) => [h.r, h.re]), [[0, 0], [2, 1]]);
+  assert.equal(P.act()[P.dkey()].pz, 1);
+  assert.equal(P.todayPuzzles().length, 1);
+  assert.equal(P.acquired(), 0);
+});
+
+test('objectif du jour : 8 puzzles, ou moins s’il n’y en a pas autant', () => {
+  const few = setup(), three = [pz('a'), pz('b'), pz('c')];
+  assert.deepEqual((({ done, due, goal }) => ({ done, due, goal }))(few.P.day(three)), { done: 0, due: 3, goal: 3 });
+  few.P.recordPuzzle(three[0], 2);
+  assert.deepEqual((({ done, due, goal }) => ({ done, due, goal }))(few.P.day(three)), { done: 1, due: 2, goal: 3 });
+  const many = setup(), twenty = Array.from({ length: 20 }, (_, i) => pz('p' + i));
+  assert.equal(many.P.day(twenty).goal, 8);
+  for (const p of twenty.slice(0, 9)) many.P.recordPuzzle(p, 2);
+  const d = many.P.day(twenty);
+  assert.deepEqual([d.done, d.due, d.goal, d.t.length], [9, 11, 8, 9]);
+});
+
+test('le thème du chantier est compté d’abord, tous les thèmes ensuite', () => {
+  const { P } = setup(), all = [pz('a', 'mat_rate'), pz('b', 'en_prise_pose'), pz('c', 'en_prise_pose')];
+  assert.equal(P.day(all, 'mat_rate').due, 1);
+  P.recordPuzzle(all[0], 2);
+  assert.equal(P.day(all, 'mat_rate').due, 2, 'chantier épuisé : on compte les autres thèmes');
+  assert.deepEqual(ids(P.queue(all, 'en_prise_pose', false)), ['b', 'c']);
+});
+
+test('ordre de la file : déjà vus d’abord, puis parties les plus récentes, puis erreurs les plus coûteuses', () => {
+  const { P, tomorrow } = setup(), all = [pz('vieux', 'x', 100), pz('recent', 'x', 900), pz('cher', 'x', 900, 60), pz('vu', 'x', 50)];
+  P.recordPuzzle(all[3], 0); tomorrow();
+  assert.deepEqual(ids(P.queue(all, '', false)), ['vu', 'cher', 'recent', 'vieux']);
+});
+
+test('ratés du jour : sans ceux réussis depuis, ni ceux qui n’existent plus', () => {
+  const { P } = setup(), [a, b, c] = [pz('a'), pz('b'), pz('c')];
+  P.recordPuzzle(a, 0); P.recordPuzzle(b, 1); P.recordPuzzle(c, 2);
+  assert.deepEqual(P.failedToday(), ['a', 'b']);
+  P.recordPuzzle(a, 2); // révision réussie
+  assert.deepEqual(P.failedToday(), ['b']);
+  assert.deepEqual(P.failedToday((id) => id !== 'b'), []);
+});
+
+test('entraînement libre : tout sauf les puzzles du jour', () => {
+  const { P } = setup(), all = [pz('a'), pz('b')];
+  P.recordPuzzle(all[0], 2);
+  assert.deepEqual(ids(P.queue(all, '', true)), ['b']);
+  P.recordPuzzle(all[1], 2);
+  assert.equal(P.queue(all, '', true).length, 2, 'plus rien d’autre : on repropose ceux du jour');
+});
+
+test('série : jours consécutifs, aujourd’hui ou jusqu’à hier', () => {
+  const { P, tomorrow } = setup();
+  assert.equal(P.streak(), 0);
+  P.recordPuzzle(pz('a'), 2); tomorrow(); P.recordDrill('sur', 8, 10, 60000);
+  assert.equal(P.streak(), 2);
+  tomorrow(); assert.equal(P.streak(), 2, 'rien encore aujourd’hui : la série d’hier tient');
+  tomorrow(); assert.equal(P.streak(), 0, 'un jour entier sans rien : série perdue');
+});
+
+test('journal borné, positions Lichess gardées pour les 60 dernières seulement', () => {
+  const { P } = setup(), L = (i) => ({ id: 'L' + i, rating: 900, fen: 'f', prevFen: 'p', last: ['a1', 'a2'], lastSan: 'a2', sol: ['a2a3'], white: true, themes: [] });
+  for (let i = 0; i < 70; i++) P.recordLichess(L(i), 2, 'fork', false);
+  const h = P.hist();
+  assert.equal(h.filter((x) => x.p).length, 60);
+  assert.ok(!h[0].p && h[69].p);
+  assert.deepEqual(P.lichessStat('fork'), { n: 70, ok: 70 });
+  P.recordLichess(L(0), 0, 'fork', true);
+  assert.deepEqual(P.lichessStat('fork'), { n: 70, ok: 70 }, 'un puzzle rejoué ne change pas le score');
+  for (let i = 0; i < 700; i++) P.recordPuzzle(pz('m' + i), 2);
+  assert.equal(P.hist().length, 600);
+});
+
+test('échauffements et cours comptent dans l’activité du jour', () => {
+  const { P } = setup();
+  P.recordDrill('menace', 7, 10, 90000);
+  assert.deepEqual(P.drills().map((d) => [d.type, d.ok, d.n]), [['menace', 7, 10]]);
+  P.setLessonRead('en_prise_pose', true);
+  assert.equal(P.lessonsRead().en_prise_pose, true);
+  assert.deepEqual(P.act()[P.dkey()], { dr: 1, les: 1 });
+  P.setLessonRead('en_prise_pose', false);
+  assert.deepEqual(P.act()[P.dkey()], { dr: 1 });
+});

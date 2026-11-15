@@ -19,7 +19,7 @@ async function getJson(url) {
 
 const LOSS = new Set(['checkmated', 'timeout', 'resigned', 'abandoned', 'lose', 'kingofthehill', 'threecheck', 'bughousepartnerlose']);
 
-export function family(name) {
+function family(name) {
   const m = name.match(/^(.*?\b(?:Game|Opening|Defense|Defence|Gambit|Attack|System|Countergambit))\b/);
   return (m ? m[1] : name).trim();
 }

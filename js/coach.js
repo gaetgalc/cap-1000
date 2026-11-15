@@ -4,11 +4,11 @@
 import { ls } from './store.js';
 import { THEMES } from './stats.js';
 import { fmtEval } from './engine.js';
+import { fr } from './explain.js';
 
 export const MODELS = [['claude-sonnet-5-5', 'Sonnet 5.5 (recommandé)'], ['claude-opus-5-5', 'Opus 5.5 (plus fin, plus cher)'], ['claude-haiku-5-5', 'Haiku 5.5 (rapide, économique)']];
 export const coachKey = () => ls.get('key', '');
 export const coachModel = () => ls.get('model', MODELS[0][0]);
-const fr = (san) => String(san).replace(/[NBRQK]/g, (c) => ({ N: 'C', B: 'F', R: 'T', Q: 'D', K: 'R' }[c]));
 const MINE = { p: 'ton pion', n: 'ton cavalier', b: 'ton fou', r: 'ta tour', q: 'ta dame', k: 'ton roi' };
 const WITH = { p: 'un pion', n: 'un cavalier', b: 'un fou', r: 'une tour', q: 'la dame', k: 'le roi' };
 const LET = { n: 'C', b: 'F', r: 'T', q: 'D', k: 'R' };
