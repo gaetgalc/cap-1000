@@ -263,7 +263,7 @@ function viewInedits() {
   const P = L.cur, me = P.white ? 'w' : 'b', side = P.white ? 'Blancs' : 'Noirs';
   const last = justPlayed(describeAt(P.prevFen, P.lastSan, me));
   return head + coach(`${esc(last)} <b>À toi de jouer avec les ${side}.</b> Trouve le meilleur coup${P.sol.length > 2 ? `, puis la suite (${Math.ceil(P.sol.length / 2)} coups à trouver)` : ''}.`, 'intro') + `
-    <div class="split work"><div class="bwrap"><div class="board" id="lib"></div><div class="cap" id="licap"><p><i class="dot ${P.white ? 'w' : 'b'}"></i> Trait aux ${side}. Joue ton coup sur l’échiquier.</p></div></div>
+    <div class="split work"><div class="bwrap"><div class="board" id="lib"></div><div class="cap" id="licap"><p><i class="dot ${P.white ? 'w' : 'b'}"></i> <span class="m-txt">${esc(last)} </span>Trait aux ${side}. ${P.sol.length > 2 ? `Trouve le meilleur coup puis la suite (${Math.ceil(P.sol.length / 2)} coups).` : 'Trouve le meilleur coup.'}</p></div></div>
       <div class="stack"><div class="meta small">Puzzle Lichess n° ${esc(P.id)} · niveau ${P.rating} · <a href="${P.url}" target="_blank" rel="noopener">Voir sur Lichess</a></div>
         <div id="lix"><div class="card ghost"><h3>Comment chercher</h3><ol class="routine"><li>Que vient de faire ton adversaire ? Que menace son coup ?</li><li>As-tu un échec, une capture ou une menace ?</li><li>La case où tu vas est-elle attaquée ?</li></ol></div></div></div></div>
     <div class="actbar" id="libar"><button class="btn" data-act="lihint">Indice</button><button class="btn" data-act="lishow">Solution</button></div>`;
@@ -332,7 +332,7 @@ function workScreen(p, o) {
   const last = lastMoveText(p.g, p.e.ply, me);
   return `${coach(`${last ? esc(last) + ' ' : ''}<b>À toi de jouer avec les ${side}.</b> En partie, ton coup ici t’a coûté ${p.e.drop} points de chances de gain. Trouve mieux.`, 'intro')}
     <div class="split work"><div class="bwrap"><div class="board" id="pzb"></div>
-      <div class="cap" id="pzcap" data-base="cap"><p><i class="dot ${p.g.w ? 'w' : 'b'}"></i> Trait aux ${side}. Joue ton coup sur l’échiquier.</p></div></div>
+      <div class="cap" id="pzcap" data-base="cap"><p><i class="dot ${p.g.w ? 'w' : 'b'}"></i> <span class="m-txt">${last ? esc(last) + ' ' : ''}En partie, ton coup t’a coûté ${p.e.drop} points. </span>Trait aux ${side}. Joue ton coup sur l’échiquier.</p></div></div>
       <div class="stack" id="pzside">
         <div class="meta small">Coup ${moveNo(p.e)} de ta ${gameRef(p.g)}${p.e.theme ? ` · ${st.THEMES[p.e.theme]}` : ''} · <a href="#partie/${p.g.t}/${p.e.ply}">Ouvrir la partie</a></div>
         <div id="pzx"><div class="card ghost"><h3>Comment chercher</h3><ol class="routine"><li>Que vient de faire ton adversaire ? Que menace son coup ?</li><li>As-tu un échec, une capture ou une menace ?</li><li>La case où tu vas est-elle attaquée ?</li></ol></div></div>
@@ -1099,7 +1099,26 @@ function render(keepScroll) {
     document.querySelectorAll('[data-plan]').forEach((c) => { c.onchange = () => { const k = 'plan:' + weekKey(), d = ls.get(k, {}); d[c.dataset.plan] = c.checked; ls.set(k, d); c.closest('.check').classList.toggle('done', c.checked); }; });
   } else mountAccueil();
   header();
+  fitLayout();
   if (keepScroll) scrollTo(0, y); else scrollTo(0, 0);
+}
+// Écrans avec échiquier : tout tient dans la fenêtre, sans défilement de la page.
+// L'échiquier et son commentaire d'un côté, le reste dans une colonne qui défile seule si besoin.
+function fitLayout() {
+  const v = $('#view'), sw = v.querySelector(':scope > .split.work');
+  const fit = !!sw?.querySelector('.board');
+  document.body.classList.toggle('fit', fit);
+  if (!fit) return;
+  const bw = sw.querySelector(':scope > .bwrap'), stk = sw.querySelector(':scope > .stack'), side = document.createElement('div');
+  side.className = 'fitside';
+  let pre = true;
+  for (const el of [...v.children]) {
+    if (el === sw) { pre = false; if (stk) { stk.classList.add('fitpanel'); side.append(stk); } continue; }
+    if (pre) el.dataset.pre = '';
+    side.append(el);
+  }
+  sw.replaceWith(bw);
+  v.append(side);
 }
 
 document.addEventListener('click', (ev) => {

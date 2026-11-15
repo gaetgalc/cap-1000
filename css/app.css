@@ -281,3 +281,46 @@ cg-board square.selected { background-color: rgba(255, 214, 10, .6) !important; 
 .seg2 a { flex: 1; text-align: center; font: 600 14px var(--body); color: var(--ink2); text-decoration: none; border-radius: 8px; padding: 9px 8px; }
 .seg2 a.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.3); }
 @media (max-width: 859px) { body.solved .pztabs { display: none; } }
+
+/* ===== Écrans d'échiquier sans défilement (body.fit, posé par fitLayout) ===== */
+/* La page ne défile jamais : échiquier + commentaire d'un côté, le reste dans un panneau qui défile seul. */
+.m-txt { display: none; }
+body.fit { height: 100vh; height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
+body.fit .job { display: none !important; }
+body.fit .view { flex: 1; min-height: 0; width: 100%; }
+.fitside { display: flex; flex-direction: column; gap: 14px; min-height: 0; min-width: 0; }
+.fitpanel { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+body.fit .bwrap .board { max-width: none; flex: none; }
+body.fit .cap { max-width: none; overflow-y: auto; }
+@media (min-width: 860px) {
+  body.fit { --capmin: 118px; --bs: min(calc(100dvh - 40px - var(--capmin)), calc((100vw - 208px - 72px) * .6), 820px); }
+  body.fit .view { max-width: 1440px; display: grid; grid-template-columns: var(--bs) minmax(0, 1fr); grid-template-rows: 100%; gap: 24px; padding: 20px 24px; }
+  body.fit .bwrap { min-height: 0; }
+  body.fit .bwrap .board { width: var(--bs); height: var(--bs); }
+  body.fit .cap { flex: 1; min-height: 0; }
+  body.fit .fitpanel { flex: 1; }
+  body.fit .actbar { position: static; flex: none; box-shadow: none; }
+}
+@media (max-width: 859px) {
+  body.fit { padding-bottom: calc(71px + env(safe-area-inset-bottom)); }
+  body.fit .view { display: flex; flex-direction: column; gap: 10px; padding: 10px 14px 8px; }
+  body.fit .fitside { display: contents; }
+  body.fit [data-pre] { order: -1; flex: none; }
+  body.fit .coach.intro, body.fit .fitside > h1, body.fit .fitside > p.small { display: none; }
+  body.fit .m-txt { display: inline; }
+  body.fit .bwrap { order: 0; flex: 1 1 0; min-height: 0; container-type: size; margin: 0 -14px; }
+  body.fit .bwrap .board { width: min(100cqw, 100cqh - 84px); height: min(100cqw, 100cqh - 84px); margin: 0 auto; }
+  body.fit .cap { flex: 1; min-height: 84px; }
+  body.fit .fitpanel { order: 1; flex: 0 1 auto; max-height: 24%; }
+  body.fit:not(.solved) .fitpanel .card.ghost { display: none; }
+  body.fit .coach-b { max-height: 22vh; overflow-y: auto; }
+  body.fit .pztabs a { padding: 6px 8px; }
+  body.fit .pzhead .row .chip:not(:nth-child(2)) { display: none; }
+}
+@media (max-width: 859px) {
+  /* Après la solution, le commentaire coup par coup passe avant le panneau. */
+  body.fit.solved .bwrap .board { width: min(100cqw, 100cqh - 124px); height: min(100cqw, 100cqh - 124px); }
+  body.fit.solved .cap { min-height: 124px; }
+  body.fit.solved .fitpanel { max-height: 20%; }
+  body.fit.solved .fitpanel .meta { display: none; }
+}

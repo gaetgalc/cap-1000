@@ -135,6 +135,12 @@ Précision demandée, réponse : « Des puzzles inédits ». Fait : onglet « Po
 
 Corrigé : rendus d'arrière-plan qui interrompaient un exercice en cours, échec de mise à jour silencieux, vérification d'un coup qui aboutissait après avoir quitté l'écran, analyses illisibles comptées dans les statistiques, chantier épuisé affichant « tout est à jour », étape puzzles impossible à valider sans puzzle dû, touches hors pièce comptées comme réponses dans les échauffements, puzzle Lichess désynchronisé après un nouveau rendu, clé de semaine en UTC, plan non aligné sur le chantier, chiffre non sourcé (« 100 Elo »), collision d'attributs `data-ex`, file d'attente du moteur sans priorité, code mort, README périmé, fichier LICENSE manquant. Points laissés à l'arbitrage listés dans `CLAUDE.md` (points ouverts).
 
+## 15. Plus de défilement sur les écrans d'échiquier (15/11)
+
+> fais en sorte que je n'ai pas à scroller sur ordi et sur tel
+
+Fait : puzzles, erreurs, positions inédites, échauffements, positions de cours et relecture de partie tiennent dans la fenêtre. Ordi : échiquier calé sur la hauteur de l'écran à gauche (610 px sur 1366×768, 820 px sur grand écran), commentaire dessous, consigne, explications et boutons à droite ; les explications longues défilent dans leur panneau. Téléphone : échiquier quasi pleine largeur, consigne dans le bandeau sous l'échiquier, panneau d'explications court qui défile seul, boutons fixes en bas. Vérifié sur 5 tailles d'écran (parties simulées). Les pages de tableau de bord (Séance, Stats, Parties) défilent toujours.
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |

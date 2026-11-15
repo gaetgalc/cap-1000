@@ -42,6 +42,8 @@ Routes : `#accueil`, `#puzzles`, `#erreur/<end_time>/<ply>` (travail d'une erreu
 
 `workScreen` + `solveBoard` + `explainUI` dans `app.js`. Avant la solution : coach qui décrit le dernier coup adverse, indices en deux niveaux, « Mon coup ». Après : suites commentées coup par coup (« La bonne suite » et « Ton coup »), calculées en direct par Stockfish (`getLines`), idée, comparaison, règle à retenir. Sur téléphone : barre du haut avec retour, échiquier plein cadre, bandeau de commentaire sous l'échiquier, barre d'actions fixe en bas, 5 onglets.
 
+Écrans sans défilement : `fitLayout()` (appelé en fin de `render`) détecte un `.split.work` avec échiquier, pose `body.fit` et réorganise la vue en `.bwrap` (échiquier + commentaire) et `.fitside` (en-tête, consigne, `.fitpanel` qui défile seul, barre d'actions). Ordi : échiquier dimensionné sur la hauteur de la fenêtre (`--bs`), colonne de droite. Téléphone : `.fitside` en `display: contents`, échiquier dimensionné par container query, consigne d'intro reprise dans le bandeau (`.m-txt`). La page elle-même ne défile jamais sur ces écrans.
+
 ## Boucle pédagogique
 
 1. **Chantier** (`focus`, `focusStats`, `focusCard`) : un seul type d'erreur à la fois, choisi sur le coût mesuré ; validé quand son taux par partie est divisé par deux sur au moins 5 parties jouées depuis le début du chantier. Stocké dans `cap1000:focus`.
