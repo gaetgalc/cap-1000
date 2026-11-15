@@ -189,6 +189,25 @@ Méthode : le skill prévoit un interrogatoire avant d'écrire le code. Les déc
 
 Tests : 23 tests unitaires, test de bout en bout à 16 vérifications (dont reclassement sans moteur et réévaluation des anciennes analyses).
 
+## 19. Idées reprises d'autres dépôts (15/11)
+
+> j'aimerai que tu réfléchisses à des repos github qui font ce que je fais avec chess.com et qu'on puisses s'inspirer de leurs bonnes idées pour les intégrer au repo
+
+Une trentaine de dépôts passés en revue (chess-academy, personalized-chess-trainer, chess-blunder-trainer, botvinnik, better_tactics, patzer, woodpecker…). Six idées proposées, par ordre de rentabilité.
+
+> fais les 6
+
+1. **Sauvegarde et restauration** (botvinnik). Un fichier JSON avec parties, analyses, cours, répétition espacée, journal, activité, chantier ; jamais la clé du coach. Dans Plan et réglages et dans Plus. La restauration montre le contenu du fichier avant de remplacer quoi que ce soit.
+2. **Erreurs selon la pendule** (chess-academy). Part des coups qui sont des erreurs graves selon le temps restant et le temps pris, à partir du 9e coup. Carte sur la page Stats, chiffres dans le cours « Gérer ta pendule », deux signaux possibles dans les points faibles. L'incrément est maintenant lu à l'import ; pour les parties déjà importées, il est déduit de la pendule.
+3. **Erreurs qui reviennent** (chess-academy, blunder-trainer). Même position, faute commise dans au moins deux parties : bloc en tête de la page Ouvertures, avec le bouton « Travailler », et signal dans les points faibles à partir de 3 fois.
+4. **Coups qui tiennent** (personalized-chess-trainer). Sur chaque position d'erreur, le moteur cherche aussi les deuxième et troisième meilleurs coups. La consigne du puzzle dit s'il y a un seul bon coup ou plusieurs. Les erreurs sans motif tactique (ouverture, plan, finale) où au moins 3 coups tenaient ne sont plus des puzzles. Règles de classement en version 2 ; les analyses existantes sont complétées une fois en arrière-plan, sur les seules positions d'erreur.
+5. **Gagner les parties gagnées** (botvinnik, Lichess). Nouvelle page `#gagner` : les parties où tu as eu au moins +5 sans gagner, reprises au premier moment gagnant et jouées jusqu'au mat contre un moteur bridé. Indice possible, abandon, reprise après rechargement, résultat au journal. Accès : Échauffements, Plus, cours « Gagner les parties gagnantes ».
+6. **Ton avis sur le puzzle** (better_tactics). Après une réussite du premier coup : Facile, Normal ou Difficile, avec le délai de retour affiché sur chaque bouton. Un palier de plus ou de moins, jamais de retour le jour même.
+
+Écarté : synchronisation par phrase secrète (il faudrait un serveur), coach en conversation libre (existe déjà), multi-utilisateur.
+
+Tests : 31 tests unitaires (8 nouveaux), test de bout en bout à 27 vérifications (11 nouvelles : avis, partie rejouée et reprise, pendule, sauvegarde et restauration, complément des anciennes analyses). Captures en 390 × 664 et 1366 × 768 : pas de défilement sur les écrans d'échiquier.
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |
@@ -202,6 +221,8 @@ Tests : 23 tests unitaires, test de bout en bout à 16 vérifications (dont recl
 | Puzzle raté | Revient le lendemain, plus 5 minutes après | Donnait l'impression que l'app oubliait le travail fait |
 | Prédiction dans les suites | En pas à pas seulement, la lecture est automatique | Demande d'une animation après le bon coup |
 | Anciennes analyses | Réévaluées une fois, automatiquement, en arrière-plan | Sans données brutes, elles ne pourraient pas suivre un changement de règle |
+| Synchronisation | Fichier de sauvegarde, pas de serveur | Le site reste statique, sans compte |
+| Puzzles flous | Écartés s'ils n'ont pas de motif tactique et que 3 coups tenaient | Un puzzle sans réponse nette n'apprend rien |
 
 ## Non vérifié à ce jour
 

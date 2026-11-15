@@ -67,3 +67,24 @@ test('probabilité de gain et affichage de l’évaluation', () => {
   assert.ok(winPct(100) > 58 && winPct(100) < 60);
   assert.deepEqual([fmtEval(150), fmtEval(-70), fmtEval(MATE - 2), fmtEval(-MATE + 4)], ['+1.5', '-0.7', 'M2', '-M4']);
 });
+
+test('coups qui tiennent : comptés à moins de 6 points du meilleur, et puzzles sans réponse nette écartés', async () => {
+  const { goodMoves, isPuzzle, candidates } = await import('../js/classify.js');
+  assert.equal(goodMoves(undefined), undefined);
+  assert.equal(goodMoves([300, -50, -80]), 1);
+  assert.equal(goodMoves([30, 20, 10]), 3);
+  assert.equal(goodMoves([MATE - 2, 300, 100]), 1);
+  assert.equal(goodMoves([MATE - 2, 900, 100]), 2, 'mat ou +9 : les deux gagnent');
+  const e = { theme: 'plan', best: 'e2e4', e0: 50 };
+  assert.ok(isPuzzle(e) && isPuzzle({ ...e, alt: 2 }));
+  assert.ok(!isPuzzle({ ...e, alt: 3 }), 'erreur de plan où 3 coups tenaient : pas de puzzle');
+  assert.ok(isPuzzle({ ...e, theme: 'en_prise_ignore', alt: 3 }), 'menace ignorée : reste un puzzle même avec plusieurs parades');
+  assert.ok(!isPuzzle({ ...e, theme: null }) && !isPuzzle({ ...e, e0: -800 }));
+  // candidates : coups du joueur qui perdent au moins 10 points ; classify les relie à raw.mp
+  const game = { w: true, san: ['e4', 'e5', 'Qh5', 'Nc6', 'Qg5', 'Qxg5'] };
+  const ev = [20, 20, 10, 10, 30, -850, -850];
+  assert.deepEqual(candidates(game, ev), [4]);
+  const pv = [['e2e4'], ['e7e5'], ['g1f3'], ['b8c6'], ['f1c4', 'g8f6', 'd2d3'], ['d8g5'], []];
+  const [err] = classify(game, { ev, best: pv.map((m) => m[0] ?? null), pv, mp: { 4: [30, 25, -60] } }).errs;
+  assert.equal(err.alt, 2);
+});

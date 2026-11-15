@@ -5,7 +5,7 @@
 import { VAL } from './explain.js';
 
 export const MATE = 100000;
-export const VERSION = 1; // version des règles de classement (seuils, thèmes)
+export const VERSION = 2; // version des règles de classement (seuils, thèmes, coups qui tiennent)
 
 // Probabilité de gain (%) pour un score en centipions.
 export function winPct(cp) {
@@ -63,8 +63,29 @@ export function replay(game) {
   return mv.length < 4 ? null : { fens, mv };
 }
 
+// Coups du joueur qui font perdre au moins 10 points de chances de gain (erreurs et gaffes) : ce sont les
+// positions où le moteur cherche aussi les deuxième et troisième meilleurs coups (raw.mp).
+export function candidates(game, ev) {
+  const pov = (cp) => (game.w ? cp : -cp), out = [];
+  for (let i = 0; i + 1 < ev.length; i++) if ((i % 2 === 0) === game.w && winPct(pov(ev[i])) - winPct(pov(ev[i + 1])) >= 10) out.push(i);
+  return out;
+}
+// Nombre de coups qui tiennent la position (1 à 3) : à moins de 6 points de chances de gain du meilleur.
+// mp : évaluations des 3 meilleurs coups, du point de vue du camp au trait.
+export const GOOD = 6;
+export function goodMoves(mp) {
+  if (!mp?.length) return undefined;
+  return mp.filter((cp) => winPct(mp[0]) - winPct(cp) < GOOD).length;
+}
+// Une erreur devient-elle un puzzle ? Il faut un thème, un meilleur coup, une position pas déjà perdue.
+// Les erreurs sans motif tactique (ouverture, plan, finale) où au moins 3 coups tenaient sont écartées :
+// sans réponse nette, le puzzle n'apprend rien. Elles restent dans la relecture et les statistiques.
+const VAGUE = new Set(['ouverture', 'plan', 'finale']);
+export const isPuzzle = (e) => !!e.theme && !!e.best && e.e0 > -500 && !(e.alt >= 3 && VAGUE.has(e.theme));
+
 // raw : données brutes de l'évaluation, une entrée par position.
-//   ev : évaluation en centipions du point de vue des Blancs ; best : meilleur coup (UCI) ; pv : début de la suite du moteur.
+//   ev : évaluation en centipions du point de vue des Blancs ; best : meilleur coup (UCI) ; pv : début de la suite du moteur ;
+//   mp : { ply: [cp des 3 meilleurs coups] } pour les positions de candidates() (absent sur les analyses anciennes).
 // Renvoie ce qui s'en déduit : { errs, acc, maxAdv, last }.
 export function classify(game, raw) {
   const { fens, mv } = replay(game), ev = raw.ev, best = raw.best, pvs = raw.pv;
@@ -101,6 +122,7 @@ export function classify(game, raw) {
       prev: i > 0 ? mv[i - 1].from + mv[i - 1].to : null,
       punish: sanLine(fens[i + 1], pvs[i + 1], 3), line: sanLine(fens[i], pvs[i], 4),
       ph: phase(fens[i], i),
+      alt: goodMoves(raw.mp?.[i]),
     });
   }
   return {

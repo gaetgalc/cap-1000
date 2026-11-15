@@ -32,7 +32,8 @@ export function makeProgress(store = ls, now = () => Date.now()) {
   }
 
   // ---- Journal : chaque exercice terminé est noté tout de suite ----
-  // k : 'm' puzzle sur une erreur, 'l' position inédite Lichess, 'd' série d'échauffement. re : 1 si déjà fait ce jour-là.
+  // k : 'm' puzzle sur une erreur, 'l' position inédite Lichess, 'd' série d'échauffement, 'c' partie gagnante rejouée.
+  // re : 1 si déjà fait ce jour-là.
   const hist = () => store.get('hist', []);
   function log(x) {
     const h = hist(); h.push({ t: now(), ...x });
@@ -48,7 +49,8 @@ export function makeProgress(store = ls, now = () => Date.now()) {
     const prog = store.get('pz', {}), p = prog[id], day = dkey();
     if (p?.d === day) return false;
     const box = res === 2 ? Math.min(STEPS.length - 1, (p?.box ?? -1) + 1) : -1;
-    prog[id] = { box, due: dayStart() + (box < 0 ? 1 : STEPS[box]) * DAY, ok: (p?.ok || 0) + (res === 2 ? 1 : 0), d: day };
+    // b : case prévue par la règle, point de départ si l'élève juge ensuite le puzzle facile ou difficile.
+    prog[id] = { box, b: box, due: dayStart() + (box < 0 ? 1 : STEPS[box]) * DAY, ok: (p?.ok || 0) + (res === 2 ? 1 : 0), d: day };
     store.set('pz', prog);
     return true;
   }
@@ -60,6 +62,24 @@ export function makeProgress(store = ls, now = () => Date.now()) {
     if (!free) list = list.filter((p) => (prog[p.id]?.due || 0) <= t);
     else { const rest = list.filter((p) => prog[p.id]?.d !== day); if (rest.length) list = rest; }
     return list.sort((a, b) => ((prog[a.id] ? 0 : 1) - (prog[b.id] ? 0 : 1)) || (b.g.t - a.g.t) || (b.e.drop - a.e.drop));
+  }
+  // Avis de l'élève sur un puzzle réussi du premier coup aujourd'hui : 'e' facile (un palier de plus), 'h' difficile
+  // (un palier de moins, jamais moins d'un jour), '' normal (la règle). Modifiable dans la journée.
+  // rateInfo renvoie null si le puzzle ne peut pas être jugé, sinon l'avis actuel et le délai de retour de chaque choix.
+  const boxFor = (b, q) => (q === 'e' ? Math.min(STEPS.length - 1, b + 1) : q === 'h' ? Math.max(0, b - 1) : b);
+  function rateInfo(id) {
+    const p = store.get('pz', {})[id];
+    if (!p || p.d !== dkey() || !(p.b >= 0)) return null;
+    return { q: p.q || '', days: { e: STEPS[boxFor(p.b, 'e')], '': STEPS[p.b], h: STEPS[boxFor(p.b, 'h')] } };
+  }
+  function ratePuzzle(id, q) {
+    const prog = store.get('pz', {}), p = prog[id];
+    if (!p || p.d !== dkey() || !(p.b >= 0)) return null;
+    p.box = boxFor(p.b, q); p.due = dayStart() + STEPS[p.box] * DAY; p.q = q;
+    store.set('pz', prog);
+    const h = hist(); // l'avis est aussi noté dans le journal, sur la ligne du jour de ce puzzle
+    for (let i = h.length - 1; i >= 0; i--) if (h[i].k === 'm' && h[i].id === id && !h[i].re) { if (q) h[i].q = q; else delete h[i].q; store.set('hist', h); break; }
+    return STEPS[p.box];
   }
   const acquired = () => Object.values(store.get('pz', {})).filter((p) => p.box >= 2).length; // réussis 3 fois, à plusieurs jours d'écart
 
@@ -76,6 +96,9 @@ export function makeProgress(store = ls, now = () => Date.now()) {
     if (!replay) { const all = store.get('listat', {}), s = all[angle] || { n: 0, ok: 0 }; s.n++; if (res === 2) s.ok++; all[angle] = s; store.set('listat', all); bump('li'); }
     log({ k: 'l', id: P.id, r: res, a: angle, rt: P.rating, re: replay ? 1 : 0, p: { fen: P.fen, prevFen: P.prevFen, last: P.last, lastSan: P.lastSan, sol: P.sol, white: P.white, themes: P.themes } });
   }
+  // Partie gagnante rejouée contre le moteur : r = 2 gagnée, 0 pas gagnée (nulle, défaite, abandon). n : demi-coups joués.
+  function recordConversion(id, r, n) { bump('cv'); log({ k: 'c', id: String(id), r, n }); }
+  const conversions = () => hist().filter((h) => h.k === 'c');
   const lichessStat = (angle) => store.get('listat', {})[angle] || { n: 0, ok: 0 };
   function recordDrill(type, ok, n, ms) {
     const h = drills(); h.push({ d: dkey(), type, ok, n, ms }); store.set('drills', h.slice(-200));
@@ -104,7 +127,7 @@ export function makeProgress(store = ls, now = () => Date.now()) {
     return { done, due, goal: Math.max(1, Math.min(GOAL, done + due)), t };
   }
 
-  return { dkey, dayStart, act, bump, streak, hist, queue, acquired, recordPuzzle, recordLichess, lichessStat, recordDrill, drills, lessonsRead, setLessonRead, todayPuzzles, failedToday, day };
+  return { dkey, dayStart, act, bump, streak, hist, queue, acquired, recordPuzzle, rateInfo, ratePuzzle, recordLichess, lichessStat, recordDrill, recordConversion, conversions, drills, lessonsRead, setLessonRead, todayPuzzles, failedToday, day };
 }
 
 export const progress = makeProgress();

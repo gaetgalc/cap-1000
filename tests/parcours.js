@@ -28,7 +28,8 @@ function game(i) {
     ch.move(m); san.push(m.san);
   }
   const whiteWon = ch.in_checkmate() ? ch.turn() === 'b' : rnd() < 0.5, res = whiteWon ? '1-0' : '0-1';
-  const body = san.map((s, k) => (k % 2 ? '' : k / 2 + 1 + '. ') + s).join(' ');
+  let cw = 600, cb = 600; // pendule : de 2 à 40 s par coup
+  const body = san.map((s, k) => { const t = Math.floor(2 + rnd() * 38); if (k % 2) cb -= t; else cw -= t; const c = k % 2 ? cb : cw; return (k % 2 ? '' : k / 2 + 1 + '. ') + s + ` {[%clk 0:${String(Math.floor(c / 60)).padStart(2, '0')}:${String(c % 60).padStart(2, '0')}]}`; }).join(' ');
   const me = { rating: 700 + i * 5, result: whiteWon === w ? 'win' : 'resigned', username: USER }, op = { rating: 720 + i * 5, result: whiteWon === w ? 'resigned' : 'win', username: 'adv' + i };
   return { url: 'https://www.chess.com/game/live/' + (1000 + i), pgn: `[Event "Live Chess"]\n[Result "${res}"]\n[ECOUrl "https://www.chess.com/openings/Italian-Game"]\n\n${body} ${res}\n`,
     time_control: '600', end_time: Math.floor(Date.now() / 1000) - (40 - i) * 86400, rated: true, time_class: 'rapid', rules: 'chess', white: w ? me : op, black: w ? op : me };
@@ -76,6 +77,11 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   for (let k = 0; k < 250 && !/Revoir|Voir mon erreur/.test(await bar('#xbar')); k++) await sleep(200);
   check(/Revoir|Voir mon erreur/.test(await bar('#xbar')) && /Bilan/.test(await bar('#xcap')), 'la lecture va au bout et affiche le bilan');
   check((await ls('hist')).length === 1 && (await ls('hist'))[0].r === 2, 'le puzzle est noté dans le journal (du premier coup)');
+  check(await S(() => Object.values(window.__cap.an).every((a) => a.bad || a.mp)), 'chaque analyse cherche les coups qui tenaient sur les positions d’erreur');
+  check(/Facile · 3 j/.test(await bar('#xpanel .rate')), 'après une réussite du premier coup, l’avis facile ou difficile est proposé avec son délai');
+  const due1 = (await ls('pz'))[c.id].due;
+  await page.click('#xpanel .rate [data-v="e"]'); await sleep(200);
+  check((await ls('pz'))[c.id].due - due1 === 2 * 86400000 && await S(() => document.querySelector('#xpanel .rate [data-v="e"]').classList.contains('on')), '« Facile » repousse le retour du puzzle (1 jour → 3 jours)');
 
   await page.reload(); await sleep(900);
   const c2 = await cur();
@@ -87,7 +93,7 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   check(await S(() => !!document.querySelector('.recap')), 'un bilan apparaît quand l’objectif du jour est atteint');
   n = (await ls('hist')).length;
   check(await S(() => !!document.querySelector('[data-act="pzredo"]')), 'le bilan propose de refaire les ratés');
-  const due = Object.values(await ls('pz')).map((p) => p.due - Date.now());
+  const due = Object.entries(await ls('pz')).filter(([id]) => id !== c.id).map(([, p]) => p.due - Date.now()); // c : jugé « facile » plus haut
   check(due.every((d) => d > 0 && d <= 86400000), 'les puzzles du jour reviennent demain au plus tôt');
 
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#historique`); await sleep(500);
@@ -99,6 +105,40 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
     await page.reload(); await sleep(800);
     check(await S(() => window.__cap.dr?.i) === 2, 'un échauffement interrompu reprend à la même position');
   }
+  // ---- Pendule, erreurs répétées ----
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#stats`); await sleep(600);
+  check(/Tes erreurs et la pendule/.test(await bar('#view')), 'la page Stats montre les erreurs selon la pendule');
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#ouvertures`); await sleep(400);
+  check(/Ouvertures/.test(await bar('#view')), 'la page Ouvertures s’affiche avec le bloc des erreurs qui reviennent');
+
+  // ---- Gagner les parties gagnées ----
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#gagner`); await sleep(500);
+  const firstCv = await S(() => document.querySelector('#view .menu a.mrow')?.getAttribute('href'));
+  if (firstCv) {
+    await page.goto(`http://localhost:${PORT}/?u=${USER}&debug${firstCv}`); await sleep(700);
+    const { fen, w } = await S(() => ({ fen: window.__cap.cvCur.fen, w: window.__cap.cvCur.it.g.w }));
+    const mv = new Chess(fen).moves({ verbose: true })[0];
+    await tap('#xb', mv.from, w); await sleep(200); await tap('#xb', mv.to, w);
+    await page.waitForFunction(() => window.__cap.cv?.moves.length >= 2 || window.__cap.cv?.over, null, { timeout: 60000 });
+    check(true, 'partie gagnante rejouée : le moteur répond au coup joué');
+    await page.reload(); await sleep(900);
+    check(await S(() => window.__cap.cv?.moves.length) >= 2, 'après rechargement, la partie rejouée reprend au même coup');
+    if (await S(() => !window.__cap.cv.over)) { await page.click('[data-x="resign"]'); await sleep(300); }
+    check((await ls('hist')).some((h) => h.k === 'c') && /Recommencer/.test(await bar('#xbar')), 'fin de partie notée au journal, avec Recommencer');
+  } else check(true, 'aucune partie gagnante gâchée dans les parties simulées (écran non testé)');
+
+  // ---- Sauvegarde et restauration ----
+  await S(() => localStorage.setItem('cap1000:key', JSON.stringify('sk-ant-test')));
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#plan`); await sleep(500);
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.click('[data-act="bakexp"]')]);
+  const file = await dl.path(), txt = fs.readFileSync(file, 'utf8'), bk = JSON.parse(txt);
+  check(bk.app === 'cap1000' && bk.db.data.games.length === GAMES.length && bk.ls.hist.length > 0 && !txt.includes('sk-ant-test'), 'sauvegarde téléchargée : parties, analyses, journal, sans la clé du coach');
+  const nHist = bk.ls.hist.length;
+  await S(() => { localStorage.removeItem('cap1000:hist'); localStorage.removeItem('cap1000:pz'); });
+  page.once('dialog', (d) => d.accept());
+  await page.setInputFiles('#bakfile', file); await sleep(1200);
+  check((await ls('hist'))?.length === nHist && Object.keys(await ls('pz') || {}).length > 0 && await ls('key') === 'sk-ant-test', 'restauration : journal et puzzles revenus, clé de l’appareil conservée');
+
   // ---- Analyse en deux temps : reclasser sans moteur, réévaluer les anciennes analyses ----
   const tamper = (fn) => S(async (src) => {
     const db = await new Promise((res) => { const r = indexedDB.open('cap1000', 1); r.onsuccess = () => res(r.result); });
@@ -117,6 +157,10 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   await page.reload();
   await page.waitForFunction(() => window.__cap?.job.total > 0 && !window.__cap.job.running, null, { timeout: 180000 });
   check(await S(() => Object.values(window.__cap.an).every((a) => a.pv && a.v)) && await errCount() === nErr, 'anciennes analyses : réévaluées une fois, mêmes erreurs');
+  nErr = await tamper('delete a.mp; for (const e of a.errs) delete e.alt;'); // analyses d'avant la recherche des coups qui tiennent
+  await page.reload();
+  await page.waitForFunction(() => window.__cap?.job.total > 0 && !window.__cap.job.running, null, { timeout: 180000 });
+  check(await S(() => Object.values(window.__cap.an).every((a) => a.bad || a.mp)) && await errCount() === nErr, 'analyses sans coups qui tiennent : complétées une fois, mêmes erreurs');
 
   check(errs.length === 0, 'aucune erreur JavaScript' + (errs.length ? ' : ' + errs.join(' | ') : ''));
   await browser.close(); server.close();

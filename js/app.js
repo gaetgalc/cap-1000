@@ -1,8 +1,8 @@
 /* global Chess */
 import { dbGet, dbSet, dbDel, ls } from './store.js';
 import { importPlayer } from './chesscom.js';
-import { Engine, evaluateGame } from './engine.js';
-import { classify, VERSION, winPct, fmtEval, uciMove } from './classify.js';
+import { Engine, evaluateGame, multiPass } from './engine.js';
+import { classify, VERSION, winPct, fmtEval, uciMove, isPuzzle, replay } from './classify.js';
 import * as st from './stats.js';
 import { LESSONS, ENGINE_LESSONS, RULES } from './lessons.js';
 import { viewStats, mountStats } from './alltime.js';
@@ -15,6 +15,7 @@ import * as exo from './exercise.js';
 import { LI_ANGLES, LI_FOR, LI_DIFF, fetchPuzzle } from './lichess.js';
 import { DRILLS, DRILL_FOR, makeRound } from './drills.js';
 import { MODELS, coachKey, coachModel, facts, genLesson, askCoach, buildPrompt, parseLesson } from './coach.js';
+import * as backup from './backup.js';
 
 const DEPTH = 12; // même profondeur sur tous les appareils : une erreur est classée pareil partout
 
@@ -72,6 +73,9 @@ function bgRender() {
 const analysis = (g, raw) => ({ ...raw, ...classify(g, raw), v: VERSION });
 // Analyse d'avant la séparation évaluer / classer : pas de données brutes, donc impossible à reclasser. À réévaluer une fois.
 const legacy = (a) => !!a && !a.bad && !a.pv;
+// Analyse sans recherche des coups qui tiennent (raw.mp, ajoutée le 15/11) : complétée une fois, sur les seules positions d'erreur.
+const partial = (a) => !!a && !a.bad && !!a.pv && !a.mp;
+const toRedo = (a) => legacy(a) || partial(a);
 function analysisPool() {
   const pool = S.data.games.filter((g) => g.tc === targetTc());
   return (pool.length ? pool : S.data.games).slice().sort((a, b) => b.t - a.t);
@@ -90,14 +94,14 @@ function reclassify() {
 // Au démarrage : nouvelles parties récentes à analyser, puis anciennes analyses à réévaluer (une seule fois).
 function autoAnalyse() {
   if (!S.data) return;
-  const pool = analysisPool(), list = [...pool.slice(0, 20).filter((g) => !S.an[g.id]), ...pool.filter((g) => legacy(S.an[g.id]))];
+  const pool = analysisPool(), list = [...pool.slice(0, 20).filter((g) => !S.an[g.id]), ...pool.filter((g) => toRedo(S.an[g.id]))];
   if (list.length) runAnalysis(0, null, list);
 }
 // count parties de plus (les plus récentes non analysées d'abord), ou une seule (only), ou une liste précise (list).
 async function runAnalysis(count, only, list) {
   if (S.job.running || !S.data) return;
   const pool = analysisPool();
-  const queue = list || (only ? [only] : [...pool.filter((g) => !S.an[g.id]), ...pool.filter((g) => legacy(S.an[g.id]))].slice(0, count));
+  const queue = list || (only ? [only] : [...pool.filter((g) => !S.an[g.id]), ...pool.filter((g) => toRedo(S.an[g.id]))].slice(0, count));
   if (!queue.length) return;
   S.job = { running: true, done: 0, total: queue.length, stop: false, msg: '' };
   const user = S.user, saveAn = () => (S.user === user ? dbSet('an:' + user, S.an) : null);
@@ -107,9 +111,16 @@ async function runAnalysis(count, only, list) {
     await S.engine.ready;
     for (const g of queue) {
       if (S.job.stop || S.user !== user) break;
-      const raw = await evaluateGame(S.engine, g, DEPTH, () => !S.job.stop);
-      if (S.job.stop && !raw) break; // interrompue : l'ancienne analyse, s'il y en a une, reste en place
-      S.an[g.id] = raw ? analysis(g, raw) : { ev: [], errs: [], nb: 0, acc: null, maxAdv: 0, last: 0, bad: true };
+      const old = S.an[g.id], alive = () => !S.job.stop;
+      if (partial(old)) {
+        const mp = await multiPass(S.engine, g, old.ev, DEPTH, alive);
+        if (!mp) break;
+        S.an[g.id] = analysis(g, { ev: old.ev, best: old.best, pv: old.pv, nb: old.nb, depth: old.depth, mp });
+      } else {
+        const raw = await evaluateGame(S.engine, g, DEPTH, alive);
+        if (S.job.stop && !raw) break; // interrompue : l'ancienne analyse, s'il y en a une, reste en place
+        S.an[g.id] = raw ? analysis(g, raw) : { ev: [], errs: [], nb: 0, acc: null, maxAdv: 0, last: 0, bad: true };
+      }
       S.job.done++;
       if (S.job.done % 3 === 0 || S.job.done === queue.length) await saveAn();
       paintJob();
@@ -148,16 +159,24 @@ function allPuzzles() {
   for (const g of S.data.games) {
     const a = S.an[g.id];
     if (!a) continue;
-    for (const e of a.errs) if (e.theme && e.best && e.e0 > -500) out.push({ id: g.t + ':' + e.ply, g, e });
+    for (const e of a.errs) if (isPuzzle(e)) out.push({ id: g.t + ':' + e.ply, g, e });
   }
   return out;
 }
 const pzQueue = (theme, free) => progress.queue(allPuzzles(), theme, free);
 // Un puzzle terminé est noté tout de suite (répétition espacée, journal, séance), puis l'avancée affichée est rafraîchie.
 function pzRecord(p, res) {
-  progress.recordPuzzle(p, res);
+  const fresh = progress.recordPuzzle(p, res);
   const el = $('#pzdayi'); if (el) el.innerHTML = pzDayHtml();
   header();
+  return fresh;
+}
+// Après une réussite du premier coup : l'élève dit si le puzzle était facile ou difficile, ce qui avance ou rapproche son retour.
+function rateRow(id) {
+  const r = id && progress.rateInfo(id);
+  if (!r) return '';
+  const b = (q, l) => `<button class="${r.q === q ? 'on' : ''}" data-x="rate" data-v="${q}" aria-pressed="${r.q === q}">${l} · ${r.days[q]} j</button>`;
+  return `<div class="rate"><span class="small">Pour toi, ce puzzle était… (prochain retour)</span><div class="seg2 mini">${b('e', 'Facile')}${b('', 'Normal')}${b('h', 'Difficile')}</div></div>`;
 }
 const pzById = (id) => { const [t, ply] = String(id).split(':'); return S.data ? findErr(t, ply) : null; };
 const failedToday = () => progress.failedToday((id) => !!pzById(id));
@@ -286,6 +305,8 @@ function findErr(t, ply) {
   const e = g && S.an[g.id]?.errs.find((x) => String(x.ply) === String(ply));
   return e && e.best ? { id: g.t + ':' + e.ply, g, e } : null;
 }
+// Combien de coups tiennent la position : un seul, ou plusieurs (connu pour les parties analysées depuis le 15/11).
+const altText = (e) => (e.alt === 1 ? 'Un seul coup tient la position : trouve-le.' : e.alt >= 2 ? 'Plusieurs coups tiennent la position : trouve-en un.' : 'Trouve mieux.');
 const SOLVE_BAR = '<button class="btn" data-x="hint">Indice</button><button class="btn" data-x="real">Mon coup</button><button class="btn" data-x="show">Solution</button>';
 // Écran d'exercice sur une de tes erreurs. o : { head, side, next (bouton de sortie), top }.
 function workScreen(p, o) {
@@ -293,7 +314,7 @@ function workScreen(p, o) {
   const last = lastMoveText(p.g, p.e.ply, me);
   return exo.screen({
     live: true, top: o.top, exit: o.next,
-    head: o.head + coach(`${last ? esc(last) + ' ' : ''}<b>À toi de jouer avec les ${side}.</b> En partie, ton coup ici t’a coûté ${p.e.drop} points de chances de gain. Trouve mieux.`, 'intro'),
+    head: o.head + coach(`${last ? esc(last) + ' ' : ''}<b>À toi de jouer avec les ${side}.</b> En partie, ton coup ici t’a coûté ${p.e.drop} points de chances de gain. ${altText(p.e)}`, 'intro'),
     cap: `<p><i class="dot ${p.g.w ? 'w' : 'b'}"></i> <span class="m-txt">${last ? esc(last) + ' ' : ''}</span>Trait aux ${side}. <span class="d-txt">Joue ton coup sur l’échiquier.</span><span class="m-txt">Trouve mieux qu’en partie.</span></p>`,
     panel: `${o.side || ''}
       <div class="meta small">Coup ${moveNo(p.e)} de ta ${gameRef(p.g)}${p.e.theme ? ` · ${st.THEMES[p.e.theme]}` : ''} · <a href="#partie/${p.g.t}/${p.e.ply}">Ouvrir la partie</a></div>
@@ -347,9 +368,9 @@ function pzRecap(title, msg, empty, filter) {
 const RES = { 2: ['r2', 'Du premier coup'], 1: ['r1', 'Trouvé avec aide'], 0: ['r0', 'Solution vue'] };
 function viewHistory() {
   const all = progress.hist(), h = all.slice().reverse(), head = pzTabs('hist') + '<h1>Historique</h1>';
-  if (!h.length) return head + `<div class="card">${coach('Chaque puzzle, chaque position inédite et chaque échauffement que tu termines est noté ici avec son résultat. Tu peux quitter la page ou fermer le site : rien ne se perd, et tu peux refaire une position d’un clic.')}<div><a class="btn pri" href="#puzzles">Faire mes puzzles</a></div></div>`;
+  if (!h.length) return head + `<div class="card">${coach('Chaque puzzle, chaque position inédite, chaque échauffement et chaque partie rejouée que tu termines est noté ici avec son résultat. Tu peux quitter la page ou fermer le site : rien ne se perd, et tu peux refaire une position d’un clic.')}<div><a class="btn pri" href="#puzzles">Faire mes puzzles</a></div></div>`;
   S.histN ||= 60;
-  const pz = all.filter((x) => x.k !== 'd' && !x.re), d0 = dayStart(), today = dkey();
+  const pz = all.filter((x) => (x.k === 'm' || x.k === 'l') && !x.re), d0 = dayStart(), today = dkey();
   const acq = progress.acquired();
   const tiles = `<div class="tiles"><div class="tile"><b class="num">${pz.filter((x) => x.t >= d0).length}</b><span>puzzles aujourd’hui</span></div>
     <div class="tile"><b class="num">${pz.filter((x) => x.t >= d0 - 6 * DAY).length}</b><span>sur 7 jours</span></div>
@@ -358,7 +379,8 @@ function viewHistory() {
   const hm = (t) => new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   const row = (x) => {
     if (x.k === 'd') { const D = DRILLS[x.ty]; return `<div class="hrow"><i class="hres ${x.ok >= x.n * 0.8 ? 'r2' : x.ok >= x.n * 0.5 ? 'r1' : 'r0'}"></i><span class="stepc"><b>Échauffement${D ? ' : ' + D.t : ''}</b><span>${x.ok} / ${x.n} justes · ${hm(x.t)}</span></span>${D ? `<a class="btn sm" href="#drill/${x.ty}">Refaire</a>` : ''}</div>`; }
-    const [cls, lab] = RES[x.r] || RES[0], sub = `${lab}${x.re ? ' (révision)' : ''} · ${hm(x.t)}`;
+    if (x.k === 'c') { const g = S.data.games.find((y) => String(y.t) === x.id); return `<div class="hrow"><i class="hres ${x.r === 2 ? 'r2' : 'r0'}"></i><span class="stepc"><b>Partie gagnante rejouée${g ? ` · ${dfmt(g.t)} contre ${esc(g.opp)}` : ''}</b><span>${x.r === 2 ? 'Gagnée' : 'Pas gagnée'} en ${Math.ceil(x.n / 2)} coups · ${hm(x.t)}</span></span>${g ? `<a class="btn sm" href="#gagner/${g.t}">Refaire</a>` : ''}</div>`; }
+    const [cls, lab] = RES[x.r] || RES[0], sub = `${lab}${x.q ? (x.q === 'e' ? ', jugé facile' : ', jugé difficile') : ''}${x.re ? ' (révision)' : ''} · ${hm(x.t)}`;
     if (x.k === 'l') return `<div class="hrow"><i class="hres ${cls}"></i><span class="stepc"><b>Position inédite${LI_NAME[x.a] ? ' : ' + LI_NAME[x.a] : ''}</b><span>${sub}${x.rt ? ' · niveau ' + x.rt : ''}</span></span>${x.p ? `<button class="btn sm" data-act="lireplay" data-t="${x.t}">Refaire</button>` : `<a class="btn sm" href="https://lichess.org/training/${esc(x.id)}" target="_blank" rel="noopener">Lichess</a>`}</div>`;
     const p = pzById(x.id);
     return `<div class="hrow"><i class="hres ${cls}"></i><span class="stepc"><b>${p ? `Coup ${moveNo(p.e)} · ${dfmt(p.g.t)} contre ${esc(p.g.opp)}` : 'Position d’une partie'}</b><span>${st.THEMES[x.th] ? st.THEMES[x.th] + ' · ' : ''}${sub}</span></span>${p ? `<a class="btn sm" href="#erreur/${p.g.t}/${p.e.ply}">Refaire</a>` : ''}</div>`;
@@ -367,7 +389,8 @@ function viewHistory() {
   for (const x of h.slice(0, S.histN)) { const k = dkey(new Date(x.t)); if (!days.has(k)) days.set(k, []); days.get(k).push(x); }
   const yest = dkey(new Date(d0 - DAY / 2));
   const label = (k) => (k === today ? 'Aujourd’hui' : k === yest ? 'Hier' : new Date(k + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }));
-  const sum = (l) => { const z = l.filter((x) => x.k !== 'd' && !x.re), dr = l.filter((x) => x.k === 'd').length, rv = l.filter((x) => x.k !== 'd' && x.re).length; return [z.length ? `${pl(z.length, 'puzzle')}, ${z.filter((x) => x.r === 2).length} du premier coup` : '', rv ? pl(rv, 'révision') : '', dr ? pl(dr, 'échauffement') : ''].filter(Boolean).join(' · '); };
+  const isPz = (x) => x.k === 'm' || x.k === 'l';
+  const sum = (l) => { const z = l.filter((x) => isPz(x) && !x.re), dr = l.filter((x) => x.k === 'd').length, cv = l.filter((x) => x.k === 'c').length, rv = l.filter((x) => isPz(x) && x.re).length; return [z.length ? `${pl(z.length, 'puzzle')}, ${z.filter((x) => x.r === 2).length} du premier coup` : '', rv ? pl(rv, 'révision') : '', dr ? pl(dr, 'échauffement') : '', cv ? pl(cv, 'partie rejouée').replace('parties rejouée', 'parties rejouées') : ''].filter(Boolean).join(' · '); };
   return head + tiles + `<div class="legend"><span style="--c:var(--good)">Du premier coup</span><span style="--c:var(--warn)">Trouvé avec aide</span><span style="--c:var(--bad)">Solution vue</span></div>`
     + [...days].map(([k, l]) => `<div class="card hday"><h2><span class="hcap">${label(k)}</span><span class="small">${sum(l)}</span></h2>${l.map(row).join('')}</div>`).join('')
     + (h.length > S.histN ? '<div><button class="btn" data-act="histmore">Afficher les exercices plus anciens</button></div>' : '');
@@ -402,6 +425,7 @@ function explainUI(X, o) {
   const e = o.e, g = o.g, start = (uci, brush) => ({ fen: e.fen, last: e.prev ? [e.prev.slice(0, 2), e.prev.slice(2, 4)] : undefined, shape: arrow(uci, brush) });
   X.say('', `<p>${o.verdict || ''} Je prépare l’explication…</p>`);
   X.solved();
+  if (o.rate) X.on({ rate(v) { progress.ratePuzzle(o.rate, v || ''); document.querySelectorAll('.rate').forEach((el) => { el.outerHTML = rateRow(o.rate); }); } });
   X.setBar(X.spec.exit);
   getLines(g, e).then((d) => {
     if (!X.alive()) return;
@@ -418,7 +442,7 @@ function explainUI(X, o) {
           chip: chip(d.ref), bilan: bilan(d.ref, 'ton coup', d.ins.refTxt), guess: (i) => i === 1, ask: 'À toi de punir ce coup : joue la meilleure réponse de ton adversaire.', cta: 'Voir mon erreur' },
       },
       verdict: o.verdict, exit: X.spec.exit, from: o.exact === false ? 0 : 1, rest: 1,
-      panel: o.panel, panelHtml: (key) => { const best = key === 'best', L = d[key]; return `<div class="seg2 mini" role="tablist"><button role="tab" data-x="film" data-v="best" class="${best ? 'on' : ''}">La bonne suite</button><button role="tab" data-x="film" data-v="ref" class="${best ? '' : 'on'}">Ton coup : ${fr(e.played)}</button></div>
+      panel: o.panel, panelHtml: (key) => { const best = key === 'best', L = d[key]; return `${rateRow(o.rate)}<div class="seg2 mini" role="tablist"><button role="tab" data-x="film" data-v="best" class="${best ? 'on' : ''}">La bonne suite</button><button role="tab" data-x="film" data-v="ref" class="${best ? '' : 'on'}">Ton coup : ${fr(e.played)}</button></div>
         <div class="card idea"><h3>L’idée derrière ${fr(e.bestSan)}</h3><p>${esc(d.ins.idee)}</p></div>
         <h3 class="lh">${best ? 'La bonne suite, coup par coup' : `Ce que permettait ${fr(e.played)}`}</h3>
         <ol class="line">${L.map((q, k) => `<li data-x="jump" data-v="${k + 1}"><b>${q.white ? q.no + '.' : (k === 0 ? q.no + '…' : '')} ${fr(q.san)}</b><span>${esc(q.text)}</span></li>`).join('')}</ol>
@@ -508,9 +532,125 @@ function mountPuzzle() {
   const api = solveBoard(X, p.g, p.e, {
     done: (res, first, html, exact) => {
       if (first) pzRecord(p, res); // noté tout de suite : quitter la page ne fait rien perdre
-      explainUI(X, { g: p.g, e: p.e, api, panel: $('#pzx'), verdict: html, exact });
+      explainUI(X, { g: p.g, e: p.e, api, panel: $('#pzx'), verdict: html, exact, rate: res === 2 ? p.id : null });
     },
   });
+}
+
+// ---------- Gagner les parties gagnées ----------
+// Parties où tu as eu au moins +5 sans gagner : tu reprends la position et tu la joues jusqu'au mat contre un moteur bridé.
+const CV_MIN = 500, BOT = { 'Skill Level': 6 }, BOT_DEPTH = 10;
+function cvList() {
+  if (!S.data) return [];
+  const out = [];
+  for (const g of S.data.games) {
+    const a = S.an[g.id];
+    if (!a || a.bad || g.out === 'W' || !(a.maxAdv >= CV_MIN)) continue;
+    const pov = (cp) => (g.w ? cp : -cp);
+    const ply = a.ev.findIndex((cp, k) => k < g.san.length && (k % 2 === 0) === g.w && pov(cp) >= CV_MIN); // premier moment où tu gagnais
+    if (ply >= 0) out.push({ g, ply, ev: pov(a.ev[ply]) });
+  }
+  return out.sort((x, y) => y.g.t - x.g.t);
+}
+const CV_END = {
+  gagne: ['ok', '<b class="ok">Gagné.</b> Tu as converti l’avantage jusqu’au mat.'],
+  mat_subi: ['ko', '<b class="ko">Échec et mat contre toi.</b> L’avantage s’est retourné : vérifie les menaces sur ton roi avant d’attaquer.'],
+  pat: ['ko', '<b class="ko">Pat : partie nulle.</b> Avec beaucoup de matériel, laisse toujours une case au roi adverse.'],
+  rep: ['ko', '<b class="ko">Nulle par répétition.</b> Quand tu mènes, change de plan plutôt que de répéter les coups.'],
+  nulle: ['ko', '<b class="ko">Partie nulle.</b> Garde des pions : sans eux, tu ne peux plus mater.'],
+  abandon: ['ko', 'Partie abandonnée. Recommence quand tu veux : la position t’attend.'],
+};
+function cvEnd(ch, me) {
+  if (ch.in_checkmate()) return ch.turn() === me ? 'mat_subi' : 'gagne';
+  if (ch.in_stalemate()) return 'pat';
+  if (ch.in_threefold_repetition()) return 'rep';
+  if (ch.in_draw()) return 'nulle';
+  return null;
+}
+function viewGagner(t) {
+  const list = cvList(), won = new Set(progress.conversions().filter((h) => h.r === 2).map((h) => h.id));
+  if (t == null) {
+    const head = `<h1>Gagner les parties gagnées</h1>${coach('Ces parties, tu les as eues gagnantes, avec au moins +5 d’avantage, et elles t’ont échappé. Reprends-les au moment où tu gagnais et va jusqu’au mat contre le moteur. Il défend sérieusement : c’est l’entraînement à la conversion qui manque le plus sous 1000.')}`;
+    if (!list.length) return head + `<div class="card"><p class="sub">${Object.keys(S.an).length ? 'Aucune partie analysée où tu as eu +5 sans gagner. Bonne nouvelle, ou analyse plus de parties.' : 'Analyse tes parties pour trouver celles qui t’ont échappé.'}</p>${S.job.running ? '' : '<div><button class="btn" data-act="analyse">Analyser 20 parties de plus</button></div>'}</div>`;
+    return head + `<div class="menu">${list.slice(0, 30).map((x) => `<a class="mrow" href="#gagner/${x.g.t}"><span class="mico">${won.has(String(x.g.t)) ? '✓' : ico('play')}</span><span class="stepc"><b>${dfmt(x.g.t)} contre ${esc(x.g.opp)} (${x.g.or})</b><span>${fmtEval(x.ev)} au coup ${Math.floor(x.ply / 2) + 1} · finie en ${x.g.out === 'L' ? 'défaite' : 'nulle'}${won.has(String(x.g.t)) ? ' · déjà gagnée ici' : ''}</span></span><span class="chev" aria-hidden="true">›</span></a>`).join('')}</div>`;
+  }
+  const it = list.find((x) => String(x.g.t) === String(t));
+  if (!it) return `<h1>Position introuvable</h1><div class="card"><p class="sub">Cette partie n’est plus dans la liste.</p><div><a class="btn" href="#gagner">Voir les parties</a></div></div>`;
+  if (!S.cv || String(S.cv.t) !== String(it.g.t)) S.cv = { t: it.g.t, moves: [], over: null };
+  const r = replay(it.g), side = it.g.w ? 'Blancs' : 'Noirs', prev = r.mv[it.ply - 1];
+  S.cvCur = { it, fen: r.fens[it.ply], last: prev ? [prev.from, prev.to] : undefined };
+  const idx = list.indexOf(it), nx = list[idx + 1] || list[0];
+  const chips = `<span class="chip good">${fmtEval(it.ev)}</span><span class="chip">${idx + 1} / ${list.length}</span>`;
+  return exo.screen({
+    live: true, top: () => chips,
+    head: `<div class="pzhead main"><h1>Gagne cette partie</h1><div class="row">${chips}</div></div>`
+      + coach(`Coup ${Math.floor(it.ply / 2) + 1} de ta ${gameRef(it.g)} : tu gagnais, la partie s’est finie en ${it.g.out === 'L' ? 'défaite' : 'nulle'}. <b>Joue avec les ${side} jusqu’au mat.</b>`, 'intro'),
+    cap: `<p><i class="dot ${it.g.w ? 'w' : 'b'}"></i> Trait aux ${side}. Tu as ${fmtEval(it.ev)} : simplifie et va au mat.</p>`,
+    panel: `<div class="meta small"><a href="#partie/${it.g.t}/${it.ply}">Voir la partie d’origine</a> · <a href="#gagner">Toutes les parties</a></div>
+      <div class="card ghost"><h3>${LESSONS.conversion.titre}</h3><ol class="routine">${LESSONS.conversion.routine.map((x) => `<li>${x}</li>`).join('')}</ol></div>
+      <div class="card ghost"><h3>Coups joués</h3><p class="small" id="cvmoves">Aucun pour l’instant.</p></div>`,
+    bar: '',
+    nextT: nx && nx !== it ? nx.g.t : null,
+  });
+}
+function mountGagner() {
+  const X = exo.current(), c = S.cvCur, cv = S.cv;
+  if (!X || !c || !cv) return;
+  const { it } = c, me = it.g.w ? 'w' : 'b', color = it.g.w ? 'white' : 'black';
+  const ch = new Chess(c.fen); let last = c.last;
+  for (const u of cv.moves) { const m = uciMove(ch, u); if (!m) break; last = [m.from, m.to]; }
+  let tk = 0;
+  const mov = () => ({ free: false, color, dests: destsOf(ch), showDests: true, events: { after: onMove } });
+  const turn = () => (ch.turn() === 'w' ? 'white' : 'black');
+  const cg = X.board({ fen: ch.fen(), orientation: color, turnColor: turn(), lastMove: last, movable: cv.over || ch.turn() !== me ? { color: undefined } : mov() });
+  const moves = () => { const el = $('#cvmoves'); if (el) el.textContent = ch.history().length ? st.lineText([...Array(it.ply).fill(''), ...ch.history()], it.ply) : 'Aucun pour l’instant.'; };
+  const playBar = () => X.setBar('<button class="btn" data-x="hint">Indice</button><button class="btn" data-x="resign">Abandonner</button><button class="btn" data-act="back">Retour</button>');
+  const endBar = () => X.setBar(`<button class="btn ${cv.over === 'gagne' ? '' : 'pri'}" data-x="restart">Recommencer</button>${X.spec.nextT ? `<a class="btn ${cv.over === 'gagne' ? 'pri' : ''}" href="#gagner/${X.spec.nextT}">Partie suivante ›</a>` : '<a class="btn" href="#gagner">Toutes les parties</a>'}`);
+  function over(why, record = true) {
+    cv.over = why; tk++;
+    if (record) { progress.recordConversion(it.g.t, why === 'gagne' ? 2 : 0, cv.moves.length); header(); }
+    keepUi();
+    cg.set({ movable: { color: undefined } });
+    const [cls, html] = CV_END[why] || CV_END.nulle;
+    X.say(cls, `<p>${html} <span class="small">${pl(Math.ceil(cv.moves.length / 2), 'coup')} joués.</span></p>`);
+    X.solved(); endBar();
+  }
+  async function botMove() {
+    const k = ++tk;
+    X.say('', '<p>Ton adversaire réfléchit…</p>');
+    let r;
+    try { S.bot ||= new Engine(BOT); r = await S.bot.evalFen(ch.fen(), BOT_DEPTH, true); } catch { S.bot = null; if (X.alive()) X.say('ko', '<p>Le moteur ne répond pas sur ce navigateur. Recharge la page pour réessayer.</p>'); return; }
+    if (!X.alive() || k !== tk || cv.over || !r.best) return;
+    const before = ch.fen(), m = uciMove(ch, r.best);
+    if (!m) return;
+    cv.moves.push(r.best); keepUi(); moves();
+    cg.set({ fen: ch.fen(), lastMove: [m.from, m.to], turnColor: color, movable: mov(), drawable: { autoShapes: [] } });
+    const why = cvEnd(ch, me); if (why) return over(why);
+    X.say('', `<p>${esc(justPlayed(describeAt(before, m.san, me)))} <b>À toi.</b></p>`);
+  }
+  function onMove(from, to) {
+    const m = ch.move({ from, to, promotion: 'q' });
+    if (!m) { cg.set({ fen: ch.fen(), movable: mov() }); return; }
+    cv.moves.push(from + to + (m.promotion || '')); keepUi(); moves();
+    cg.set({ fen: ch.fen(), turnColor: turn(), movable: { color: undefined }, drawable: { autoShapes: [] } });
+    const why = cvEnd(ch, me); if (why) return over(why);
+    botMove();
+  }
+  X.on({
+    async hint() {
+      if (cv.over || ch.turn() !== me) return;
+      const k = tk, fen = ch.fen();
+      X.say('', '<p>Je cherche le meilleur coup…</p>');
+      try { S.play ||= new Engine(); const r = await S.play.evalFen(fen, DEPTH, true); if (!X.alive() || k !== tk || ch.fen() !== fen || !r.best) return; cg.setAutoShapes([arrow(r.best, 'green')]); X.say('', `<p><b>Indice.</b> ${esc(hintFor(fen, r.best, me))} La flèche verte montre le coup du moteur.</p>`); } catch { S.play = null; }
+    },
+    resign() { if (!cv.over) over('abandon'); },
+    restart() { S.cv = { t: it.g.t, moves: [], over: null }; keepUi(); render(); },
+  });
+  moves();
+  if (cv.over) return over(cv.over, false);
+  playBar();
+  if (ch.turn() !== me) botMove();
+  else if (cv.moves.length) X.say('', '<p>Partie reprise là où tu l’avais laissée. <b>À toi.</b></p>');
 }
 
 // ---------- Vues ----------
@@ -520,7 +660,7 @@ function filtersHtml() {
     <select data-f="days" aria-label="Période"><option value="0">Depuis le début</option><option value="90" ${S.f.days === 90 ? 'selected' : ''}>90 derniers jours</option><option value="30" ${S.f.days === 30 ? 'selected' : ''}>30 derniers jours</option></select>
     <button class="btn sm" data-act="refresh" title="Récupérer les nouvelles parties de ${esc(S.user)}">Mettre à jour</button>`;
 }
-const TITLES = { puzzles: 'Puzzles', erreur: 'Comprendre', partie: 'Partie', cours: 'Cours', drill: 'Échauffement', inedits: 'Positions inédites' };
+const TITLES = { puzzles: 'Puzzles', erreur: 'Comprendre', partie: 'Partie', cours: 'Cours', drill: 'Échauffement', inedits: 'Positions inédites', gagner: 'Gagner' };
 function header() {
   const t = $('#tools'), [r, a] = route();
   const imm = !!S.data && (!!exo.current() || r === 'erreur' || (r === 'cours' && !!a)); // écran d'exercice ou page de cours : barre du haut avec retour
@@ -717,7 +857,11 @@ function viewCours() {
 
 function lessonNumbers(id, gs) {
   const row = (a, b) => `<dt>${a}</dt><dd>${b}</dd>`;
-  if (id === 'temps') { const t = st.timeStats(gs); return row('Défaites au temps', `${t.flag} sur ${t.losses} (${st.pct(t.flag, t.losses)} %)`) + (t.leftLoss != null ? row('Temps restant à la fin d’une défaite type', Math.round(t.leftLoss * 100) + ' %') : ''); }
+  if (id === 'temps') {
+    const t = st.timeStats(gs), ce = st.clockErrors(gs, S.an), r = (b) => (b.n >= 10 ? `${st.pct(b.bad, b.n)} % de tes coups (${b.n} coups)` : 'trop peu de coups');
+    return row('Défaites au temps', `${t.flag} sur ${t.losses} (${st.pct(t.flag, t.losses)} %)`) + (t.leftLoss != null ? row('Temps restant à la fin d’une défaite type', Math.round(t.leftLoss * 100) + ' %') : '')
+      + (ce.games ? row('Erreurs graves avec moins d’une minute', r(ce.left[3])) + row('Erreurs graves avec plus de 5 minutes', r(ce.left[0])) + row('Erreurs graves sur les coups joués en moins de 5 s', r(ce.think[0])) + row('Erreurs graves quand tu prends plus de 15 s', r({ n: ce.think[2].n + ce.think[3].n, bad: ce.think[2].bad + ce.think[3].bad })) : '');
+  }
   if (id === 'tilt') { const t = st.tilt(gs); return row('Score après une victoire', `${st.score(t.afterW)} % (${t.afterW.n} parties)`) + row('Score après une défaite', `${st.score(t.afterL)} % (${t.afterL.n} parties)`) + row('Plus longue série de défaites', t.streakMax); }
   if (id === 'principes' || id === 'ouverture') { const h = st.habits(gs); return row('Score quand tu roques tôt', `${st.score(h.castled)} % (${h.castled.n} parties)`) + row('Score sans roque avant le 12e coup', `${st.score(h.notCastled)} % (${h.notCastled.n} parties)`) + row('Score avec la dame sortie avant le 7e coup', `${st.score(h.earlyQ)} % (${h.earlyQ.n} parties)`); }
   if (id === 'conversion') { const e = st.engineStats(gs, S.an); return row('Parties avec au moins +5 d’avantage', e.ahead) + row('Gagnées', `${e.converted} (${st.pct(e.converted, e.ahead)} %)`); }
@@ -806,8 +950,9 @@ function mountCoachLesson() {
   getLines(c.x.g, c.x.e);
   const api = solveBoard(X, c.x.g, c.x.e, { hintText: c.pos.indice, done: (res, first, html, exact) => {
     $('#clx').hidden = false;
-    if (first) pzRecord({ id: c.x.g.t + ':' + c.x.e.ply, e: c.x.e }, res);
-    explainUI(X, { g: c.x.g, e: c.x.e, api, panel: $('#clp'), verdict: html, exact });
+    const id = c.x.g.t + ':' + c.x.e.ply;
+    if (first) pzRecord({ id, e: c.x.e }, res);
+    explainUI(X, { g: c.x.g, e: c.x.e, api, panel: $('#clp'), verdict: html, exact, rate: res === 2 ? id : null });
   } });
 }
 function viewLecon(id, mode) {
@@ -836,7 +981,7 @@ function viewLecon(id, mode) {
       <span class="row"><span class="chip bad">−${x.e.drop} pts de chances de gain</span><a class="btn pri sm" href="#erreur/${x.g.t}/${x.e.ply}">Travailler cette position</a><a class="btn sm" href="#partie/${x.g.t}/${x.e.ply}">Revoir dans la partie</a></span></div></div>`).join('')}
     <div><button class="btn pri" data-act="pztheme" data-theme="${id}">M’entraîner sur ce thème</button></div></div>`
     : ENGINE_LESSONS.includes(id) ? '<div class="card"><p class="sub">Aucun exemple de ce type dans tes parties analysées. Soit tu ne fais pas cette erreur, soit il faut analyser davantage de parties.</p></div>' : ''}
-  ${blown.length ? `<div class="card"><h2>Parties qui t’ont échappé</h2>${blown.map((g) => `<a class="row" href="#partie/${g.t}" style="justify-content:space-between"><span>${dfmt(g.t)} contre ${esc(g.opp)} (${g.or})</span><span class="chip ${g.out === 'L' ? 'bad' : ''}">${g.out === 'L' ? 'Défaite' : 'Nulle'}</span></a>`).join('')}</div>` : ''}
+  ${blown.length ? `<div class="card"><h2>Parties qui t’ont échappé</h2><div><a class="btn pri" href="#gagner">Les rejouer pour les gagner</a></div>${blown.map((g) => `<a class="row" href="#partie/${g.t}" style="justify-content:space-between"><span>${dfmt(g.t)} contre ${esc(g.opp)} (${g.or})</span><span class="chip ${g.out === 'L' ? 'bad' : ''}">${g.out === 'L' ? 'Défaite' : 'Nulle'}</span></a>`).join('')}</div>` : ''}
   <div class="row">${read[id] ? nextStep('les') : ''}<button class="btn ${read[id] ? '' : 'pri'}" data-act="lu" data-id="${id}">${read[id] ? 'Marquer comme non terminé' : 'J’ai compris, marquer comme terminé'}</button></div>`;
 }
 function mountLecon() {
@@ -867,8 +1012,12 @@ function viewOuvertures() {
   const first = S.white ? [...root.kids.entries()].sort((a, b) => b[1].n - a[1].n)[0] : null;
   const side = st.tally(gs.filter((g) => g.w === S.white));
   const crumbs = path.map((s, i) => `<button class="btn sm" data-act="expath" data-n="${i + 1}">${i % 2 === 0 ? i / 2 + 1 + '. ' : ''}${fr(s)}</button>`).join('');
+  const reps = st.repeatedErrors(gs, S.an).slice(0, 6);
+  const repCard = reps.length ? `<div class="card"><h2>Tes erreurs qui reviennent</h2><p class="small">Même position, même faute, dans plusieurs parties. Une position travaillée ici, c’est une erreur de moins dans toutes les parties qui y passent.</p>
+    ${reps.map((r) => `<div class="hrow"><i class="dot ${r.w ? 'w' : 'b'}"></i><span class="stepc"><b>${esc(st.lineText(r.line, Math.max(0, r.line.length - 6)))}</b><span>${r.games} parties : ${esc(st.repText(r))}</span></span><a class="btn sm pri" href="#erreur/${r.last.g.t}/${r.last.e.ply}">Travailler</a></div>`).join('')}</div>` : '';
   return `<div class="row" style="justify-content:space-between"><h1>Ouvertures</h1><div class="row" role="group" aria-label="Couleur">
     <button class="btn ${S.white ? 'pri' : ''}" data-act="color" data-w="1"><i class="dot w"></i>Blancs</button><button class="btn ${S.white ? '' : 'pri'}" data-act="color" data-w="0"><i class="dot b"></i>Noirs</button></div></div>
+  ${repCard}
   <div class="card"><h2>Tes ouvertures avec les ${S.white ? 'Blancs' : 'Noirs'} <span class="small">${side.n} parties, ${st.score(side)} % de score</span></h2>
     ${ops.length ? `<div class="scroll"><table><thead><tr><th>Ouverture</th><th class="r">Parties</th><th>Résultats</th><th class="r">Score</th><th class="r" title="Évaluation moyenne du moteur après 10 coups, de ton point de vue">Après 10 coups</th><th>Verdict</th></tr></thead><tbody>
     ${ops.slice(0, 12).map((o) => `<tr><td><b>${esc(o.fam)}</b>${o.vars.size > 1 ? `<br><span class="small">${[...o.vars.values()].sort((a, b) => b.n - a.n).slice(0, 2).map((v) => esc(v.op.replace(o.fam, '').trim() || 'ligne principale') + ' (' + v.n + ')').join(', ')}</span>` : ''}</td>
@@ -969,7 +1118,8 @@ function viewExos() {
   <div class="menu">${Object.entries(DRILLS).map(([k, d]) => {
     const h = hist.filter((x) => x.type === k), last = h[h.length - 1];
     return `<a class="mrow" href="#drill/${k}"><span class="mico">${h.length ? Math.round((100 * last.ok) / last.n) + '%' : ico('play')}</span><span class="stepc"><b>${d.t}</b><span>${d.d}${h.length ? ` · ${pl(h.length, 'série')}` : ''}</span></span><span class="chev" aria-hidden="true">›</span></a>`;
-  }).join('')}</div>`;
+  }).join('')}
+  <a class="mrow" href="#gagner"><span class="mico">${ico('play')}</span><span class="stepc"><b>Gagner les parties gagnées</b><span>Reprends une partie où tu avais +5 et va jusqu’au mat contre le moteur · ${pl(cvList().length, 'partie')}</span></span><span class="chev" aria-hidden="true">›</span></a></div>`;
 }
 function viewDrill(type) {
   const D = DRILLS[type];
@@ -1034,9 +1184,19 @@ function viewPlus() {
     ${row('#exos', 'Échauffements', '4 exercices rapides pour automatiser la vérification', svg('<path d="M13 2L4 14h6l-1 8 9-12h-6z"/>'))}
     ${row('#ouvertures', 'Ouvertures', 'Tes résultats par ouverture, ton répertoire', svg('<path d="M11 3h2v5h5v4h-2v-2h-3v3h3v8H8v-8h3v-3H8v2H6V8h5z"/>'))}
     ${row('#stats', 'Stats', 'Toutes tes données depuis ta première partie', svg('<path d="M4 20V10h4v10zm6 0V4h4v16zm6 0v-7h4v7z"/>'))}
-    ${row('#plan', 'Plan et réglages', 'Plan de la semaine, objectif, coach Claude', svg('<path d="M7 2h2v2h6V2h2v2h3v17H4V4h3zm-1 7v10h12V9z"/>'))}</div>
+    ${row('#gagner', 'Gagner les parties gagnées', 'Rejoue tes avantages gâchés contre le moteur', svg('<path d="M5 3h14v3a5 5 0 0 1-4 4.900V14h2v3H7v-3h2v-3.100A5 5 0 0 1 5 6zm2 18h10v-2H7z"/>'))}
+    ${row('#plan', 'Plan et réglages', 'Plan de la semaine, objectif, coach Claude, sauvegarde', svg('<path d="M7 2h2v2h6V2h2v2h3v17H4V4h3zm-1 7v10h12V9z"/>'))}</div>
   <div class="card"><h2>Tes données</h2><p class="sub">Compte ${esc(S.user)}. Dernière mise à jour le ${new Date(S.data.fetchedAt).toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}.</p>
-    <div class="stack filters">${filtersHtml()}</div></div>`;
+    <div class="stack filters">${filtersHtml()}</div></div>
+  ${backupCard()}`;
+}
+// Sauvegarde : rien n'est synchronisé entre appareils, le fichier sert de copie de sécurité et de transfert.
+function backupCard() {
+  const at = ls.get('bak', null), ago = at ? Math.floor((Date.now() - at) / DAY) : null;
+  return `<div class="card"><h2>Sauvegarde</h2><p class="sub">Tes puzzles, ton journal, tes analyses et tes cours ne vivent que dans ce navigateur. Garde une copie, ou passe-les sur un autre appareil.</p>
+    <p class="small">${at ? `Dernière sauvegarde ${ago === 0 ? 'aujourd’hui' : ago === 1 ? 'hier' : `il y a ${ago} jours`}.` : 'Aucune sauvegarde depuis cet appareil.'} La clé du coach n’est jamais mise dans le fichier.</p>
+    <div class="row"><button class="btn ${!at || ago >= 14 ? 'pri' : ''}" data-act="bakexp">Télécharger ma sauvegarde</button><button class="btn" data-act="bakimp">Restaurer un fichier</button><input type="file" id="bakfile" accept="application/json,.json" hidden></div>
+    <p class="small" id="bakmsg" role="status"></p></div>`;
 }
 function weekKey() { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return dkey(d); }
 function viewPlan() {
@@ -1072,6 +1232,7 @@ function viewPlan() {
     <div class="card"><h2>Ton objectif</h2><div class="row"><label for="gelo" class="sub">Elo visé</label><input type="number" id="gelo" value="${g.elo}" min="100" max="3000" step="50" style="width:100px"></div>
       <div class="row"><label for="gdate" class="sub">Échéance</label><input type="date" id="gdate" value="${g.date}"></div>
       <div><button class="btn sm" data-act="reset">Changer de pseudo ou effacer les données</button></div></div>
+    ${backupCard()}
     <div class="card"><h2>Coach Claude</h2>${coachKey() ? `<p class="sub">Coach activé. Clé enregistrée sur cet appareil (…${esc(coachKey().slice(-4))}).</p>
       <div class="row"><label for="cmodel" class="sub">Modèle</label><select id="cmodel">${MODELS.map(([v, l]) => `<option value="${v}" ${coachModel() === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
       <div><button class="btn sm" data-act="keydel">Supprimer la clé de cet appareil</button></div>` : keyForm()}</div>
@@ -1081,15 +1242,33 @@ function viewPlan() {
 // ---------- État de l'écran, conservé quand on quitte ou recharge la page ----------
 function keepUi() {
   if (!S.data) return;
-  ls.set('ui', { d: dkey(), pz: S.pz, cl: S.cl, dr: S.dr && S.dr.i < S.dr.items.length ? S.dr : null, li: S.li?.cur && !S.li.counted ? { cur: S.li.cur, failed: !!S.li.failed, replay: !!S.li.replay } : null });
+  ls.set('ui', { d: dkey(), pz: S.pz, cl: S.cl, cv: S.cv && !S.cv.over ? S.cv : null, dr: S.dr && S.dr.i < S.dr.items.length ? S.dr : null, li: S.li?.cur && !S.li.counted ? { cur: S.li.cur, failed: !!S.li.failed, replay: !!S.li.replay } : null });
 }
 function restoreUi() {
   const u = ls.get('ui', null); if (!u) return;
   const same = u.d === dkey();
   if (u.pz) S.pz = same ? u.pz : { ...u.pz, free: false, redo: [], show: null }; // un nouveau jour repart de la file normale
   S.cl = u.cl || null;
+  S.cv = u.cv || null;
   if (same) S.dr = u.dr || null;
   S.liKeep = u.li || null;
+}
+
+// Restauration d'une sauvegarde : confirmation avec son contenu, puis l'état est relu depuis le stockage.
+async function restoreFrom(file) {
+  const m = $('#bakmsg');
+  if (!file) return;
+  try {
+    const b = await backup.readFile(file), x = backup.summary(b);
+    const ok = confirm(`Remplacer les données de cet appareil par la sauvegarde de ${b.user}${x.date ? ' du ' + x.date.toLocaleDateString('fr-FR') : ''} ?\n${x.games} parties, ${x.an} analysées, ${x.pz} puzzles suivis, ${x.h} exercices au journal.\nLa clé du coach reste celle de cet appareil.`);
+    if (!ok) return;
+    S.job.stop = true;
+    await backup.restore(b);
+    S.user = b.user; S.f = ls.get('filter', S.f); S.pz = null; S.cl = null; S.dr = null; S.cv = null; S.li = null; S.liKeep = null; S.gen = null; LINES.clear();
+    await load(); restoreUi();
+    location.hash = '#accueil'; render();
+    reclassify(); autoAnalyse();
+  } catch (e) { if (m) m.textContent = e.message || String(e); }
 }
 
 // ---------- Routage et événements ----------
@@ -1101,11 +1280,11 @@ function render(keepScroll) {
   const v = $('#view'), [r, a, b] = route();
   paintJob();
   $('#nav').hidden = !S.data;
-  document.querySelectorAll('#nav a').forEach((x) => x.classList.toggle('on', x.getAttribute('href') === '#' + ({ partie: 'parties', erreur: 'puzzles', inedits: 'puzzles', drill: 'puzzles', historique: 'puzzles' }[r] || r) || (x.getAttribute('href') === '#plus' && ['ouvertures', 'plan', 'stats', 'exos'].includes(r))));
+  document.querySelectorAll('#nav a').forEach((x) => x.classList.toggle('on', x.getAttribute('href') === '#' + ({ partie: 'parties', erreur: 'puzzles', inedits: 'puzzles', drill: 'puzzles', historique: 'puzzles' }[r] || r) || (x.getAttribute('href') === '#plus' && ['ouvertures', 'plan', 'stats', 'exos', 'gagner'].includes(r))));
   if (!S.data) { v.innerHTML = viewWelcome(); exo.attach(); header(); const f = $('#wf'); f.onsubmit = (ev) => { ev.preventDefault(); const u = $('#wu').value.trim(); if (u) doImport(u); }; return; }
   if (r !== 'partie') S.gv = null;
   if (r !== 'drill' && S.dr && S.dr.i >= S.dr.items.length) S.dr = null; // une série en cours se reprend, une série finie repart de zéro
-  const html = r === 'puzzles' ? viewPuzzles() : r === 'erreur' ? viewPuzzles([a, b]) : r === 'plus' ? viewPlus() : r === 'historique' ? viewHistory() : r === 'exos' ? viewExos() : r === 'inedits' ? viewInedits() : r === 'drill' ? viewDrill(a) : r === 'cours' ? (a ? viewLecon(a, b) : viewCours()) : r === 'ouvertures' ? viewOuvertures() : r === 'parties' ? viewParties() : r === 'partie' ? viewPartie(a, b) : r === 'plan' ? viewPlan() : r === 'stats' ? viewStats(S) : viewAccueil();
+  const html = r === 'puzzles' ? viewPuzzles() : r === 'erreur' ? viewPuzzles([a, b]) : r === 'plus' ? viewPlus() : r === 'historique' ? viewHistory() : r === 'exos' ? viewExos() : r === 'inedits' ? viewInedits() : r === 'drill' ? viewDrill(a) : r === 'cours' ? (a ? viewLecon(a, b) : viewCours()) : r === 'ouvertures' ? viewOuvertures() : r === 'parties' ? viewParties() : r === 'partie' ? viewPartie(a, b) : r === 'plan' ? viewPlan() : r === 'stats' ? viewStats(S) : r === 'gagner' ? viewGagner(a) : viewAccueil();
   v.innerHTML = html;
   exo.attach(); // avant de créer les échiquiers : ils naissent à leur taille définitive
   if (r === 'puzzles' || r === 'erreur') { mountPuzzle(); const s = $('#pzt'); if (s) s.onchange = () => { S.pz.theme = s.value; S.pz.cur = null; S.pz.show = null; render(); }; }
@@ -1114,6 +1293,7 @@ function render(keepScroll) {
   else if (r === 'partie') mountPartie();
   else if (r === 'drill') mountDrill();
   else if (r === 'inedits') mountInedits();
+  else if (r === 'gagner') mountGagner();
   else if (r === 'stats') mountStats(S);
   else if (r === 'plan') {
     $('#hrs').onchange = (e) => { ls.set('hours', +e.target.value); render(true); };
@@ -1140,6 +1320,7 @@ document.addEventListener('click', (ev) => {
   else if (act === 'back') {
     const r = route()[0];
     if (r === 'erreur') { if (history.length > 1) history.back(); else location.hash = '#puzzles'; }
+    else if (r === 'gagner') location.hash = route()[1] ? '#gagner' : '#exos';
     else location.hash = { partie: '#parties', cours: '#cours', drill: '#exos', inedits: '#puzzles' }[r] || '#accueil';
   }
   else if (act === 'linext') liLoad();
@@ -1194,12 +1375,15 @@ document.addEventListener('click', (ev) => {
   else if (act === 'open') location.hash = '#partie/' + el.dataset.t;
   else if (act === 'more') { S.listN += 50; render(true); }
   else if (act === 'goto') gvGo(+el.dataset.k);
+  else if (act === 'bakexp') { const m = $('#bakmsg'); backup.exportFile(S.user).then((n) => { if (m) m.textContent = `Fichier ${n} téléchargé. Range-le dans tes fichiers ou envoie-le sur ton autre appareil.`; }).catch((e) => { if (m) m.textContent = 'Sauvegarde impossible : ' + (e.message || e); }); }
+  else if (act === 'bakimp') $('#bakfile')?.click();
   else if (act === 'reset') {
-    if (el.dataset.sure) { const u = S.user; ls.clear(['key', 'model', 'goal', 'hours']); dbDel('data:' + u); dbDel('an:' + u); dbDel('ai:' + u); S.ai = {}; S.li = null; S.liKeep = null; S.dr = null; S.gen = null; S.cl = null; LINES.clear(); S.job.stop = true; S.user = null; S.data = null; S.an = {}; S.pz = null; location.hash = '#accueil'; render(); }
+    if (el.dataset.sure) { const u = S.user; ls.clear(['key', 'model', 'goal', 'hours']); dbDel('data:' + u); dbDel('an:' + u); dbDel('ai:' + u); S.ai = {}; S.li = null; S.liKeep = null; S.dr = null; S.cv = null; S.gen = null; S.cl = null; LINES.clear(); S.job.stop = true; S.user = null; S.data = null; S.an = {}; S.pz = null; location.hash = '#accueil'; render(); }
     else { el.dataset.sure = '1'; el.textContent = 'Confirmer : effacer parties, analyses et progression (réglages et clé du coach conservés)'; }
   }
 });
 document.addEventListener('change', (ev) => {
+  if (ev.target.id === 'bakfile') { restoreFrom(ev.target.files[0]); ev.target.value = ''; return; }
   const el = ev.target.closest('[data-f]'); if (!el) return;
   if (el.dataset.f === 'liangle' || el.dataset.f === 'lidiff') { S.li[el.dataset.f === 'liangle' ? 'angle' : 'diff'] = el.value; ls.set('li', { angle: S.li.angle, diff: S.li.diff }); S.li.cur = null; S.li.err = null; render(true); return; }
   if (el.dataset.f === 'focus') { ls.set('focus', { id: el.value, since: Math.floor(Date.now() / 1000) }); render(true); return; }
@@ -1249,5 +1433,5 @@ if (new URLSearchParams(location.search).has('debug')) window.__cap = S; // acc�
   reclassify();
   if (!S.data && (S.user || u)) doImport(S.user || u);
   else if (S.data && Date.now() - (S.data.fetchedAt || 0) > 6 * 3600000) doImport(S.user);
-  else if (S.data && Object.values(S.an).some(legacy)) autoAnalyse(); // anciennes analyses à réévaluer, même sans nouvel import
+  else if (S.data && Object.values(S.an).some(toRedo)) autoAnalyse(); // anciennes analyses à réévaluer ou compléter, même sans nouvel import
 })();

@@ -1,4 +1,5 @@
 // Agrégations : bilan, ouvertures, gestion du temps, forces et faiblesses.
+import { fr } from './explain.js';
 export const pct = (a, b) => (b ? Math.round((100 * a) / b) : 0);
 export const score = (s) => (s.n ? Math.round((100 * (s.w + s.d / 2)) / s.n) : 0);
 const blank = () => ({ n: 0, w: 0, d: 0, l: 0 });
@@ -55,6 +56,70 @@ export function timeStats(games) {
     leftAll: median(left.map((x) => x.p)),
   };
 }
+
+// Incrément d'une partie : connu à l'import (g.inc), sinon déduit de la pendule (le plus grand gain de temps entre
+// deux coups d'un même camp, atteint quand un coup est joué sans réfléchir).
+export function incOf(g) {
+  if (g.inc != null) return g.inc;
+  let inc = 0;
+  for (let i = 2; i < g.clk.length; i++) inc = Math.max(inc, g.clk[i] - g.clk[i - 2]);
+  return inc;
+}
+export const CLOCK_LEFT = [['Plus de 5 min', 300, Infinity], ['2 à 5 min', 120, 300], ['1 à 2 min', 60, 120], ['Moins de 1 min', 0, 60]];
+export const CLOCK_THINK = [['Moins de 5 s', 0, 5], ['5 à 15 s', 5, 15], ['15 s à 1 min', 15, 60], ['Plus de 1 min', 60, Infinity]];
+// Erreurs graves (erreurs et gaffes) selon la pendule : temps qui restait avant le coup, temps pris pour le jouer.
+// Coups du joueur après le 8e coup seulement : l'ouverture se joue vite et sans erreur, elle fausserait les taux.
+export function clockErrors(games, an) {
+  const mk = (B) => B.map(([label, lo, hi]) => ({ label, lo, hi, n: 0, bad: 0 }));
+  const left = mk(CLOCK_LEFT), think = mk(CLOCK_THINK);
+  const put = (B, v, bad) => { const b = B.find((x) => v >= x.lo && v < x.hi); if (b) { b.n++; if (bad) b.bad++; } };
+  let n = 0;
+  for (const g of games) {
+    const a = an[g.id];
+    if (!a || a.bad || !g.base || g.tc === 'daily' || g.clk.length !== g.san.length) continue;
+    const inc = incOf(g), errs = new Set(a.errs.filter((e) => e.kind !== 'imprecision').map((e) => e.ply));
+    n++;
+    for (let i = 16; i < g.clk.length; i++) {
+      if ((i % 2 === 0) !== g.w) continue;
+      const before = i >= 2 ? g.clk[i - 2] : g.base, bad = errs.has(i);
+      put(left, before, bad);
+      put(think, Math.max(0, before + inc - g.clk[i]), bad);
+    }
+  }
+  const rate = (b) => (b.n ? b.bad / b.n : null);
+  for (const b of [...left, ...think]) b.rate = rate(b);
+  return { games: n, left, think };
+}
+
+// Même position, même faute : erreurs commises dans au moins deux parties différentes depuis une position identique.
+// Renvoie les groupes, du plus fréquent au moins fréquent : { key, n, games, moves: [[san, n]], bestSan, drop, last: { g, e }, line, w }.
+export function repeatedErrors(games, an) {
+  const map = new Map();
+  for (const g of games) {
+    const a = an[g.id];
+    if (!a || a.bad) continue;
+    for (const e of a.errs) {
+      if (!e.best) continue;
+      const key = e.fen.split(' ').slice(0, 4).join(' ');
+      let r = map.get(key);
+      if (!r) map.set(key, (r = { key, n: 0, ids: new Set(), moves: new Map(), drop: 0, last: null }));
+      r.n++; r.ids.add(g.id); r.drop += e.drop;
+      r.moves.set(e.played, (r.moves.get(e.played) || 0) + 1);
+      if (!r.last || g.t > r.last.g.t) r.last = { g, e };
+    }
+  }
+  return [...map.values()].filter((r) => r.ids.size >= 2).map((r) => ({
+    key: r.key, n: r.n, games: r.ids.size, drop: Math.round(r.drop / r.n), last: r.last, w: r.last.g.w, bestSan: r.last.e.bestSan,
+    moves: [...r.moves].sort((x, y) => y[1] - x[1]), line: r.last.g.san.slice(0, r.last.e.ply),
+  })).sort((x, y) => y.n - x.n || y.drop - x.drop);
+}
+// « tu as joué 6…Fg4 3 fois. Le bon coup : 6…Fe7. »
+export function repText(r) {
+  const p = r.line.length, mv = (s) => `${Math.floor(p / 2) + 1}${p % 2 ? '…' : '.'}${fr(s)}`, one = r.moves.length === 1;
+  return `${one ? `tu as joué ${mv(r.moves[0][0])} ${r.n} fois` : `tu t’es trompé ${r.n} fois (${r.moves.map(([s, k]) => `${mv(s)}${k > 1 ? ' ×' + k : ''}`).join(', ')})`}. Le bon coup : ${mv(r.bestSan)}.`;
+}
+// Une suite de coups en notation française : « 1.e4 e5 2.Cf3 Cc6 ».
+export const lineText = (san, from = 0) => san.slice(from).map((s, k) => { const i = from + k; return (i % 2 === 0 ? (i / 2 + 1) + '.' : (k === 0 ? Math.ceil(i / 2) + '…' : '')) + fr(s); }).join(' ');
 
 export function habits(games) {
   let castled = blank(), notCastled = blank(), earlyQ = blank(), noEarlyQ = blank();
@@ -174,6 +239,12 @@ export function signals(games, an) {
     if (best && score(best) >= 58) F(`${best.fam} (${side})`, `${score(best)} % de score sur ${best.n} parties.`);
     if (worst && worst !== best && score(worst) <= 40) W(`${worst.fam} (${side})`, `${score(worst)} % de score sur ${worst.n} parties.`, 'ouvertures');
   }
+  const ce = clockErrors(games, an), [lA, lB, , lD] = ce.left, [tA, , tC, tD] = ce.think;
+  const calm = { n: lA.n + lB.n, bad: lA.bad + lB.bad }, slow = { n: tC.n + tD.n, bad: tC.bad + tD.bad };
+  if (lD.n >= 30 && calm.n >= 30 && lD.rate >= 2 * (calm.bad / calm.n) && lD.bad >= 4) W('Tu craques à la pendule', `Avec moins d’une minute, ${pct(lD.bad, lD.n)} % de tes coups sont des erreurs graves, contre ${pct(calm.bad, calm.n)} % quand il te reste plus de 2 minutes.`, 'temps');
+  if (tA.n >= 40 && slow.n >= 40 && tA.rate >= 2 * (slow.bad / slow.n) && tA.bad >= 4) W('Coups joués trop vite', `${pct(tA.bad, tA.n)} % de tes coups joués en moins de 5 secondes sont des erreurs graves, contre ${pct(slow.bad, slow.n)} % quand tu prends plus de 15 secondes.`, 'temps');
+  const rep = repeatedErrors(games, an)[0];
+  if (rep && rep.n >= 3) W('La même erreur, encore et encore', `Après ${lineText(rep.line, Math.max(0, rep.line.length - 4))}, ${repText(rep)}`, 'ouvertures');
   const es = engineStats(games, an);
   if (es.n >= 5) {
     const perGame = es.gaffes / es.n;

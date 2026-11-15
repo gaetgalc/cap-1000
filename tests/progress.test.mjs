@@ -132,3 +132,32 @@ test('échauffements et cours comptent dans l’activité du jour', () => {
   P.setLessonRead('en_prise_pose', false);
   assert.deepEqual(P.act()[P.dkey()], { dr: 1 });
 });
+
+test('avis facile ou difficile : un palier de plus ou de moins, jamais le jour même, modifiable dans la journée', () => {
+  const { P, clock, tomorrow } = setup(), a = pz('a');
+  P.recordPuzzle(a, 2);
+  assert.deepEqual(P.rateInfo('a'), { q: '', days: { e: 3, '': 1, h: 1 } });
+  assert.equal(P.ratePuzzle('a', 'e'), 3);
+  const d0 = P.dayStart();
+  clock.t = d0 + 2 * DAY + 3600000; assert.equal(P.queue([a], '', false).length, 0, 'facile : pas avant 3 jours');
+  clock.t = d0 + 3 * DAY + 3600000; assert.equal(P.queue([a], '', false).length, 1);
+  assert.equal(P.ratePuzzle('a', ''), null, 'le lendemain, l’avis ne se change plus');
+  P.recordPuzzle(a, 2); // deuxième réussite, après un « facile » : palier suivant, 7 jours
+  assert.equal(P.ratePuzzle('a', 'h'), 3);
+  assert.equal(P.ratePuzzle('a', ''), 7, 'retour à la règle');
+  assert.equal(P.hist().at(-1).q, undefined, 'avis « normal » : rien de noté');
+  assert.equal(P.hist()[0].q, 'e', 'l’avis de la veille reste au journal');
+  P.ratePuzzle('a', 'e');
+  assert.equal(P.hist().at(-1).q, 'e', 'l’avis est noté dans le journal');
+  tomorrow(); const b = pz('b'); P.recordPuzzle(b, 1);
+  assert.equal(P.rateInfo('b'), null, 'trouvé avec aide : pas d’avis, il revient demain');
+});
+
+test('partie gagnante rejouée : notée au journal et dans l’activité, sans compter comme un puzzle', () => {
+  const { P } = setup();
+  P.recordConversion(1700000000, 2, 31);
+  P.recordConversion(1700000000, 0, 12);
+  assert.deepEqual(P.conversions().map((h) => [h.id, h.r, h.n]), [['1700000000', 2, 31], ['1700000000', 0, 12]]);
+  assert.equal(P.act()[P.dkey()].cv, 2);
+  assert.equal(P.todayPuzzles().length, 0);
+});

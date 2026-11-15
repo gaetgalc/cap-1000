@@ -50,7 +50,7 @@ function norm(g, user) {
   }
   const acc = g.accuracies ? (w ? g.accuracies.white : g.accuracies.black) : null;
   return {
-    id: g.url, t: g.end_time, tc: g.time_class, base: parseInt(String(g.time_control), 10) || 0,
+    id: g.url, t: g.end_time, tc: g.time_class, base: parseInt(String(g.time_control), 10) || 0, inc: parseInt(String(g.time_control).split('+')[1], 10) || 0,
     w, r: me.rating, or: op.rating, opp: op.username, out,
     how: out === 'W' ? op.result : me.result, rated: !!g.rated,
     eco: head.ECO || '', op: name, fam: family(name), san, clk, acc: acc == null ? null : Math.round(acc * 10) / 10,

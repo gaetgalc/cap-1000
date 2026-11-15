@@ -32,19 +32,20 @@ Site statique sans build, servi par GitHub Pages depuis `main` (racine). Tout to
 | `js/chesscom.js` | Import via l'API publique Chess.com, normalisation des parties |
 | `js/engine.js` | Stockfish (worker) : file de calculs, `evaluateGame` (évaluation brute de chaque position d'une partie) |
 | `js/classify.js` | Classement des erreurs à partir des évaluations brutes : seuils, thèmes, suites. Calcul pur, sans moteur. `VERSION` des règles |
-| `js/stats.js` | Agrégats, ouvertures, forces et faiblesses |
+| `js/stats.js` | Agrégats, ouvertures, forces et faiblesses, erreurs selon la pendule (`clockErrors`), erreurs qui reviennent dans la même position (`repeatedErrors`) |
 | `js/alltime.js` | Page Stats (depuis la première partie) |
 | `js/lessons.js` | Fiches de cours statiques (principe, routine), règles courtes par thème |
 | `js/explain.js` | Explications sans IA : description de chaque coup, idée du meilleur coup, raison de l'échec du coup joué, bilan matériel, coupe d'une suite sur une position calme (`settle`). Source unique de `fr()` (notation française) et de `VAL` (valeur des pièces) |
 | `js/drills.js` | Échauffements : 4 exercices de vérification générés depuis les positions des parties, réponse établie par les règles |
 | `js/lichess.js` | Puzzles inédits : `GET lichess.org/api/puzzle/next?angle=&difficulty=` (anonyme), reconstruction de la position depuis le PGN |
 | `js/coach.js` | Cours privés Claude : faits vérifiés, prompt, appel API, lecture du JSON |
-| `js/store.js` | IndexedDB (`data:<user>`, `an:<user>`, `ai:<user>`) et localStorage (préfixe `cap1000:` ; clés principales : `pz` répétition espacée, `hist` journal d'entraînement, `ui` état de l'écran à reprendre, `act` activité par jour, `focus` chantier) |
+| `js/backup.js` | Sauvegarde et restauration en un fichier JSON (parties, analyses, cours, toutes les clés `cap1000:` sauf `key`). `pack` / `unpack` purs |
+| `js/store.js` | IndexedDB (`data:<user>`, `an:<user>`, `ai:<user>`) et localStorage (préfixe `cap1000:` ; clés principales : `pz` répétition espacée, `hist` journal d'entraînement, `ui` état de l'écran à reprendre, `act` activité par jour, `focus` chantier, `bak` date de la dernière sauvegarde) |
 | `tests/parcours.js` | Test de bout en bout (Playwright, parties simulées, `api.chess.com` intercepté) |
-| `tests/*.test.mjs` | Tests unitaires sans navigateur : règles de `progress.js`, positions de référence de `explain.js`, classement de `classify.js` sur des évaluations enregistrées |
+| `tests/*.test.mjs` | Tests unitaires sans navigateur : règles de `progress.js`, positions de référence de `explain.js`, classement de `classify.js` sur des évaluations enregistrées, pendule et erreurs répétées de `stats.js`, format de `backup.js` |
 | `vendor/` | chess.js 0.10.3, chessground 9, Stockfish 19 lite single-thread (WASM), polices Sora et IBM Plex Sans |
 
-Routes : `#accueil`, `#puzzles`, `#historique` (journal des exercices faits), `#erreur/<end_time>/<ply>` (travail d'une erreur précise), `#plus` (menu mobile), `#exos`, `#inedits` (puzzles Lichess), `#drill/<sur|menace|cadeau|compte>`, `#cours`, `#cours/<id>[/fiche]`, `#ouvertures`, `#parties`, `#partie/<end_time>[/<ply>]`, `#plan`, `#stats`.
+Routes : `#accueil`, `#puzzles`, `#historique` (journal des exercices faits), `#erreur/<end_time>/<ply>` (travail d'une erreur précise), `#plus` (menu mobile), `#exos`, `#inedits` (puzzles Lichess), `#drill/<sur|menace|cadeau|compte>`, `#cours`, `#cours/<id>[/fiche]`, `#gagner` (parties gagnantes gâchées), `#gagner/<end_time>` (la rejouer contre le moteur), `#ouvertures`, `#parties`, `#partie/<end_time>[/<ply>]`, `#plan`, `#stats`.
 
 ## Écran d'exercice (`js/exercise.js`)
 
@@ -64,12 +65,15 @@ Mise en page (CSS `body.fit`) : `.bwrap` (échiquier + bandeau) et `.fitside` (`
 - Tout passe par `js/progress.js` : `recordPuzzle` (répétition espacée + journal + activité), `recordLichess`, `recordDrill`, `setLessonRead`, `queue`, `day`, `failedToday`. `app.js` n'écrit jamais directement les clés `pz`, `hist`, `act`, `drills`, `listat`, `lus`. Une règle de planification se change dans ce module, avec son test dans `tests/progress.test.mjs`.
 - `pzRecord` (dans `app.js`) appelle `progress.recordPuzzle` dès la solution puis rafraîchit l'avancée affichée, quel que soit l'écran d'où le puzzle est fait (file, `#erreur`, cours privé). Un seul résultat par puzzle et par jour compte ; les suivants sont notés « révision ».
 - Résultat : 2 du premier coup, 1 trouvé avec aide (mauvais essai ou indice), 0 solution vue. Raté : revient le lendemain. Réussi : 1, 3, 7, 21, 60 jours. Jamais de retour le jour même, sauf « Refaire mes ratés du jour » (`S.pz.redo`).
+- Après une réussite du premier coup, l'élève peut juger le puzzle facile (un palier de plus) ou difficile (un palier de moins, jamais moins d'un jour) : `progress.rateInfo` / `ratePuzzle`, modifiable dans la journée, noté `q` dans le journal.
+- Partie gagnante rejouée (`#gagner`) : `progress.recordConversion`, ligne `k: 'c'` du journal (2 gagnée, 0 sinon). Moteur adverse séparé (`S.bot`, `Skill Level` 6, profondeur 10) ; partie en cours reprise après rechargement (`S.cv` dans `ui`).
 - Objectif du jour (`pzDay`) : 8 puzzles ; bilan `pzRecap` affiché une fois quand il est atteint, avec `nextStep` (prochaine étape de la séance).
 - `keepUi` / `restoreUi` : puzzle en cours, étape du cours, échauffement entamé, position inédite sont repris après rechargement.
 
 ## Analyse en deux temps
 
-- **Évaluer** (`engine.evaluateGame`, lent, une fois par partie) : pour chaque position, `ev` (centipions, point de vue des Blancs), `best` (meilleur coup), `pv` (4 premiers coups de la suite du moteur).
+- **Évaluer** (`engine.evaluateGame`, lent, une fois par partie) : pour chaque position, `ev` (centipions, point de vue des Blancs), `best` (meilleur coup), `pv` (4 premiers coups de la suite du moteur) ; puis `mp` : sur les positions d'erreur (`candidates`), les 3 meilleurs coups (`multiPass`, MultiPV 3).
+- **Coups qui tiennent** : `e.alt` = nombre de coups à moins de 6 points du meilleur (1 à 3). La consigne dit « un seul coup tient » ou « plusieurs coups tiennent ». `isPuzzle` écarte les erreurs d'ouverture, de plan ou de finale où 3 coups tenaient. Les analyses sans `mp` sont complétées une fois en arrière-plan (`partial`), sans tout réévaluer.
 - **Classer** (`classify.classify(game, raw)`, instantané) : en déduit `errs`, `acc`, `maxAdv`, `last`. Une analyse stockée dans `S.an[id]` contient les deux, plus `v` (version des règles).
 - Changer un seuil ou un thème : modifier `classify.js`, augmenter `VERSION`, ajouter le cas dans `tests/classify.test.mjs`. À l'ouverture du site, `reclassify()` reclasse les parties déjà évaluées sans relancer Stockfish.
 - Les analyses d'avant le 15/11 n'ont pas de données brutes (`pv` absent) : `autoAnalyse()` les réévalue une fois en arrière-plan, après les nouvelles parties. L'ancienne analyse reste en place tant que la nouvelle n'est pas prête.
@@ -81,7 +85,7 @@ Mise en page (CSS `body.fit`) : `.bwrap` (échiquier + bandeau) et `.fitside` (`
 3. **Mesure** : `themeTrend` (10 dernières parties analysées contre les 10 précédentes) et `themeSeries` (courbe par paquets de 5).
 4. **Prédire avant d'expliquer** : dans le lecteur de suites (`guess` d'un film), en pas à pas seulement (lecture en pause), l'élève peut jouer lui-même la punition de son coup et ses propres coups de la bonne suite. La lecture automatique ne s'interrompt pas (demande du 15/11).
 
-Idées non faites : import des parties Lichess, comptes et synchronisation, traduction.
+Idées non faites : import des parties Lichess, comptes et synchronisation (la sauvegarde en fichier en tient lieu), traduction.
 
 ## Contraintes à connaître
 
@@ -89,7 +93,7 @@ Idées non faites : import des parties Lichess, comptes et synchronisation, trad
 - L'environnement cloud de Claude ne peut pas joindre `api.chess.com` ni `*.github.io` : impossible d'y tester sur les vraies parties ou de vérifier le site en ligne. Les tests se font avec des parties simulées.
 - Claude peut pousser sur ce dépôt (app GitHub installée) mais pas modifier ses réglages (Pages).
 - L'abonnement Claude Pro n'inclut pas l'API : les cours passent soit par copier-coller dans une conversation Claude, soit par une clé API saisie dans le site (stockée en localStorage, jamais dans le dépôt).
-- Pas de synchronisation entre appareils : analyses, cours et progression sont locaux.
+- Pas de synchronisation entre appareils : analyses, cours et progression sont locaux. Transfert possible par fichier (Plan et réglages ou Plus > Sauvegarde).
 - Dépôt public : ne jamais y écrire de clé, d'e-mail ni de donnée personnelle.
 
 ## Tester
@@ -135,3 +139,4 @@ Le test génère des parties par coups semi-aléatoires au format Chess.com, int
 - Puzzles Lichess codés d'après la documentation de l'API et testés avec une API simulée seulement : format réel de la réponse (coupe du PGN, `initialPly`) à confirmer au premier essai ; `fetchPuzzle` essaie plusieurs coupes et garde celle où la solution est légale.
 - Noms d'ouvertures en anglais (source Chess.com).
 - Licence : GPL-3.0-or-later (imposée par chessground et Stockfish).
+- Ajouts du 15/11 inspirés d'autres dépôts (voir `docs/JOURNAL.md` §19), testés sur parties simulées seulement : force réelle du moteur adverse de `#gagner` (`Skill Level` 6) à ajuster sur retour ; seuils de la pendule (moins de 1 min, moins de 5 s) pensés pour le 10 minutes ; téléchargement du fichier de sauvegarde sur iPhone non vérifié.

@@ -377,3 +377,6 @@ body.fit .cap { max-width: none; overflow-y: auto; }
   body.fit .fitpanel .pzfilter, body.fit .d-txt { display: none; }
   body.fit .cap { font-size: 15px; line-height: 1.4; padding: 10px 16px; } /* trois lignes tiennent dans le bandeau minimal */
 }
+/* Avis sur un puzzle réussi : facile, normal, difficile */
+.rate { display: flex; flex-direction: column; gap: 4px; }
+.rate .seg2 button { font-variant-numeric: tabular-nums; }

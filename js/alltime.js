@@ -1,5 +1,5 @@
 // Page « Stats » : toutes les données depuis la première partie, sans filtre de période.
-import { tally, score, pct } from './stats.js';
+import { tally, score, pct, clockErrors } from './stats.js';
 import { esc, dfmt, TC, HOW, wdl, WDL_LEGEND } from './ui.js';
 import { lineChart } from './charts.js';
 import { fr } from './explain.js';
@@ -20,6 +20,18 @@ function duration(g) {
   if (!g.base || g.clk.length < 2 || g.tc === 'daily') return 0;
   const lw = g.clk[g.clk.length - 1 - ((g.clk.length - 1) % 2)], lb = g.clk[g.clk.length - 1 - (g.clk.length % 2)];
   return Math.max(0, g.base - (lw ?? g.base)) + Math.max(0, g.base - (lb ?? g.base));
+}
+
+// Erreurs graves selon la pendule : temps restant avant le coup, temps pris pour le jouer (parties analysées).
+function clockCard(gs, an) {
+  const ce = clockErrors(gs, an);
+  if (!ce.games) return '';
+  const max = Math.max(0.01, ...[...ce.left, ...ce.think].map((b) => b.rate || 0));
+  const rows = (B) => B.map((b) => `<div class="hbar"><span>${b.label}</span><span class="track"><i style="width:${b.n ? (100 * b.rate) / max : 0}%;background:var(--bad)"></i></span><span class="v" style="white-space:nowrap">${b.n ? pct(b.bad, b.n) + ' %' : '—'} <span class="small">${nf(b.n)} coups</span></span></div>`).join('');
+  return `<div class="card"><h2>Tes erreurs et la pendule <span class="small">${ce.games} parties analysées</span></h2>
+    <h3>Selon le temps qui te restait</h3>${rows(ce.left)}
+    <h3>Selon le temps pris pour jouer</h3>${rows(ce.think)}
+    <p class="small">Part de tes coups qui sont des erreurs ou des gaffes, à partir du 9e coup. Si la barre grandit vers le bas, c’est la pendule ou la vitesse qui te coûte des points, pas la tactique.</p></div>`;
 }
 
 export function viewStats(S) {
@@ -146,6 +158,7 @@ export function viewStats(S) {
   <div class="grid">
     <div class="card"><h2>Selon le niveau de l’adversaire</h2>${tbl(H4, diff)}</div>
     <div class="card"><h2>Selon la longueur de la partie</h2>${tbl(H4, lens)}</div>
+    ${clockCard(gs, S.an)}
   </div>
   <div class="grid">
     <div class="card"><h2>Tes coups <span class="small">${nf(played)} coups</span></h2>${hb(pieces, played)}
