@@ -7,10 +7,11 @@ import * as st from './stats.js';
 import { LESSONS, ENGINE_LESSONS, RULES } from './lessons.js';
 import { viewStats, mountStats } from './alltime.js';
 import { fr, settle, buildLine, insight, hintFor, lastMoveText, moveText, material, describeAt, justPlayed } from './explain.js';
-import { $, esc, dfmt, TC, HOW, coach, txt, pl, f1, ico, setHtml, wdl, WDL_LEGEND } from './ui.js';
+import { $, esc, dfmt, TC, HOW, coach, txt, pl, f1, ico, wdl, WDL_LEGEND } from './ui.js';
 import { lineChart } from './charts.js';
 import { progress, DAY } from './progress.js';
-import { board, destroyBoards, destsOf, arrow, errShapes, stepShapes, film, REDUCED } from './board.js';
+import { board, destroyBoards, destsOf, arrow, errShapes } from './board.js';
+import * as exo from './exercise.js';
 import { LI_ANGLES, LI_FOR, LI_DIFF, fetchPuzzle } from './lichess.js';
 import { DRILLS, DRILL_FOR, makeRound } from './drills.js';
 import { MODELS, coachKey, coachModel, facts, genLesson, askCoach, buildPrompt, parseLesson } from './coach.js';
@@ -23,7 +24,7 @@ const S = {
   user: ls.get('user', null), data: null, an: {},
   f: ls.get('filter', { tc: 'rapid', days: 0 }),
   job: { running: false, done: 0, total: 0, stop: false, msg: '' },
-  engine: null, play: null, ai: {}, gen: null, cl: null, solve: null, white: true, path: [], pz: null, importing: null,
+  engine: null, play: null, ai: {}, gen: null, cl: null, white: true, path: [], pz: null, importing: null,
 };
 
 // ---------- Données ----------
@@ -62,7 +63,7 @@ async function doImport(user) {
 
 // Rendu déclenché en arrière-plan (fin d'analyse, import, cours généré) : n'interrompt jamais un exercice en cours.
 function bgRender() {
-  if ($('#pzb, #clb, #drb, #lib')) { paintJob(); header(); return; }
+  if (exo.live()) { paintJob(); header(); return; }
   render(true);
 }
 
@@ -89,13 +90,14 @@ function reclassify() {
 // Au démarrage : nouvelles parties récentes à analyser, puis anciennes analyses à réévaluer (une seule fois).
 function autoAnalyse() {
   if (!S.data) return;
-  const pool = analysisPool(), fresh = pool.slice(0, 20).filter((g) => !S.an[g.id]).length, old = pool.filter((g) => legacy(S.an[g.id])).length;
-  if (fresh + old) runAnalysis(fresh + old);
+  const pool = analysisPool(), list = [...pool.slice(0, 20).filter((g) => !S.an[g.id]), ...pool.filter((g) => legacy(S.an[g.id]))];
+  if (list.length) runAnalysis(0, null, list);
 }
-async function runAnalysis(count, only) {
+// count parties de plus (les plus récentes non analysées d'abord), ou une seule (only), ou une liste précise (list).
+async function runAnalysis(count, only, list) {
   if (S.job.running || !S.data) return;
   const pool = analysisPool();
-  const queue = only ? [only] : [...pool.filter((g) => !S.an[g.id]), ...pool.filter((g) => legacy(S.an[g.id]))].slice(0, count);
+  const queue = list || (only ? [only] : [...pool.filter((g) => !S.an[g.id]), ...pool.filter((g) => legacy(S.an[g.id]))].slice(0, count));
   if (!queue.length) return;
   S.job = { running: true, done: 0, total: queue.length, stop: false, msg: '' };
   const user = S.user, saveAn = () => (S.user === user ? dbSet('an:' + user, S.an) : null);
@@ -112,7 +114,7 @@ async function runAnalysis(count, only) {
       if (S.job.done % 3 === 0 || S.job.done === queue.length) await saveAn();
       paintJob();
       const r = route()[0];
-      if ((r === 'puzzles' && !$('#pzb')) || (r === 'partie' && only) || (r === 'accueil' && !only && (S.job.done === 3 || S.job.done % 5 === 0))) bgRender();
+      if ((r === 'puzzles' && !exo.current()) || (r === 'partie' && only) || (r === 'accueil' && !only && (S.job.done === 3 || S.job.done % 5 === 0))) bgRender();
     }
     await saveAn();
   } catch (e) {
@@ -135,7 +137,6 @@ function paintJob() {
 }
 
 // ---------- Échiquier ----------
-const capStep = (s, i, n, extra = '') => `<div class="capm"><span class="capn"><i class="dot ${s.white ? 'w' : 'b'}"></i>${s.no}${s.white ? '.' : '…'} ${fr(s.san)}</span><span class="small">coup ${i} sur ${n}</span>${extra}</div><div class="prog" aria-hidden="true">${Array.from({ length: n }, (_, k) => `<i class="${k < i - 1 ? 'done' : k === i - 1 ? 'cur' : ''}"></i>`).join('')}</div>`;
 
 
 // ---------- Graphiques ----------
@@ -212,27 +213,29 @@ function viewInedits() {
   const sels = `<select data-f="liangle" aria-label="Thème">${LI_ANGLES.map(([v, l]) => `<option value="${v}" ${L.angle === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
       <select data-f="lidiff" aria-label="Niveau">${LI_DIFF.map(([v, l]) => `<option value="${v}" ${L.diff === v ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
   const head = pzTabs('li') + `<div class="pzhead main"><h1>Positions inédites</h1><div class="row">${sels}
-      <span data-top><span class="chip ${stat.n ? 'good' : ''}">${stat.ok} / ${stat.n} du premier coup</span></span></div></div>`;
+      <span class="chip ${stat.n ? 'good' : ''}">${stat.ok} / ${stat.n} du premier coup</span></div></div>`;
   if (L.loading) return head + coach('Je vais chercher une position que tu n’as jamais vue…');
   if (L.err) return head + `<div class="card"><p class="err">${esc(L.err)}</p><div><button class="btn pri" data-act="linext">Réessayer</button></div></div>`;
   if (!L.cur) return head + `<div class="card">${coach('Ici, tu travailles le même motif que dans tes parties, mais sur des positions que tu ne peux pas reconnaître : c’est ce qui prouve que le réflexe est acquis. Les positions viennent de la base de puzzles de Lichess, libre de droits.')}<div><button class="btn pri lg" data-act="linext">Commencer</button></div></div>`;
   const P = L.cur, me = P.white ? 'w' : 'b', side = P.white ? 'Blancs' : 'Noirs';
   const last = justPlayed(describeAt(P.prevFen, P.lastSan, me));
-  return head + coach(`${esc(last)} <b>À toi de jouer avec les ${side}.</b> Trouve le meilleur coup${P.sol.length > 2 ? `, puis la suite (${Math.ceil(P.sol.length / 2)} coups à trouver)` : ''}.`, 'intro') + `
-    <div class="split work"><div class="bwrap"><div class="board" id="lib"></div><div class="cap" id="licap"><p><i class="dot ${P.white ? 'w' : 'b'}"></i> <span class="m-txt">${esc(last)} </span>Trait aux ${side}. ${P.sol.length > 2 ? `Trouve le meilleur coup puis la suite (${Math.ceil(P.sol.length / 2)} coups).` : 'Trouve le meilleur coup.'}</p></div></div>
-      <div class="stack"><div class="row m-only lisel">${sels}</div><div class="meta small">Puzzle Lichess n° ${esc(P.id)} · niveau ${P.rating} · <a href="${P.url}" target="_blank" rel="noopener">Voir sur Lichess</a></div>
-        <div id="lix"><div class="card ghost"><h3>Comment chercher</h3><ol class="routine"><li>Que vient de faire ton adversaire ? Que menace son coup ?</li><li>As-tu un échec, une capture ou une menace ?</li><li>La case où tu vas est-elle attaquée ?</li></ol></div></div></div></div>
-    <div class="actbar" id="libar"><button class="btn" data-act="lihint">Indice</button><button class="btn" data-act="lishow">Solution</button></div>`;
+  return exo.screen({
+    live: true, top: () => `<span class="chip ${stat.n ? 'good' : ''}">${stat.ok} / ${stat.n} du premier coup</span>`,
+    head: head + coach(`${esc(last)} <b>À toi de jouer avec les ${side}.</b> Trouve le meilleur coup${P.sol.length > 2 ? `, puis la suite (${Math.ceil(P.sol.length / 2)} coups à trouver)` : ''}.`, 'intro'),
+    cap: `<p><i class="dot ${P.white ? 'w' : 'b'}"></i> <span class="m-txt">${esc(last)} </span>Trait aux ${side}. ${P.sol.length > 2 ? `Trouve le meilleur coup puis la suite (${Math.ceil(P.sol.length / 2)} coups).` : 'Trouve le meilleur coup.'}</p>`,
+    panel: `<div class="row m-only lisel">${sels}</div><div class="meta small">Puzzle Lichess n° ${esc(P.id)} · niveau ${P.rating} · <a href="${P.url}" target="_blank" rel="noopener">Voir sur Lichess</a></div>
+      <div id="lix"><div class="card ghost"><h3>Comment chercher</h3><ol class="routine"><li>Que vient de faire ton adversaire ? Que menace son coup ?</li><li>As-tu un échec, une capture ou une menace ?</li><li>La case où tu vas est-elle attaquée ?</li></ol></div></div>`,
+    bar: '<button class="btn" data-x="hint">Indice</button><button class="btn" data-x="show">Solution</button>',
+  });
 }
 function mountInedits() {
-  const el = $('#lib'), L = S.li;
-  if (!el || !L?.cur) return;
-  const P = L.cur, me = P.white ? 'w' : 'b', color = P.white ? 'white' : 'black', cap = $('#licap'), ch = new Chess(P.fen);
+  const X = exo.current(), L = S.li;
+  if (!X || !L?.cur) return;
+  const P = L.cur, me = P.white ? 'w' : 'b', color = P.white ? 'white' : 'black', ch = new Chess(P.fen);
   let hinted = false;
   L.step = 0; L.done = false; // l'échiquier repart toujours de la position initiale
   const mov = () => ({ free: false, color, dests: destsOf(ch), showDests: true, events: { after: onMove } });
-  const cg = board(el, { fen: P.fen, orientation: color, turnColor: color, lastMove: P.last, movable: mov() });
-  const say = (cls, html) => { cap.className = 'cap ' + cls; cap.innerHTML = `<p>${html}</p>`; };
+  const cg = X.board({ fen: P.fen, orientation: color, turnColor: color, lastMove: P.last, movable: mov() });
   function finish(ok) {
     if (L.done) return;
     L.done = true;
@@ -241,29 +244,18 @@ function mountInedits() {
       progress.recordLichess(P, res, L.angle, L.replay);
       L.counted = true; keepUi();
     }
-    const steps = buildLine(P.fen, P.sol, me, true), ins = insight(P.fen, me, steps, []), n = steps.length;
-    const verdict = res === 2 ? '<b class="ok">Résolu du premier coup.</b>' : res === 1 ? '<b class="ok">Résolu.</b>' : 'Voici la solution, coup par coup.';
-    $('#lix').innerHTML = `<div class="card idea"><h3>L’idée</h3><p>${esc(ins.idee)}</p></div>
-      <ol class="line">${steps.map((q, k) => `<li data-ex="jump" data-v="${k + 1}"><b>${q.white ? q.no + '.' : (k === 0 ? q.no + '…' : '')} ${fr(q.san)}</b><span>${esc(q.text)}</span></li>`).join('')}</ol>
-      <p class="small">Puzzle de la base Lichess (domaine public). Thèmes : ${esc(P.themes.join(', '))}.</p>`;
-    const F = film({ len: () => n, step: (k) => steps[k], brush: (k) => (steps[k].tags.mine ? 'green' : 'blue'), arrows: (a) => cg.setAutoShapes(a), alive: () => document.body.contains(el), show });
-    function show() {
-      const i = F.i, s = steps[i - 1];
-      cg.set({ fen: s ? s.fen : P.fen, lastMove: s ? [s.from, s.to] : P.last, movable: { color: undefined }, drawable: { autoShapes: s ? stepShapes(s) : [arrow(P.sol[0], 'green')] } });
-      cap.className = 'cap film ok';
-      cap.innerHTML = `<div class="verdict">${verdict}</div>` + (s ? `${capStep(s, i, n)}<p>${esc(s.text)}</p>` : '<p><b>Position de départ.</b> Regarde la solution se dérouler.</p>');
-      document.querySelectorAll('#lix ol.line li').forEach((li, k) => li.classList.toggle('cur', k + 1 === i));
-      setHtml($('#libar'), `<button class="btn ico" data-ex="prev" aria-label="Coup précédent" ${i === 0 ? 'disabled' : ''}>${ico('prev')}</button><button class="btn ico" data-ex="next" aria-label="Coup suivant" ${i >= n ? 'disabled' : ''}>${ico('next')}</button><button class="btn" data-ex="play">${F.play ? ico('pause') + 'Pause' : i >= n ? ico('replay') + 'Revoir' : ico('play') + 'Lecture'}</button><button class="btn ${F.play ? '' : 'pri'}" data-act="linext">Suivant ›</button>`);
-    }
-    S.exui = (a, v) => {
-      if (a === 'play') { if (F.play) { F.stop(); show(); } else F.start(F.i >= n ? 0 : null, 350); return; }
-      F.stop();
-      if (a === 'next') F.i++; else if (a === 'prev') F.i--; else if (a === 'jump') F.i = +v;
-      F.i = Math.min(Math.max(F.i, 0), n); show();
-    };
-    document.body.classList.add('solved');
-    F.i = n;
-    if (res === 0 && !REDUCED) F.start(0); else show(); // solution demandée : elle se joue toute seule
+    const steps = buildLine(P.fen, P.sol, me, true), ins = insight(P.fen, me, steps, []);
+    X.player({
+      view: (fen, last, shapes) => cg.set({ fen, lastMove: last, movable: { color: undefined }, drawable: { autoShapes: shapes.filter(Boolean) } }),
+      arrows: (a) => cg.setAutoShapes(a),
+      films: { sol: { steps, start: { fen: P.fen, last: P.last, shape: arrow(P.sol[0], 'green') }, startText: 'Regarde la solution se dérouler.', brush: (k) => (steps[k].tags.mine ? 'green' : 'blue') } },
+      verdict: res === 2 ? '<b class="ok">Résolu du premier coup.</b>' : res === 1 ? '<b class="ok">Résolu.</b>' : 'Voici la solution, coup par coup.', verdictAlways: true,
+      panel: $('#lix'), panelHtml: () => `<div class="card idea"><h3>L’idée</h3><p>${esc(ins.idee)}</p></div>
+        <ol class="line">${steps.map((q, k) => `<li data-x="jump" data-v="${k + 1}"><b>${q.white ? q.no + '.' : (k === 0 ? q.no + '…' : '')} ${fr(q.san)}</b><span>${esc(q.text)}</span></li>`).join('')}</ol>
+        <p class="small">Puzzle de la base Lichess (domaine public). Thèmes : ${esc(P.themes.join(', '))}.</p>`,
+      exit: '<button class="btn" data-act="linext">Suivant ›</button>',
+      auto: res === 0, from: 0, rest: steps.length, // solution demandée : elle se joue toute seule
+    });
   }
   function onMove(from, to) {
     const want = P.sol[L.step], m = ch.move({ from, to, promotion: want[4] || 'q' });
@@ -274,19 +266,19 @@ function mountInedits() {
       const r = uciMove(ch, P.sol[L.step]); L.step++;
       cg.set({ fen: ch.fen(), lastMove: [r.from, r.to], turnColor: color, movable: mov() });
       if (L.step >= P.sol.length) return finish(true);
-      say('ok', `<b class="ok">Bien.</b> Ton adversaire répond ${fr(r.san)}. Trouve la suite.`);
+      X.say('ok', `<p><b class="ok">Bien.</b> Ton adversaire répond ${fr(r.san)}. Trouve la suite.</p>`);
     } else {
       L.failed = true;
       cg.set({ fen: ch.fen(), movable: { color: undefined } });
       cg.setAutoShapes([{ orig: to, brush: 'red' }]);
-      say('ko', `<b class="ko">Pas celui-là.</b> ${fr(m.san)} n’est pas le meilleur coup. Réessaie.`);
-      setTimeout(() => { if (L.done || !document.body.contains(el)) return; ch.undo(); cg.set({ fen: ch.fen(), turnColor: color, movable: mov() }); cg.setAutoShapes([]); }, 800);
+      X.say('ko', `<p><b class="ko">Pas celui-là.</b> ${fr(m.san)} n’est pas le meilleur coup. Réessaie.</p>`);
+      setTimeout(() => { if (L.done || !X.alive()) return; ch.undo(); cg.set({ fen: ch.fen(), turnColor: color, movable: mov() }); cg.setAutoShapes([]); }, 800);
     }
   }
-  S.liapi = {
-    hint() { if (L.done) return; hinted = true; const w = P.sol[L.step]; cg.set({ drawable: { autoShapes: [{ orig: w.slice(0, 2), brush: 'green' }] } }); say('', `<b>Indice.</b> ${esc(hintFor(ch.fen(), w, me))} La pièce entourée doit jouer.`); },
+  X.on({
+    hint() { if (L.done) return; hinted = true; const w = P.sol[L.step]; cg.set({ drawable: { autoShapes: [{ orig: w.slice(0, 2), brush: 'green' }] } }); X.say('', `<p><b>Indice.</b> ${esc(hintFor(ch.fen(), w, me))} La pièce entourée doit jouer.</p>`); },
     show() { if (L.done) return; L.failed = true; finish(false); },
-  };
+  });
 }
 
 function findErr(t, ply) {
@@ -294,26 +286,27 @@ function findErr(t, ply) {
   const e = g && S.an[g.id]?.errs.find((x) => String(x.ply) === String(ply));
   return e && e.best ? { id: g.t + ':' + e.ply, g, e } : null;
 }
-// Écran de travail d'une position : coach, échiquier, bandeau de commentaire, barre d'actions.
+const SOLVE_BAR = '<button class="btn" data-x="hint">Indice</button><button class="btn" data-x="real">Mon coup</button><button class="btn" data-x="show">Solution</button>';
+// Écran d'exercice sur une de tes erreurs. o : { head, side, next (bouton de sortie), top }.
 function workScreen(p, o) {
   const me = p.g.w ? 'w' : 'b', side = p.g.w ? 'Blancs' : 'Noirs';
   const last = lastMoveText(p.g, p.e.ply, me);
-  return `${coach(`${last ? esc(last) + ' ' : ''}<b>À toi de jouer avec les ${side}.</b> En partie, ton coup ici t’a coûté ${p.e.drop} points de chances de gain. Trouve mieux.`, 'intro')}
-    <div class="split work"><div class="bwrap"><div class="board" id="pzb"></div>
-      <div class="cap" id="pzcap" data-base="cap"><p><i class="dot ${p.g.w ? 'w' : 'b'}"></i> <span class="m-txt">${last ? esc(last) + ' ' : ''}</span>Trait aux ${side}. <span class="d-txt">Joue ton coup sur l’échiquier.</span><span class="m-txt">Trouve mieux qu’en partie.</span></p></div></div>
-      <div class="stack" id="pzside">${o.side || ''}
-        <div class="meta small">Coup ${moveNo(p.e)} de ta ${gameRef(p.g)}${p.e.theme ? ` · ${st.THEMES[p.e.theme]}` : ''} · <a href="#partie/${p.g.t}/${p.e.ply}">Ouvrir la partie</a></div>
-        <div id="pzx"><div class="card ghost"><h3>Comment chercher</h3><ol class="routine"><li>Que vient de faire ton adversaire ? Que menace son coup ?</li><li>As-tu un échec, une capture ou une menace ?</li><li>La case où tu vas est-elle attaquée ?</li></ol></div></div>
-      </div></div>
-    <div class="actbar" id="pzbar"><button class="btn" data-act="pzhint">Indice</button><button class="btn" data-act="pzreal" id="pzreal">Mon coup</button><button class="btn" data-act="pzshow">Solution</button></div>
-    <template id="pznextt">${o.next}</template>`;
+  return exo.screen({
+    live: true, top: o.top, exit: o.next,
+    head: o.head + coach(`${last ? esc(last) + ' ' : ''}<b>À toi de jouer avec les ${side}.</b> En partie, ton coup ici t’a coûté ${p.e.drop} points de chances de gain. Trouve mieux.`, 'intro'),
+    cap: `<p><i class="dot ${p.g.w ? 'w' : 'b'}"></i> <span class="m-txt">${last ? esc(last) + ' ' : ''}</span>Trait aux ${side}. <span class="d-txt">Joue ton coup sur l’échiquier.</span><span class="m-txt">Trouve mieux qu’en partie.</span></p>`,
+    panel: `${o.side || ''}
+      <div class="meta small">Coup ${moveNo(p.e)} de ta ${gameRef(p.g)}${p.e.theme ? ` · ${st.THEMES[p.e.theme]}` : ''} · <a href="#partie/${p.g.t}/${p.e.ply}">Ouvrir la partie</a></div>
+      <div id="pzx"><div class="card ghost"><h3>Comment chercher</h3><ol class="routine"><li>Que vient de faire ton adversaire ? Que menace son coup ?</li><li>As-tu un échec, une capture ou une menace ?</li><li>La case où tu vas est-elle attaquée ?</li></ol></div></div>`,
+    bar: SOLVE_BAR,
+  });
 }
 function viewPuzzles(force) {
   if (force) {
     const p = findErr(force[0], force[1]);
     if (!p) return `<h1>Position introuvable</h1><div class="card"><p class="sub">Cette position n’est plus dans tes analyses.</p><div><a class="btn" href="#parties">Retour aux parties</a></div></div>`;
     S.pzOne = p;
-    return `<div class="pzhead"><h1>Comprendre cette erreur</h1></div>` + workScreen(p, { next: '<button class="btn" data-act="back">Retour</button>' });
+    return workScreen(p, { head: '<div class="pzhead"><h1>Comprendre cette erreur</h1></div>', next: '<button class="btn" data-act="back">Retour</button>' });
   }
   S.pzOne = null;
   const total = allPuzzles();
@@ -328,15 +321,17 @@ function viewPuzzles(force) {
   // Révision des ratés du jour : une liste fixe, sans effet sur le calendrier de répétition.
   z.redo = (z.redo || []).filter((id) => pzById(id));
   if (z.redo.length) {
-    return pzTabs('mine') + `<div class="pzhead"><h1>Tes ratés du jour</h1><div class="row"><span class="chip warn">Révision : encore ${z.redo.length}</span><button class="btn sm" data-act="pzredostop">Arrêter</button></div></div>`
-      + workScreen(pzById(z.redo[0]), { next: `<button class="btn" data-act="pznext">${z.redo.length > 1 ? 'Raté suivant ›' : 'Terminer ›'}</button>` });
+    return workScreen(pzById(z.redo[0]), {
+      head: pzTabs('mine') + `<div class="pzhead"><h1>Tes ratés du jour</h1><div class="row"><span class="chip warn">Révision : encore ${z.redo.length}</span><button class="btn sm" data-act="pzredostop">Arrêter</button></div></div>`,
+      next: `<button class="btn" data-act="pznext">${z.redo.length > 1 ? 'Raté suivant ›' : 'Terminer ›'}</button>`,
+    });
   }
   if (z.show === dkey()) return plain + pzRecap('Objectif du jour atteint', 'Tu peux t’arrêter là. Les puzzles ratés reviennent demain, les réussis dans quelques jours : c’est cet espacement qui transforme une correction en réflexe.', false, filter);
   const q = pzQueue(z.theme, z.free);
   if (!z.cur || !q.some((p) => p.id === z.cur.id)) z.cur = q[0] ? { id: q[0].id } : null;
   if (!z.cur) return plain + pzRecap(z.theme ? 'Ce thème est à jour' : 'Tout est à jour', `Plus aucun puzzle en attente aujourd’hui${z.theme ? ' sur ce thème' : ''}. Les puzzles réussis reviennent après 1, 3, 7 puis 21 jours, les ratés dès demain : c’est la répétition espacée qui transforme une correction en réflexe.`, true, filter);
   const p = q.find((x) => x.id === z.cur.id);
-  return head + workScreen(p, { next: '<button class="btn" data-act="pznext">Suivant ›</button>', side: filter });
+  return workScreen(p, { head, next: '<button class="btn" data-act="pznext">Suivant ›</button>', side: filter, top: () => pzProg(pzDay()) });
 }
 // Bilan des puzzles du jour : résultats, étape suivante, ratés à refaire.
 function pzRecap(title, msg, empty, filter) {
@@ -401,90 +396,47 @@ function getLines(g, e) {
   LINES.set(id, pr);
   return pr;
 }
-// o : { g, e, api, cap, panel, bar, next (html du bouton de sortie), verdict, exact (le meilleur coup est déjà sur l'échiquier) }
-// Deux films : « La bonne suite » se joue toute seule après la solution, puis « Ton coup » montre ce que ton coup permettait.
-function explainUI(o) {
-  const e = o.e, g = o.g, x = { tab: 'best', d: null, seenRef: false, endBest: false, note: '', ptab: null };
-  const lastMv = e.prev ? [e.prev.slice(0, 2), e.prev.slice(2, 4)] : undefined;
-  // Bilan matériel cumulé depuis le début de la suite : dans un échange, on voit +9 puis « égalité », pas +9 puis −9.
-  const matChip = (L, i, m0) => { if (!L.slice(0, i).some((q) => q.raw.captured)) return ''; const d = L[i - 1].mat - m0; return `<span class="chip ${d > 0 ? 'good' : d < 0 ? 'bad' : ''}">${d ? `Bilan ${d > 0 ? '+' : '−'}${Math.abs(d)}` : 'Bilan : égalité'}</span>`; };
-  o.cap.className = 'cap'; o.cap.innerHTML = `<p>${o.verdict || ''} Je prépare l’explication…</p>`;
-  document.body.classList.add('solved');
-  if (innerWidth < 860) scrollTo(0, 0);
-  o.bar.innerHTML = o.next;
-  const line = () => x.d[x.tab];
-  const F = film({
-    len: () => line().length, step: (k) => line()[k],
-    brush: (k) => (x.tab === 'best' ? (line()[k].tags.mine ? 'green' : 'blue') : (k === 0 || !line()[k].tags.mine ? 'red' : 'blue')),
-    arrows: (a) => o.api.arrows(a), alive: () => document.body.contains(o.cap), show: draw,
-  });
-  function draw() {
-    const d = x.d, L = line(), n = L.length, i = Math.min(F.i, n), s = L[i - 1], best = x.tab === 'best';
-    if (!s) o.api.view(e.fen, lastMv, [arrow(best ? e.best : e.playedUci, best ? 'green' : 'red')]);
-    else o.api.view(s.fen, [s.from, s.to], stepShapes(s));
-    // En pas à pas, tu peux jouer toi-même la punition de ton coup ou tes coups de la bonne suite.
-    const nx = L[i], guess = !F.play && i >= 1 && nx && ((!best && i === 1) || (best && nx.tags.mine));
-    if (guess) o.api.ask(s.fen, (from, to) => {
-      x.note = from === nx.from && to === nx.to ? '<b class="ok">Exact.</b>' : `<b class="ko">Pas le coup du moteur.</b> Il préférait ${fr(nx.san)}.`;
-      F.i++; draw();
-    });
-    const note = x.note; x.note = '';
-    const atEnd = i >= n;
-    if (!best) x.seenRef = true;
-    if (best && atEnd) x.endBest = true;
-    if (!o.cap._film) {
-      o.cap._film = true;
-      o.cap.innerHTML = '<div class="capb"></div>';
-    }
-    o.cap.className = 'cap film ' + (best ? 'ok' : 'ko');
-    const end = !atEnd || !s ? '' : s.tags.mate ? `<p class="bilan"><b>Bilan :</b> échec et mat${s.tags.mine ? '' : ' contre toi'}.</p>` : `<p class="bilan"><b>Bilan de ${best ? 'la bonne suite' : 'ton coup'} :</b> ${best ? d.ins.bestTxt : d.ins.refTxt}.</p>`;
-    $('.capb', o.cap).innerHTML = (o.verdict && best && i <= 1 ? `<div class="verdict">${o.verdict}</div>` : '')
-      + (s ? `${capStep(s, i, n, matChip(L, i, d.m0))}<p>${note ? note + ' ' : ''}${esc(s.text)}</p>${guess ? `<p class="ask">${best ? 'À toi : joue la suite sur l’échiquier.' : 'À toi de punir ce coup : joue la meilleure réponse de ton adversaire.'} <span class="small">Ou passe au coup suivant.</span></p>` : ''}${end}`
-        : `<p><b>Position de départ.</b> ${best ? 'La flèche verte montre le meilleur coup.' : 'La flèche rouge montre le coup que tu as joué en partie.'}</p>`);
-    if (x.ptab !== x.tab) { // le panneau n'est reconstruit qu'au changement de film
-      x.ptab = x.tab;
-      const real = g.san[e.ply + 1], refReply = d.ref[1];
-      o.panel.innerHTML = `<div class="seg2 mini" role="tablist"><button role="tab" data-ex="tab" data-v="best" class="${best ? 'on' : ''}">La bonne suite</button><button role="tab" data-ex="tab" data-v="ref" class="${best ? '' : 'on'}">Ton coup : ${fr(e.played)}</button></div>
+// Après la solution : « La bonne suite » se joue toute seule, puis « Ton coup » montre ce que ton coup permettait.
+// o : { g, e, api (échiquier de solveBoard), panel (élément de l'explication), verdict, exact (le meilleur coup est déjà sur l'échiquier) }
+function explainUI(X, o) {
+  const e = o.e, g = o.g, start = (uci, brush) => ({ fen: e.fen, last: e.prev ? [e.prev.slice(0, 2), e.prev.slice(2, 4)] : undefined, shape: arrow(uci, brush) });
+  X.say('', `<p>${o.verdict || ''} Je prépare l’explication…</p>`);
+  X.solved();
+  X.setBar(X.spec.exit);
+  getLines(g, e).then((d) => {
+    if (!X.alive()) return;
+    // Bilan matériel cumulé depuis le début de la suite : dans un échange, on voit +9 puis « égalité », pas +9 puis −9.
+    const chip = (L) => (i) => { if (!L.slice(0, i).some((q) => q.raw.captured)) return ''; const m = L[i - 1].mat - d.m0; return `<span class="chip ${m > 0 ? 'good' : m < 0 ? 'bad' : ''}">${m ? `Bilan ${m > 0 ? '+' : '−'}${Math.abs(m)}` : 'Bilan : égalité'}</span>`; };
+    const bilan = (L, label, txt) => { const s = L[L.length - 1]; return !s ? '' : s.tags.mate ? `<b>Bilan :</b> échec et mat${s.tags.mine ? '' : ' contre toi'}.` : `<b>Bilan de ${label} :</b> ${txt}.`; };
+    const real = g.san[e.ply + 1], refReply = d.ref[1];
+    X.player({
+      view: o.api.view, arrows: o.api.arrows, ask: o.api.ask,
+      films: {
+        best: { steps: d.best, start: start(e.best, 'green'), startText: 'La flèche verte montre le meilleur coup.', tone: 'ok', brush: (k) => (d.best[k].tags.mine ? 'green' : 'blue'),
+          chip: chip(d.best), bilan: bilan(d.best, 'la bonne suite', d.ins.bestTxt), guess: (i) => d.best[i].tags.mine, ask: 'À toi : joue la suite sur l’échiquier.' },
+        ref: { steps: d.ref, start: start(e.playedUci, 'red'), startText: 'La flèche rouge montre le coup que tu as joué en partie.', tone: 'ko', brush: (k) => (k === 0 || !d.ref[k].tags.mine ? 'red' : 'blue'),
+          chip: chip(d.ref), bilan: bilan(d.ref, 'ton coup', d.ins.refTxt), guess: (i) => i === 1, ask: 'À toi de punir ce coup : joue la meilleure réponse de ton adversaire.', cta: 'Voir mon erreur' },
+      },
+      verdict: o.verdict, exit: X.spec.exit, from: o.exact === false ? 0 : 1, rest: 1,
+      panel: o.panel, panelHtml: (key) => { const best = key === 'best', L = d[key]; return `<div class="seg2 mini" role="tablist"><button role="tab" data-x="film" data-v="best" class="${best ? 'on' : ''}">La bonne suite</button><button role="tab" data-x="film" data-v="ref" class="${best ? '' : 'on'}">Ton coup : ${fr(e.played)}</button></div>
         <div class="card idea"><h3>L’idée derrière ${fr(e.bestSan)}</h3><p>${esc(d.ins.idee)}</p></div>
         <h3 class="lh">${best ? 'La bonne suite, coup par coup' : `Ce que permettait ${fr(e.played)}`}</h3>
-        <ol class="line">${L.map((q, k) => `<li data-ex="jump" data-v="${k + 1}"><b>${q.white ? q.no + '.' : (k === 0 ? q.no + '…' : '')} ${fr(q.san)}</b><span>${esc(q.text)}</span></li>`).join('')}</ol>
+        <ol class="line">${L.map((q, k) => `<li data-x="jump" data-v="${k + 1}"><b>${q.white ? q.no + '.' : (k === 0 ? q.no + '…' : '')} ${fr(q.san)}</b><span>${esc(q.text)}</span></li>`).join('')}</ol>
         ${!best && real && refReply && real !== refReply.san ? `<p class="small">En partie, ton adversaire a répondu ${fr(real)} au lieu de ${fr(refReply.san)} : il n’a pas trouvé la meilleure réponse. Ton coup restait une erreur, un adversaire plus attentif l’aurait punie.</p>` : ''}
         <div class="card why"><h3>Pourquoi pas ${fr(e.played)} ?</h3><p>${esc(d.ins.pourquoi)}</p>
           <div class="cmp"><div class="ok"><span>Meilleur coup · ${fr(e.bestSan)}</span><b>${d.ins.bestTxt}</b><span>évaluation ${fmtEval(e.e0)}</span></div><div class="ko"><span>Ton coup · ${fr(e.played)}</span><b>${d.ins.refTxt}</b><span>évaluation ${fmtEval(e.e1)}</span></div></div>
           <p class="small">Bilan matériel au bout des suites montrées. Valeurs : pion 1, cavalier et fou 3, tour 5, dame 9. L’évaluation est celle du moteur, de ton point de vue : +1 vaut un pion d’avance.</p></div>
-        ${e.theme ? `<div class="card rule"><span class="small">À retenir</span><p class="rulet">${RULES[e.theme]}</p><a href="#cours/${e.theme}">Cours : ${LESSONS[e.theme].titre}</a></div>` : ''}`;
-    }
-    o.panel.querySelectorAll('ol.line li').forEach((li, k) => li.classList.toggle('cur', k + 1 === i));
-    const wantRef = best && x.endBest && !x.seenRef;
-    const mid = F.play ? `<button class="btn" data-ex="play">${ico('pause')}Pause</button>`
-      : !atEnd ? `<button class="btn pri" data-ex="play">${ico('play')}Lecture</button>`
-      : wantRef ? '<button class="btn pri" data-ex="tab" data-v="ref">Voir mon erreur</button>'
-      : `<button class="btn" data-ex="play">${ico('replay')}Revoir</button>`;
-    setHtml(o.bar, `<button class="btn ico" data-ex="prev" aria-label="Coup précédent" ${i === 0 ? 'disabled' : ''}>${ico('prev')}</button><button class="btn ico" data-ex="next" aria-label="Coup suivant" ${atEnd ? 'disabled' : ''}>${ico('next')}</button>${mid}${o.next.replace('class="btn"', `class="btn ${atEnd && !wantRef ? 'pri' : ''}"`)}`);
-  }
-  S.exui = (a, v) => {
-    if (!x.d) return;
-    if (a === 'play') { if (F.play) { F.stop(); draw(); } else F.start(F.i >= line().length ? 0 : null, 350); return; }
-    F.stop();
-    if (a === 'tab') { x.tab = v; if (REDUCED) { F.i = 1; draw(); } else F.start(0); return; }
-    if (a === 'next') F.i++; else if (a === 'prev') F.i = Math.max(0, F.i - 1); else if (a === 'jump') F.i = +v;
-    F.i = Math.min(F.i, line().length);
-    draw();
-  };
-  getLines(g, e).then((d) => {
-    if (!document.body.contains(o.cap)) return;
-    x.d = d;
-    if (REDUCED) { F.i = 1; draw(); } else F.start(o.exact === false ? 0 : 1); // la suite se joue toute seule
+        ${e.theme ? `<div class="card rule"><span class="small">À retenir</span><p class="rulet">${RULES[e.theme]}</p><a href="#cours/${e.theme}">Cours : ${LESSONS[e.theme].titre}</a></div>` : ''}`; },
+    });
   });
 }
 
 // Échiquier jouable sur une de tes erreurs : vérifie ton coup, montre l'indice, la solution ou ton coup réel.
-function solveBoard(el, fb, g, e, o = {}) {
+function solveBoard(X, g, e, o = {}) {
   const ch = new Chess(e.fen), color = g.w ? 'white' : 'black', stt = { tries: 0, shown: false, done: false, real: false, tk: 0 };
   const lastMv = e.prev ? [e.prev.slice(0, 2), e.prev.slice(2, 4)] : undefined;
   const mov = () => ({ free: false, color, dests: destsOf(ch), showDests: true, events: { after: onMove } });
-  const cg = board(el, { fen: ch.fen(), orientation: color, turnColor: color, lastMove: lastMv, movable: mov() });
-  const say = (cls, html) => { fb.className = (fb.dataset.base || 'fb') + ' ' + cls; fb.innerHTML = html; };
+  const cg = X.board({ fen: ch.fen(), orientation: color, turnColor: color, lastMove: lastMv, movable: mov() }), say = X.say;
   const hintShape = () => (stt.hints >= 2 && !stt.done ? [{ orig: e.best.slice(0, 2), brush: 'green' }] : []);
   // found : le coup a été trouvé. exact : le meilleur coup du moteur est sur l'échiquier.
   const finish = (found, html, exact) => {
@@ -502,14 +454,14 @@ function solveBoard(el, fb, g, e, o = {}) {
     say('', 'Vérification de ton coup…');
     let drop = 100;
     try { S.play ||= new Engine(); const r = await S.play.evalFen(ch.fen(), DEPTH, true); drop = winPct(e.e0) - winPct(-r.cp); } catch { S.play = null; /* moteur indisponible : seul le meilleur coup compte */ }
-    if (!document.body.contains(el)) return; // l'utilisateur a quitté l'écran pendant la vérification
+    if (!X.alive()) return; // l'utilisateur a quitté l'écran pendant la vérification
     if (stt.done || stt.tk !== tk) return;
     if (drop < 6) return finish(true, `<b class="ok">Bon coup.</b> ${fr(m.san)} tient la position (le moteur préférait ${fr(e.bestSan)}).`, false);
     stt.tries++;
     cg.setAutoShapes([{ orig: to, brush: 'red' }]);
     say('ko', `<b class="ko">Pas celui-là.</b> ${fr(m.san)} ${uci === e.playedUci.slice(0, 4) ? 'est le coup que tu avais joué en partie' : `fait perdre ${Math.round(drop)} points de chances de gain`}. Réessaie.`);
-    if (stt.tries >= 2 && !stt.hints) $('[data-act="pzhint"]')?.classList.add('pulse'); // deux essais ratés : l'indice se signale
-    setTimeout(() => { if (stt.tk !== tk || !document.body.contains(el)) return; ch.undo(); cg.set({ fen: ch.fen(), turnColor: color, movable: mov() }); cg.setAutoShapes(hintShape()); }, 900);
+    if (stt.tries >= 2 && !stt.hints) X.btn('hint')?.classList.add('pulse'); // deux essais ratés : l'indice se signale
+    setTimeout(() => { if (stt.tk !== tk || !X.alive()) return; ch.undo(); cg.set({ fen: ch.fen(), turnColor: color, movable: mov() }); cg.setAutoShapes(hintShape()); }, 900);
   }
   const api = {
     stt,
@@ -522,41 +474,41 @@ function solveBoard(el, fb, g, e, o = {}) {
         stt.real = false; if (btn) btn.textContent = 'Mon coup';
         ch.load(e.fen);
         cg.set({ fen: ch.fen(), lastMove: lastMv, turnColor: color, drawable: { autoShapes: stt.done ? [arrow(e.best, 'green')] : hintShape() }, movable: stt.done ? { color: undefined } : mov() });
-        fb.className = stt.fbClass; fb.innerHTML = stt.fbHtml;
+        X.cap.className = stt.fbClass; X.cap.innerHTML = stt.fbHtml;
         return;
       }
       stt.real = true; if (btn) btn.textContent = 'Revenir';
-      stt.fbClass = fb.className; stt.fbHtml = fb.innerHTML;
+      stt.fbClass = X.cap.className; stt.fbHtml = X.cap.innerHTML;
       ch.load(e.fen);
       const m = uciMove(ch, e.playedUci); if (!m) return;
       cg.set({ fen: ch.fen(), lastMove: [m.from, m.to], movable: { color: undefined }, drawable: { autoShapes: [arrow(e.playedUci, 'red')] } });
       const replySan = g.san[e.ply + 1];
       say('', `En partie, tu as joué <b>${fr(e.played)}</b>` + (replySan ? ` et ton adversaire a répondu <b>${fr(replySan)}</b>.` : '.') + (e.punish[0] && e.punish[0] !== replySan ? ` La réponse la plus forte était ${fr(e.punish[0])}.` : '') + ` <a href="#partie/${g.t}/${e.ply + 2}">Voir la suite</a>`);
-      if (replySan) setTimeout(() => { if (!stt.real || !document.body.contains(el)) return; const r = ch.move(replySan, { sloppy: true }); if (r) cg.set({ fen: ch.fen(), lastMove: [r.from, r.to], drawable: { autoShapes: [] } }); }, 900);
+      if (replySan) setTimeout(() => { if (!stt.real || !X.alive()) return; const r = ch.move(replySan, { sloppy: true }); if (r) cg.set({ fen: ch.fen(), lastMove: [r.from, r.to], drawable: { autoShapes: [] } }); }, 900);
     },
     hint() {
-      if (stt.real) api.real($('#pzreal')); if (stt.done) return;
+      if (stt.real) api.real(X.btn('real')); if (stt.done) return;
       stt.shown = true; stt.hints = (stt.hints || 0) + 1;
-      $('[data-act="pzhint"]')?.classList.remove('pulse');
+      X.btn('hint')?.classList.remove('pulse');
       const q = txt(o.hintText || hintFor(e.fen, e.best, g.w ? 'w' : 'b'));
       if (stt.hints === 1) say('', `<b>Indice 1.</b> ${q} <span class="small">Touche encore « Indice » pour voir quelle pièce joue.</span>`);
       else { cg.set({ drawable: { autoShapes: [{ orig: e.best.slice(0, 2), brush: 'green' }] } }); say('', `<b>Indice 2.</b> ${q} La pièce entourée doit jouer.`); }
     },
-    show() { if (stt.real) api.real($('#pzreal')); if (stt.done) return; stt.shown = true; ch.load(e.fen); const m = uciMove(ch, e.best); cg.set({ fen: ch.fen(), lastMove: m ? [m.from, m.to] : undefined }); finish(false, `La solution était <b>${fr(e.bestSan)}</b>.`, true); },
+    show() { if (stt.real) api.real(X.btn('real')); if (stt.done) return; stt.shown = true; ch.load(e.fen); const m = uciMove(ch, e.best); cg.set({ fen: ch.fen(), lastMove: m ? [m.from, m.to] : undefined }); finish(false, `La solution était <b>${fr(e.bestSan)}</b>.`, true); },
   };
+  X.on({ hint: () => api.hint(), real: (_, btn) => api.real(btn), show: () => api.show() });
   return api;
 }
 function mountPuzzle() {
-  const el = $('#pzb');
-  if (!el) return;
+  const X = exo.current();
+  if (!X) return;
   const p = S.pzOne || pzById(S.pz?.redo?.[0] || S.pz?.cur?.id || '');
   if (!p) return;
-  const cap = $('#pzcap');
   getLines(p.g, p.e); // prépare l'explication pendant que tu cherches
-  S.solve = solveBoard(el, cap, p.g, p.e, {
+  const api = solveBoard(X, p.g, p.e, {
     done: (res, first, html, exact) => {
       if (first) pzRecord(p, res); // noté tout de suite : quitter la page ne fait rien perdre
-      explainUI({ g: p.g, e: p.e, api: S.solve, cap, panel: $('#pzx'), bar: $('#pzbar'), next: $('#pznextt').innerHTML, verdict: html, exact });
+      explainUI(X, { g: p.g, e: p.e, api, panel: $('#pzx'), verdict: html, exact });
     },
   });
 }
@@ -571,14 +523,14 @@ function filtersHtml() {
 const TITLES = { puzzles: 'Puzzles', erreur: 'Comprendre', partie: 'Partie', cours: 'Cours', drill: 'Échauffement', inedits: 'Positions inédites' };
 function header() {
   const t = $('#tools'), [r, a] = route();
-  const imm = !!S.data && (r === 'erreur' || r === 'partie' || (r === 'drill' && !!$('#drb')) || (r === 'inedits' && !!$('#lib')) || (r === 'cours' && !!a) || (r === 'puzzles' && !!$('#pzb')));
+  const imm = !!S.data && (!!exo.current() || r === 'erreur' || (r === 'cours' && !!a)); // écran d'exercice ou page de cours : barre du haut avec retour
   document.body.classList.toggle('imm', imm);
   $('#ttl').textContent = imm ? TITLES[r] : '';
   if (!S.data) { t.innerHTML = ''; return; }
   const tr = st.trend(rapidAll()), stk = streak();
   // Sur téléphone, pendant un exercice, la barre du haut montre l'avancée (puzzles du jour, position de la série).
-  const top = !imm ? '' : r === 'puzzles' && $('.pzhead.main') ? pzProg(pzDay(), 'm-only') : $('#view [data-top]') ? `<span class="m-only row chips">${$('#view [data-top]').innerHTML}</span>` : '';
-  t.innerHTML = `${top || `<span class="m-only row chips">${tr ? `<span class="chip">${tr.cur} Elo</span>` : ''}<span class="chip ${stk ? 'warn' : ''}">Série ${stk} j</span></span>`}<span class="d-only filters">${filtersHtml()}</span>`;
+  const top = exo.top();
+  t.innerHTML = `${top ? `<span class="m-only row chips">${top}</span>` : `<span class="m-only row chips">${tr ? `<span class="chip">${tr.cur} Elo</span>` : ''}<span class="chip ${stk ? 'warn' : ''}">Série ${stk} j</span></span>`}<span class="d-only filters">${filtersHtml()}</span>`;
 }
 
 function viewWelcome() {
@@ -827,16 +779,15 @@ function viewCoachLesson(id, L) {
     if (!x) return head + `<div class="card"><p class="sub">Cette position n’est plus disponible dans tes analyses.</p></div>` + next();
     S.clPos = { x, pos };
     const me = x.g.w ? 'w' : 'b', lm = lastMoveText(x.g, x.e.ply, me);
-    return head + coach(`<b>Position ${i + 1} sur ${L.positions.length}.</b> Coup ${moveNo(x.e)} de ta ${gameRef(x.g)}. ${lm ? esc(lm) + ' ' : ''}<br>${txt(pos.question)}`) + `
-    <div class="split work"><div class="bwrap"><div class="board" id="clb"></div>
-      <div class="cap" id="clf" data-base="cap"><p><i class="dot ${x.g.w ? 'w' : 'b'}"></i> Trait aux ${x.g.w ? 'Blancs' : 'Noirs'}. Joue le coup que tu aurais dû jouer.</p></div></div>
-      <div class="stack">
-        <div id="clx" hidden>${coach(`${txt(pos.explication)}<br><b>À retenir :</b> ${txt(pos.retenir)}`)}</div>
+    return exo.screen({
+      live: true, exit: '<button class="btn" data-act="clnext">Continuer ›</button>',
+      head: head + coach(`<b>Position ${i + 1} sur ${L.positions.length}.</b> Coup ${moveNo(x.e)} de ta ${gameRef(x.g)}. ${lm ? esc(lm) + ' ' : ''}<br>${txt(pos.question)}`),
+      cap: `<p><i class="dot ${x.g.w ? 'w' : 'b'}"></i> Trait aux ${x.g.w ? 'Blancs' : 'Noirs'}. Joue le coup que tu aurais dû jouer.</p>`,
+      panel: `<div id="clx" hidden>${coach(`${txt(pos.explication)}<br><b>À retenir :</b> ${txt(pos.retenir)}`)}</div>
         <div id="clp"></div>
-        ${coachKey() ? `<form data-form="ask" class="row"><input type="text" id="askq" placeholder="Une question sur cette position ?" style="flex:1;min-width:180px" aria-label="Question au coach"><button class="btn">Demander au coach</button></form><div id="aska"></div>` : ''}
-      </div></div>
-    <div class="actbar" id="clbar"><button class="btn" data-act="pzhint">Indice</button><button class="btn" data-act="pzreal" id="pzreal">Mon coup</button><button class="btn" data-act="pzshow">Solution</button></div>
-    <template id="clnextt"><button class="btn" data-act="clnext">Continuer ›</button></template>`;
+        ${coachKey() ? `<form data-form="ask" class="row"><input type="text" id="askq" placeholder="Une question sur cette position ?" style="flex:1;min-width:180px" aria-label="Question au coach"><button class="btn">Demander au coach</button></form><div id="aska"></div>` : ''}`,
+      bar: SOLVE_BAR,
+    });
   }
   if (stp === 'methode') {
     return head + `<div class="card rule"><span class="small">La règle du cours</span><p class="rulet">${txt(L.regle)}</p></div>
@@ -850,14 +801,13 @@ function viewCoachLesson(id, L) {
   }).join('') + (answered >= L.quiz.length ? next('Terminer le cours') : '');
 }
 function mountCoachLesson() {
-  const el = $('#clb'), c = S.clPos;
-  if (!el || !c) return;
-  const cap = $('#clf');
+  const X = exo.current(), c = S.clPos;
+  if (!X || !c) return;
   getLines(c.x.g, c.x.e);
-  S.solve = solveBoard(el, cap, c.x.g, c.x.e, { hintText: c.pos.indice, done: (res, first, html, exact) => {
+  const api = solveBoard(X, c.x.g, c.x.e, { hintText: c.pos.indice, done: (res, first, html, exact) => {
     $('#clx').hidden = false;
     if (first) pzRecord({ id: c.x.g.t + ':' + c.x.e.ply, e: c.x.e }, res);
-    explainUI({ g: c.x.g, e: c.x.e, api: S.solve, cap, panel: $('#clp'), bar: $('#clbar'), next: $('#clnextt').innerHTML, verdict: html, exact });
+    explainUI(X, { g: c.x.g, e: c.x.e, api, panel: $('#clp'), verdict: html, exact });
   } });
 }
 function viewLecon(id, mode) {
@@ -949,12 +899,13 @@ function viewParties() {
     </tbody></table></div>${gs.length > S.listN ? '<div><button class="btn" data-act="more">Afficher 50 parties de plus</button></div>' : ''}</div>`;
 }
 
+// Bandeau de la relecture : cls est la classe d'état du bandeau (sans « cap »).
 function gvCap(v) {
   const k = v.k, g = v.g, a = v.a, e = v.errAt[k], prevErr = v.errAt[k - 1], me = g.w ? 'w' : 'b';
   const kindChip = (x) => `<span class="chip ${x.kind === 'gaffe' ? 'bad' : x.kind === 'erreur' ? 'warn' : ''}">${x.kind === 'gaffe' ? 'Gaffe' : x.kind === 'erreur' ? 'Erreur' : 'Imprécision'}</span>`;
-  if (e) return { cls: 'cap ko', html: `<div class="capm"><span class="capn">Moment clé, coup ${moveNo(e)}</span>${kindChip(e)}</div><p>${explain(e)}</p><a class="btn pri sm" href="#erreur/${g.t}/${e.ply}">Comprendre cette erreur</a>` };
+  if (e) return { cls: 'ko', html: `<div class="capm"><span class="capn">Moment clé, coup ${moveNo(e)}</span>${kindChip(e)}</div><p>${explain(e)}</p><a class="btn pri sm" href="#erreur/${g.t}/${e.ply}">Comprendre cette erreur</a>` };
   const txtK = k > 0 ? moveText(g, k, me) : 'Position de départ. Avance coup par coup : chaque coup est commenté ici.';
-  return { cls: 'cap', html: `<div class="capm"><span class="capn">${k > 0 ? `<i class="dot ${k % 2 ? 'w' : 'b'}"></i>${Math.ceil(k / 2)}${k % 2 ? '.' : '…'} ${fr(v.mv[k - 1].san)}` : 'Début'}</span>${prevErr ? kindChip(prevErr) : ''}${a ? `<span class="small">éval ${fmtEval(g.w ? a.ev[k] : -a.ev[k])}</span>` : ''}</div><p>${esc(txtK)}</p>` };
+  return { cls: '', html: `<div class="capm"><span class="capn">${k > 0 ? `<i class="dot ${k % 2 ? 'w' : 'b'}"></i>${Math.ceil(k / 2)}${k % 2 ? '.' : '…'} ${fr(v.mv[k - 1].san)}` : 'Début'}</span>${prevErr ? kindChip(prevErr) : ''}${a ? `<span class="small">éval ${fmtEval(g.w ? a.ev[k] : -a.ev[k])}</span>` : ''}</div><p>${esc(txtK)}</p>` };
 }
 function gvBar(v) {
   const k = v.k, n = v.mv.length;
@@ -972,24 +923,24 @@ function viewPartie(t, plyArg) {
   const moves = mv.map((m, i) => `${i % 2 === 0 ? `<span class="n">${i / 2 + 1}.</span>` : ''}<button data-act="goto" data-k="${i + 1}" class="${errAt[i]?.kind || ''}">${fr(m.san)}${errAt[i] ? `<sup>${errAt[i].kind === 'gaffe' ? '??' : errAt[i].kind === 'erreur' ? '?' : '?!'}</sup>` : ''}</button>`).join('');
   const serious = a ? a.errs.filter((x) => x.theme) : [];
   const res = `<span class="chip ${g.out === 'W' ? 'good' : g.out === 'L' ? 'bad' : ''}">${g.out === 'W' ? 'Victoire' : g.out === 'L' ? 'Défaite' : 'Nulle'}${HOW[g.how] ? ' (' + HOW[g.how] + ')' : ''}</span>`;
-  return `<div class="pzhead"><h1>${g.w ? 'Blancs' : 'Noirs'} contre ${esc(g.opp)} <span class="small num">${g.or}</span></h1>
-    <div class="row">${res}<span class="chip">${dfmt(g.t)}</span><span class="chip">${esc(g.fam)}</span><a class="btn sm" href="${esc(g.id)}" target="_blank" rel="noopener">Chess.com</a></div></div>
-  <div class="split work"><div class="bwrap"><div class="board" id="gvb"></div><div class="${cap.cls}" id="gvcap">${cap.html}</div></div>
-    <div class="stack">
-      ${a ? `<div class="row"><span class="chip bad">${pl(a.errs.filter((x) => x.kind === 'gaffe').length, 'gaffe')} ??</span><span class="chip warn">${pl(a.errs.filter((x) => x.kind === 'erreur').length, 'erreur')} ?</span><span class="chip">${pl(a.errs.filter((x) => x.kind === 'imprecision').length, 'imprécision')} ?!</span><span class="chip good">Précision ${a.acc?.toFixed(0)} %</span></div>
+  return exo.screen({
+    head: `<div class="pzhead"><h1>${g.w ? 'Blancs' : 'Noirs'} contre ${esc(g.opp)} <span class="small num">${g.or}</span></h1>
+      <div class="row">${res}<span class="chip">${dfmt(g.t)}</span><span class="chip">${esc(g.fam)}</span><a class="btn sm" href="${esc(g.id)}" target="_blank" rel="noopener">Chess.com</a></div></div>`,
+    cap: cap.html, capClass: cap.cls,
+    panel: `${a ? `<div class="row"><span class="chip bad">${pl(a.errs.filter((x) => x.kind === 'gaffe').length, 'gaffe')} ??</span><span class="chip warn">${pl(a.errs.filter((x) => x.kind === 'erreur').length, 'erreur')} ?</span><span class="chip">${pl(a.errs.filter((x) => x.kind === 'imprecision').length, 'imprécision')} ?!</span><span class="chip good">Précision ${a.acc?.toFixed(0)} %</span></div>
       <div class="card"><h2>Tes chances de gain</h2><div class="chart" id="evc"></div><p class="small">Points rouges : gaffes. Points orange : erreurs. Touche la courbe pour aller au coup.</p></div>`
     : `<div class="card"><p class="sub">Cette partie n’est pas encore analysée.</p><div><button class="btn pri" data-act="analyse1" ${S.job.running ? 'disabled' : ''}>${S.job.running ? 'Analyse en cours' : 'Analyser cette partie'}</button></div></div>`}
       <div class="card"><h2>Coups</h2><div class="moves">${moves}</div></div>
-      ${serious.length ? `<div class="card"><h2>Moments clés</h2>${serious.map((x) => `<a class="row" href="#" data-act="goto" data-k="${x.ply}" style="justify-content:space-between;text-decoration:none"><span>Coup ${moveNo(x)} : ${fr(x.played)}, mieux ${fr(x.bestSan)}</span><span class="chip ${x.kind === 'gaffe' ? 'bad' : 'warn'}">${st.THEMES[x.theme]}</span></a>`).join('')}</div>` : ''}
-    </div></div>
-  <div class="actbar" id="gvbar">${gvBar(v)}</div>`;
+      ${serious.length ? `<div class="card"><h2>Moments clés</h2>${serious.map((x) => `<a class="row" href="#" data-act="goto" data-k="${x.ply}" style="justify-content:space-between;text-decoration:none"><span>Coup ${moveNo(x)} : ${fr(x.played)}, mieux ${fr(x.bestSan)}</span><span class="chip ${x.kind === 'gaffe' ? 'bad' : 'warn'}">${st.THEMES[x.theme]}</span></a>`).join('')}</div>` : ''}`,
+    bar: gvBar(v),
+  });
 }
 // Met à jour l'écran de relecture sans le reconstruire : les pièces s'animent d'un coup à l'autre.
 function gvSync() {
-  const v = S.gv, k = v.k, e = v.errAt[k], cap = gvCap(v), el = $('#gvcap');
+  const v = S.gv, k = v.k, e = v.errAt[k], cap = gvCap(v);
   v.cg.set({ fen: v.fens[k], lastMove: k > 0 ? [v.mv[k - 1].from, v.mv[k - 1].to] : undefined, drawable: { autoShapes: e ? errShapes(e) : [] } });
-  el.className = cap.cls; el.innerHTML = cap.html;
-  $('#gvbar').innerHTML = gvBar(v);
+  v.x.say(cap.cls, cap.html);
+  v.x.setBar(gvBar(v));
   document.querySelectorAll('.moves button').forEach((b, i) => b.classList.toggle('cur', i + 1 === k));
   const box = $('.moves'), curB = $('.moves .cur'); // défile la liste des coups, jamais la page
   if (box && curB) box.scrollTop = curB.offsetTop - box.offsetTop - box.clientHeight / 2;
@@ -1003,11 +954,12 @@ function gvSync() {
 function gvGo(k) {
   const v = S.gv; if (!v) return;
   v.k = Math.max(0, Math.min(v.mv.length, k));
-  if ($('#gvb') && v.cg) gvSync(); else render(true);
+  if (v.x?.alive() && v.cg) gvSync(); else render(true);
 }
 function mountPartie() {
-  const v = S.gv, el = $('#gvb'); if (!el || !v) return;
-  v.cg = board(el, { fen: v.fens[v.k], orientation: v.g.w ? 'white' : 'black', viewOnly: true });
+  const v = S.gv, X = exo.current(); if (!X || !v) return;
+  v.x = X;
+  v.cg = X.board({ fen: v.fens[v.k], orientation: v.g.w ? 'white' : 'black', viewOnly: true });
   gvSync();
 }
 
@@ -1034,12 +986,16 @@ function viewDrill(type) {
       <div>${nextStep('dr')}</div><div class="row"><button class="btn" data-act="dragain">Refaire une série</button><a class="btn" href="#exos">Autres échauffements</a></div></div>`;
   }
   const it = d.items[d.i];
-  return `<div class="pzhead main"><h1>${D.t}</h1><div class="row" data-top><span class="chip">${d.i + 1} / ${n}</span><span class="chip good">${pl(d.ok, 'juste')}</span></div></div>
-    <div class="seg">${d.items.map((_, k) => `<i class="${k < d.i ? 'done' : k === d.i ? 'cur' : ''}"></i>`).join('')}</div>
-    ${coach(it.q)}
-    <div class="split work"><div class="bwrap"><div class="board" id="drb"></div><div class="cap" id="drcap"><p><i class="dot ${it.white ? 'w' : 'b'}"></i> Tu as les ${it.white ? 'Blancs' : 'Noirs'}.${it.tap ? ' Touche une pièce sur l’échiquier.' : ''}</p></div></div>
-      <div class="stack"><div class="card ghost"><h3>Pourquoi cet exercice</h3><p class="sub">${D.why}</p></div></div></div>
-    <div class="actbar" id="drbar">${it.options.map(([v, l]) => `<button class="btn" data-act="drans" data-v="${v}">${l}</button>`).join('')}</div>`;
+  const chips = `<span class="chip">${d.i + 1} / ${n}</span><span class="chip good">${pl(d.ok, 'juste')}</span>`;
+  return exo.screen({
+    live: true, top: () => chips,
+    head: `<div class="pzhead main"><h1>${D.t}</h1><div class="row">${chips}</div></div>
+      <div class="seg">${d.items.map((_, k) => `<i class="${k < d.i ? 'done' : k === d.i ? 'cur' : ''}"></i>`).join('')}</div>
+      ${coach(it.q)}`,
+    cap: `<p><i class="dot ${it.white ? 'w' : 'b'}"></i> Tu as les ${it.white ? 'Blancs' : 'Noirs'}.${it.tap ? ' Touche une pièce sur l’échiquier.' : ''}</p>`,
+    panel: `<div class="card ghost"><h3>Pourquoi cet exercice</h3><p class="sub">${D.why}</p></div>`,
+    bar: it.options.map(([v, l]) => `<button class="btn opt" data-x="ans" data-v="${v}">${l}</button>`).join(''),
+  });
 }
 // Passe à la position suivante ; à la fin, la série est notée dans l'historique.
 function drAdvance() {
@@ -1047,31 +1003,29 @@ function drAdvance() {
   if (d.i < d.items.length) return;
   progress.recordDrill(d.type, d.ok, d.items.length, d.ms);
 }
-function drillAnswer(v) {
-  const d = S.dr, it = d.items[d.i];
-  if (d.ans != null) return;
-  const ok = v === it.answer;
-  d.ans = v; if (ok) d.ok++;
-  d.ms += Math.min(60000, Date.now() - (d.t1 || Date.now()));
-  keepUi();
-  const cap = $('#drcap');
-  cap.className = 'cap ' + (ok ? 'ok' : 'ko');
-  cap.innerHTML = `<div class="capm"><span class="capn">${ok ? 'Juste' : 'Raté'}</span></div><p>${esc(it.text)}</p>`;
-  const shapes = it.shapes.slice();
-  if (it.tap && it.answer !== 'none' && it.answer !== 'skip') shapes.push({ orig: it.answer, brush: 'green' });
-  if (it.tap && !ok && /^[a-h][1-8]$/.test(v)) shapes.push({ orig: v, brush: 'red' });
-  S.drcg.set({ drawable: { autoShapes: shapes } });
-  $('#drbar').innerHTML = `<button class="btn pri" data-act="drnext">${d.i === d.items.length - 1 ? 'Voir mon score' : 'Suivant ›'}</button>`;
-}
 function mountDrill() {
-  const el = $('#drb'), d = S.dr;
-  if (!el || !d || d.i >= d.items.length) return;
-  const it = d.items[d.i];
+  const X = exo.current(), d = S.dr;
+  if (!X || !d || d.i >= d.items.length) return;
+  const it = d.items[d.i], mine = it.white ? 'white' : 'black';
   d.ans = null; d.t1 = Date.now();
-  S.drcg = board(el, { fen: it.fen, orientation: it.white ? 'white' : 'black', lastMove: it.last, movable: { free: false, color: undefined }, draggable: { enabled: false }, selectable: { enabled: !!it.tap }, drawable: { enabled: false, visible: true, autoShapes: it.pre || [] }, events: it.tap ? { select: (key) => {
-    const pc = S.drcg.state.pieces.get(key), mine = it.white ? 'white' : 'black';
-    if (pc && (it.type === 'menace' ? pc.color === mine : pc.color !== mine)) drillAnswer(key);
+  const cg = X.board({ fen: it.fen, orientation: mine, lastMove: it.last, movable: { free: false, color: undefined }, draggable: { enabled: false }, selectable: { enabled: !!it.tap }, drawable: { enabled: false, visible: true, autoShapes: it.pre || [] }, events: it.tap ? { select: (key) => {
+    const pc = cg.state.pieces.get(key);
+    if (pc && (it.type === 'menace' ? pc.color === mine : pc.color !== mine)) answer(key);
   } } : {} });
+  function answer(v) {
+    if (d.ans != null) return;
+    const ok = v === it.answer;
+    d.ans = v; if (ok) d.ok++;
+    d.ms += Math.min(60000, Date.now() - (d.t1 || Date.now()));
+    keepUi();
+    X.say(ok ? 'ok' : 'ko', `<div class="capm"><span class="capn">${ok ? 'Juste' : 'Raté'}</span></div><p>${esc(it.text)}</p>`);
+    const shapes = it.shapes.slice();
+    if (it.tap && it.answer !== 'none' && it.answer !== 'skip') shapes.push({ orig: it.answer, brush: 'green' });
+    if (it.tap && !ok && /^[a-h][1-8]$/.test(v)) shapes.push({ orig: v, brush: 'red' });
+    cg.set({ drawable: { autoShapes: shapes } });
+    X.setBar(`<button class="btn pri" data-act="drnext">${d.i === d.items.length - 1 ? 'Voir mon score' : 'Suivant ›'}</button>`);
+  }
+  X.on({ ans: answer });
 }
 function viewPlus() {
   const row = (href, t, d, ic) => `<a class="mrow" href="${href}"><span class="mico">${ic}</span><span class="stepc"><b>${t}</b><span>${d}</span></span><span class="chev" aria-hidden="true">›</span></a>`;
@@ -1143,17 +1097,17 @@ const route = () => (location.hash.slice(1) || 'accueil').split('/');
 function render(keepScroll) {
   const y = scrollY;
   destroyBoards();
-  S.exui = null; $('#tip').hidden = true; document.body.classList.remove('solved');
+  $('#tip').hidden = true;
   const v = $('#view'), [r, a, b] = route();
   paintJob();
   $('#nav').hidden = !S.data;
   document.querySelectorAll('#nav a').forEach((x) => x.classList.toggle('on', x.getAttribute('href') === '#' + ({ partie: 'parties', erreur: 'puzzles', inedits: 'puzzles', drill: 'puzzles', historique: 'puzzles' }[r] || r) || (x.getAttribute('href') === '#plus' && ['ouvertures', 'plan', 'stats', 'exos'].includes(r))));
-  if (!S.data) { document.body.classList.remove('fit'); header(); v.innerHTML = viewWelcome(); const f = $('#wf'); f.onsubmit = (ev) => { ev.preventDefault(); const u = $('#wu').value.trim(); if (u) doImport(u); }; return; }
+  if (!S.data) { v.innerHTML = viewWelcome(); exo.attach(); header(); const f = $('#wf'); f.onsubmit = (ev) => { ev.preventDefault(); const u = $('#wu').value.trim(); if (u) doImport(u); }; return; }
   if (r !== 'partie') S.gv = null;
   if (r !== 'drill' && S.dr && S.dr.i >= S.dr.items.length) S.dr = null; // une série en cours se reprend, une série finie repart de zéro
   const html = r === 'puzzles' ? viewPuzzles() : r === 'erreur' ? viewPuzzles([a, b]) : r === 'plus' ? viewPlus() : r === 'historique' ? viewHistory() : r === 'exos' ? viewExos() : r === 'inedits' ? viewInedits() : r === 'drill' ? viewDrill(a) : r === 'cours' ? (a ? viewLecon(a, b) : viewCours()) : r === 'ouvertures' ? viewOuvertures() : r === 'parties' ? viewParties() : r === 'partie' ? viewPartie(a, b) : r === 'plan' ? viewPlan() : r === 'stats' ? viewStats(S) : viewAccueil();
   v.innerHTML = html;
-  fitLayout(); // avant de créer les échiquiers : ils naissent à leur taille définitive
+  exo.attach(); // avant de créer les échiquiers : ils naissent à leur taille définitive
   if (r === 'puzzles' || r === 'erreur') { mountPuzzle(); const s = $('#pzt'); if (s) s.onchange = () => { S.pz.theme = s.value; S.pz.cur = null; S.pz.show = null; render(); }; }
   else if (r === 'cours' && a) mountLecon();
   else if (r === 'ouvertures') board($('#exb'), { fen: S.exFen, orientation: S.white ? 'white' : 'black', viewOnly: true });
@@ -1172,30 +1126,11 @@ function render(keepScroll) {
   keepUi();
   if (keepScroll) scrollTo(0, y); else scrollTo(0, 0);
 }
-// Écrans avec échiquier : tout tient dans la fenêtre, sans défilement de la page.
-// L'échiquier et son commentaire d'un côté, le reste dans une colonne qui défile seule si besoin.
-function fitLayout() {
-  const v = $('#view'), sw = v.querySelector(':scope > .split.work');
-  const fit = !!sw?.querySelector('.board');
-  document.body.classList.toggle('fit', fit);
-  if (!fit) return;
-  const bw = sw.querySelector(':scope > .bwrap'), stk = sw.querySelector(':scope > .stack'), side = document.createElement('div');
-  side.className = 'fitside';
-  let pre = true;
-  for (const el of [...v.children]) {
-    if (el === sw) { pre = false; if (stk) { stk.classList.add('fitpanel'); side.append(stk); } continue; }
-    if (pre) el.dataset.pre = '';
-    side.append(el);
-  }
-  sw.replaceWith(bw);
-  v.append(side);
-}
-
 document.addEventListener('click', (ev) => {
-  const el = ev.target.closest('[data-act]') || ev.target.closest('[data-ex]');
+  const x = ev.target.closest('[data-x]'); // action de l'exercice en cours : indice, solution, lecture d'une suite…
+  if (x) { exo.act(x.dataset.x, x); return; }
+  const el = ev.target.closest('[data-act]');
   if (!el) return;
-  const ex = ev.target.closest('[data-ex]');
-  if (ex && S.exui) { S.exui(ex.dataset.ex, ex.dataset.v, ex.dataset.t); return; }
   const act = el.dataset.act;
   if (el.tagName === 'A') ev.preventDefault();
   if (act === 'refresh') doImport(S.user);
@@ -1208,8 +1143,6 @@ document.addEventListener('click', (ev) => {
     else location.hash = { partie: '#parties', cours: '#cours', drill: '#exos', inedits: '#puzzles' }[r] || '#accueil';
   }
   else if (act === 'linext') liLoad();
-  else if (act === 'lihint') S.liapi?.hint();
-  else if (act === 'lishow') S.liapi?.show();
   else if (act === 'lireplay') {
     const x = progress.hist().find((h) => String(h.t) === el.dataset.t); if (!x?.p) return;
     S.li = { angle: x.a || 'mix', diff: ls.get('li', {}).diff || 'easiest', cur: { id: x.id, rating: x.rt, url: 'https://lichess.org/training/' + x.id, ...x.p }, failed: false, counted: false, replay: true, loading: false, err: null };
@@ -1217,7 +1150,6 @@ document.addEventListener('click', (ev) => {
   }
   else if (act === 'histmore') { S.histN += 60; render(true); }
   else if (act === 'lifocus') { const f = ls.get('focus', null); S.li = { angle: f ? LI_FOR[f.id] : 'mix', diff: ls.get('li', {}).diff || 'easiest', cur: null, loading: false, err: null }; location.hash = '#inedits'; }
-  else if (act === 'drans') drillAnswer(el.dataset.v);
   else if (act === 'drnext') { drAdvance(); render(); }
   else if (act === 'dragain') { const t = S.dr.type; S.dr = null; location.hash = '#drill/' + t; render(); }
   else if (act === 'pzfocus') { const f = ls.get('focus', null); pzReset(f && pzQueue(f.id, false).length ? f.id : '', false); if (route()[0] === 'puzzles') render(); else location.hash = '#puzzles'; }
@@ -1227,9 +1159,6 @@ document.addEventListener('click', (ev) => {
   else if (act === 'focusnext') { ls.set('focus', { id: el.dataset.id, since: Math.floor(Date.now() / 1000) }); render(true); }
   else if (act === 'goto-cours') location.hash = '#cours/' + el.dataset.id;
   else if (act === 'pzfree') { S.pz.free = true; S.pz.cur = null; S.pz.show = null; render(); }
-  else if (act === 'pzreal') S.solve?.real(el);
-  else if (act === 'pzhint') S.solve?.hint();
-  else if (act === 'pzshow') S.solve?.show();
   else if (act === 'pznext') {
     const z = S.pz, d = pzDay();
     if (z.redo?.length) { z.redo.shift(); if (!z.redo.length) z.show = dkey(); render(); return; }
@@ -1295,10 +1224,7 @@ document.addEventListener('submit', async (ev) => {
 });
 document.addEventListener('keydown', (ev) => {
   if (/INPUT|SELECT|TEXTAREA/.test(ev.target.tagName)) return;
-  if (S.exui && $('.cap.film')) { // suites commentées : flèches pour avancer, espace pour lire ou mettre en pause
-    if (ev.key === 'ArrowLeft') S.exui('prev'); else if (ev.key === 'ArrowRight') S.exui('next'); else if (ev.key === ' ' && ev.target.tagName !== 'BUTTON') { ev.preventDefault(); S.exui('play'); }
-    return;
-  }
+  if (exo.key(ev)) return; // lecture d'une suite : flèches pour avancer, espace pour lire ou mettre en pause
   if (route()[0] !== 'partie' || !S.gv) return;
   if (ev.key === 'ArrowLeft') gvGo(S.gv.k - 1); else if (ev.key === 'ArrowRight') gvGo(S.gv.k + 1);
 });

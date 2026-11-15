@@ -26,6 +26,7 @@ Site statique sans build, servi par GitHub Pages depuis `main` (racine). Tout to
 | `js/app.js` | État `S`, routage par hash, toutes les vues, événements |
 | `js/ui.js` | Aides d'affichage sans état : `$`, `esc`, formats, icônes `ico()`, bulle du coach, barre victoires/nulles/défaites |
 | `js/charts.js` | `lineChart` : courbe SVG interactive |
+| `js/exercise.js` | Écran d'exercice : structure sans défilement, bandeau, barre d'actions, actions `data-x`, lecteur de suites (`player`). Tous les écrans à échiquier passent par lui |
 | `js/board.js` | Échiquier : `board()` (chessground, roi en échec signalé), flèches, `film()` (lecture animée d'une suite), `destroyBoards()` |
 | `js/progress.js` | Mémoire de l'entraînement : répétition espacée, journal, activité par jour, objectif du jour. Stockage et horloge injectés (`makeProgress(store, now)`), donc testable sans navigateur |
 | `js/chesscom.js` | Import via l'API publique Chess.com, normalisation des parties |
@@ -45,13 +46,18 @@ Site statique sans build, servi par GitHub Pages depuis `main` (racine). Tout to
 
 Routes : `#accueil`, `#puzzles`, `#historique` (journal des exercices faits), `#erreur/<end_time>/<ply>` (travail d'une erreur précise), `#plus` (menu mobile), `#exos`, `#inedits` (puzzles Lichess), `#drill/<sur|menace|cadeau|compte>`, `#cours`, `#cours/<id>[/fiche]`, `#ouvertures`, `#parties`, `#partie/<end_time>[/<ply>]`, `#plan`, `#stats`.
 
-## Écran de travail (puzzles, erreurs, positions de cours)
+## Écran d'exercice (`js/exercise.js`)
 
-`workScreen` + `solveBoard` + `explainUI` dans `app.js`. Avant la solution : coach qui décrit le dernier coup adverse, indices en deux niveaux, « Mon coup », points sur les cases où la pièce choisie peut aller. Après : deux films calculés en direct par Stockfish (`getLines`, suites coupées sur une position calme par `settle`) : « La bonne suite » se joue toute seule (`film` : flèche qui annonce le coup, déplacement, commentaire, flèches de menace `stepShapes`, bilan matériel), puis « Voir mon erreur » joue ce que le coup de la partie permettait. Pause, pas à pas, « Revoir », idée, comparaison, règle à retenir.
+Les six écrans à échiquier (puzzle, erreur précise `#erreur`, position inédite, échauffement, position de cours, relecture de partie) sont construits par le même module. Un exercice ne fournit que ses règles :
 
-Écrans sans défilement : `fitLayout()` (appelé dans `render` juste après l'écriture de la vue et avant la création des échiquiers, sinon ils naissent à taille nulle) détecte un `.split.work` avec échiquier, pose `body.fit` et réorganise la vue en `.bwrap` (échiquier + commentaire) et `.fitside` (en-tête, consigne, `.fitpanel` qui défile seul, barre d'actions). Ordi : échiquier dimensionné sur la hauteur de la fenêtre (`--bs`), colonne de droite. Téléphone : `.fitside` en `display: contents`, échiquier dimensionné par container query, consigne d'intro reprise dans le bandeau (`.m-txt`). La page elle-même ne défile jamais sur ces écrans.
+- **Vue** : `exo.screen({ head, cap, panel, bar, top, live, … })` renvoie tout le HTML de l'écran. `head` = onglets, titre, consigne du coach ; `cap` = bandeau sous l'échiquier ; `panel` = explication (défile seule) ; `bar` = boutons ; `top()` = avancée montrée dans la barre du haut sur téléphone ; `live: true` = écran qu'un rendu d'arrière-plan ne doit pas reconstruire.
+- **Montage** : `render()` appelle `exo.attach()` juste après l'écriture de la vue (avant la création de l'échiquier, qui naît ainsi à sa taille définitive). `exo.current()` rend la poignée `X` : `X.board(cfg)`, `X.say(classe, html)` (bandeau), `X.setBar(html)`, `X.on({ nom() {…} })` (actions des boutons `data-x="nom"`), `X.btn(nom)`, `X.alive()`, `X.spec`.
+- **Lecture des suites** : `X.player({ films, view, arrows, ask, verdict, panel, panelHtml, exit, from, rest, auto })` joue un ou plusieurs films commentés (flèche qui annonce le coup, déplacement, commentaire, flèches de menace, bilan), gère Pause / Lecture / Revoir, le pas à pas, le clavier et le bouton qui propose le film suivant.
+- Ids fixes : `#xb` (échiquier), `#xcap` (bandeau), `#xpanel`, `#xbar`. Classes d'état sur `body` : `fit` (écran d'exercice affiché), `solved` (solution trouvée), `imm` (barre du haut avec retour), toutes posées par le module ou par `header()`.
 
-Sur téléphone, pendant un exercice, l'en-tête (`.pzhead.main`) est masqué et l'avancée du jour (ou le compteur de la série, attribut `data-top`) passe dans la barre du haut ; le texte du coach est repris dans le bandeau (`.m-txt`). Le choix du film (« La bonne suite » / « Ton coup ») est en tête du panneau d'explication.
+Règles des exercices sur une erreur du joueur, dans `app.js` : `workScreen` (vue), `solveBoard(X, g, e)` (vérifie le coup avec Stockfish, indices en deux niveaux, « Mon coup », solution), `explainUI(X, …)` (deux films calculés par `getLines`, coupés sur une position calme par `settle` : « La bonne suite » se joue toute seule, puis « Voir mon erreur »).
+
+Mise en page (CSS `body.fit`) : `.bwrap` (échiquier + bandeau) et `.fitside` (`.fithead`, `.fitpanel`, `.actbar`). Ordinateur : échiquier dimensionné sur la hauteur de la fenêtre (`--bs`), colonne de droite. Téléphone : échiquier dimensionné par container query, en-tête masqué pendant un exercice, consigne du coach reprise dans le bandeau (`.m-txt`), choix du film en tête du panneau. La page elle-même ne défile jamais sur ces écrans.
 
 ## Journal et reprise
 
@@ -73,7 +79,7 @@ Sur téléphone, pendant un exercice, l'en-tête (`.pzhead.main`) est masqué et
 1. **Chantier** (`focus`, `focusStats`, `focusCard`) : un seul type d'erreur à la fois, choisi sur le coût mesuré ; validé quand son taux par partie est divisé par deux sur au moins 5 parties jouées depuis le début du chantier. Stocké dans `cap1000:focus`.
 2. **Séance du jour** en 4 étapes : échauffement lié au chantier (`DRILL_FOR`), puzzles du chantier, cours, 2 parties avec la règle du chantier.
 3. **Mesure** : `themeTrend` (10 dernières parties analysées contre les 10 précédentes) et `themeSeries` (courbe par paquets de 5).
-4. **Prédire avant d'expliquer** : dans `explainUI`, en pas à pas seulement (lecture en pause), l'élève peut jouer lui-même la punition de son coup et ses propres coups de la bonne suite. La lecture automatique ne s'interrompt pas (demande du 15/11).
+4. **Prédire avant d'expliquer** : dans le lecteur de suites (`guess` d'un film), en pas à pas seulement (lecture en pause), l'élève peut jouer lui-même la punition de son coup et ses propres coups de la bonne suite. La lecture automatique ne s'interrompt pas (demande du 15/11).
 
 Idées non faites : import des parties Lichess, comptes et synchronisation, traduction.
 
@@ -102,7 +108,8 @@ Le test génère des parties par coups semi-aléatoires au format Chess.com, int
 ## Règles internes à respecter
 
 - Tout rendu déclenché en arrière-plan (fin d'analyse, import, génération) passe par `bgRender()`, qui ne touche pas à un exercice en cours. `render()` est réservé aux actions de l'utilisateur.
-- `data-act` = actions globales, `data-ex` = actions de l'explication en cours (`S.exui`), `data-f` = filtres et sélecteurs, `data-mini` = mini-échiquiers des fiches.
+- `data-act` = actions globales (navigation, analyse…), `data-x` = actions de l'exercice affiché (indice, solution, lecture d'une suite ; enregistrées par `X.on`), `data-f` = filtres et sélecteurs, `data-mini` = mini-échiquiers des fiches.
+- Ne jamais écrire `.bwrap`, `.fitside` ou une barre d'actions à la main dans une vue : passer par `exo.screen`. Ne pas garder de poignée d'écran dans `S` : elle vit dans la fermeture du montage.
 - Les analyses marquées `bad` (partie illisible) sont exclues de toutes les statistiques.
 - Relecture de partie : `gvGo(k)` met l'écran à jour sur place (`gvSync`), sans `render()`.
 - Profondeur d'analyse unique (`DEPTH = 12`) sur tous les appareils.
@@ -110,7 +117,7 @@ Le test génère des parties par coups semi-aléatoires au format Chess.com, int
 - `Engine.evalFen(fen, depth, urgent)` : `urgent` fait passer la vérification d'un coup devant les calculs de suites.
 - Tout exercice terminé est noté par `progress.record…` au moment où il se termine, jamais au changement d'écran.
 - Boutons de contrôle : icônes SVG de `ico()`, pas de flèches Unicode (émojis sur iPhone). Une barre mise à jour pendant une lecture passe par `setHtml` pour ne pas remplacer un bouton sous le doigt.
-- `board()` (dans `board.js`) signale l'échec à chaque `cg.set({ fen })` et enregistre l'échiquier pour `destroyBoards()` ; ne pas créer d'échiquier sans passer par elle.
+- `board()` (dans `board.js`) signale l'échec à chaque `cg.set({ fen })` et enregistre l'échiquier pour `destroyBoards()` ; ne pas créer d'échiquier sans passer par elle (`X.board` sur un écran d'exercice).
 - Pas de sac d'aides passé en paramètre : un module importe ce dont il a besoin depuis `ui.js`, `charts.js`, `explain.js`.
 
 ## Points ouverts
@@ -120,6 +127,9 @@ Le test génère des parties par coups semi-aléatoires au format Chess.com, int
 - Interface mobile refaite le 14/11 au soir puis réorganisée le 15/11 (échiquier en haut, texte dessous) sans retour encore ; si elle ne convient toujours pas, demander une capture de l'écran précis.
 - Cause exacte du « ça a oublié mes 8 puzzles » non confirmée. Si cela se reproduit malgré le journal : vérifier que le site est ouvert dans le même navigateur (Safari et le navigateur intégré d'une autre app ont des stockages séparés, la navigation privée efface tout).
 - Rythme de lecture des suites (`film`, environ 3 s par coup) à ajuster sur retour ; pas de réglage de vitesse.
+- Taille de l'échiquier sur téléphone après la solution (258 px sur un écran de 664 px de haut) : deux options proposées à Gaëtan le 15/11, sans réponse encore (réduire le panneau d'explication à une ligne, ou autoriser le défilement après la solution).
+- Depuis `exercise.js`, deux alignements deviennent peu coûteux et n'ont pas été faits, faute de demande : indice en deux niveaux sur les positions inédites, lecture automatique d'une partie dans la relecture.
+- Pistes 3 à 6 de la revue d'architecture du 15/11 non engagées : plan d'entraînement hors de l'affichage, un module par écran, données versionnées et sauvegarde, feuille de style par composant.
 - Les explications de `explain.js` reposent sur des heuristiques (attaquants, défenseurs, matériel, clouages, enfilades, attaques à la découverte) : elles ignorent qu'une pièce clouée ne défend pas réellement, et les coups purement positionnels restent commentés sobrement.
 - Stockage : toutes les parties d'un compte tiennent dans une seule entrée IndexedDB (sans effet avant plusieurs milliers de parties).
 - Puzzles Lichess codés d'après la documentation de l'API et testés avec une API simulée seulement : format réel de la réponse (coupe du PGN, `initialPly`) à confirmer au premier essai ; `fetchPuzzle` essaie plusieurs coupes et garde celle où la solution est légale.

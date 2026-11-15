@@ -219,7 +219,6 @@ ol.line li.cur { background: var(--sunken); border-left-color: var(--accent); } 
 details.gd summary { cursor: pointer; font-size: 14px; color: var(--accent-ink); font-weight: 600; margin-bottom: 8px; }
 @media (min-width: 860px) {
   .tilesnav { grid-template-columns: repeat(4, 1fr); }
-  .split.work { grid-template-columns: minmax(0, 520px) minmax(0, 1fr); }
   .filters { display: flex; flex-direction: column; gap: 8px; }
   details.gd summary { display: none; }
 }
@@ -250,7 +249,6 @@ details.gd summary { cursor: pointer; font-size: 14px; color: var(--accent-ink);
   /* Écran de travail plein cadre */
   body.imm .pzhead h1 { display: none; }
   .pzhead .row { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; } .pzhead select { min-height: 34px; font-size: 14px; padding: 4px 8px; }
-  .split.work { gap: 14px; }
   .bwrap { margin: 0 -14px; }
   .bwrap .board { max-width: none; border-radius: 0; }
   .cap { max-width: none; border-radius: 0; padding: 12px 16px; min-height: 84px; }
@@ -272,7 +270,7 @@ details.gd summary { cursor: pointer; font-size: 14px; color: var(--accent-ink);
 .mico { font: 700 13px var(--display); }
 .cap .ask { font-weight: 600; color: var(--accent-ink); }
 .cap.ko .ask { color: var(--ink); }
-@media (max-width: 859px) { #drbar .btn { font-size: 16px; font-weight: 600; } }
+@media (max-width: 859px) { .actbar .btn.opt { font-size: 16px; font-weight: 600; } }
 
 cg-board square.last-move { background-color: rgba(255, 214, 10, .45) !important; }
 cg-board square.selected { background-color: rgba(255, 214, 10, .6) !important; }
@@ -293,7 +291,6 @@ cg-board square.check { background: radial-gradient(circle, rgba(235, 64, 52, .9
 .seg2.mini { padding: 2px; border-radius: 9px; flex: none; }
 .seg2.mini button { font-size: 13px; padding: 6px 6px; border-radius: 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cap.film { gap: 8px; }
-.capb { display: flex; flex-direction: column; gap: 6px; }
 .prog { display: flex; gap: 3px; } .prog i { flex: 1; max-width: 44px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .16); }
 .prog i.done { background: var(--ink3); } .prog i.cur { background: var(--ink); }
 .bilan { font-size: 14.5px; padding-top: 6px; border-top: 1px solid rgba(255, 255, 255, .14); }
@@ -327,13 +324,14 @@ h3.lh { font-size: 14px; color: var(--ink2); margin-top: 4px; }
 body.solved .coach.intro { display: none; }
 .stepc .dots { margin-top: 4px; }
 
-/* ===== Écrans d'échiquier sans défilement (body.fit, posé par fitLayout) ===== */
+/* ===== Écrans d'exercice sans défilement (body.fit, posé par exercise.js ; structure : .bwrap + .fitside) ===== */
 /* La page ne défile jamais : échiquier + commentaire d'un côté, le reste dans un panneau qui défile seul. */
 .m-txt { display: none; }
 body.fit { height: 100vh; height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
 body.fit .job { display: none !important; }
 body.fit .view { flex: 1; min-height: 0; width: 100%; }
 .fitside { display: flex; flex-direction: column; gap: 14px; min-height: 0; min-width: 0; }
+.fithead { display: contents; } /* regroupe ce qui précède l'échiquier ; ses enfants se placent comme ceux de la colonne */
 .fitpanel { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 body.fit .bwrap .board { max-width: none; flex: none; }
 body.fit .cap { max-width: none; overflow-y: auto; }
@@ -350,8 +348,8 @@ body.fit .cap { max-width: none; overflow-y: auto; }
   body.fit { padding-bottom: calc(71px + env(safe-area-inset-bottom)); }
   body.fit .view { display: flex; flex-direction: column; gap: 10px; padding: 10px 14px 8px; }
   body.fit .fitside { display: contents; }
-  body.fit [data-pre] { order: -1; flex: none; }
-  body.fit .coach.intro, body.fit .fitside > h1, body.fit .fitside > p.small { display: none; }
+  body.fit .fithead > * { order: -1; flex: none; }
+  body.fit .coach.intro, body.fit .fithead > h1, body.fit .fithead > p.small { display: none; }
   body.fit .m-txt { display: inline; }
   body.fit .bwrap { order: 0; flex: 1 1 0; min-height: 0; container-type: size; margin: 0 -14px; }
   body.fit .bwrap .board { width: min(100cqw, 100cqh - 84px); height: min(100cqw, 100cqh - 84px); margin: 0 auto; }

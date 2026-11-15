@@ -69,12 +69,12 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#puzzles`); await sleep(600);
   let c = await cur();
   check(!!c, 'un puzzle est proposé');
-  await tap('#pzb', c.best.slice(0, 2), c.w); await sleep(250);
-  check(await S(() => document.querySelectorAll('#pzb square.move-dest').length) > 0, 'les cases possibles de la pièce choisie sont marquées');
-  await tap('#pzb', c.best.slice(2, 4), c.w); await sleep(900);
-  check(/Pause/.test(await bar('#pzbar')), 'après le bon coup, la suite se joue toute seule');
-  for (let k = 0; k < 250 && !/Revoir|Voir mon erreur/.test(await bar('#pzbar')); k++) await sleep(200);
-  check(/Revoir|Voir mon erreur/.test(await bar('#pzbar')) && /Bilan/.test(await bar('#pzcap')), 'la lecture va au bout et affiche le bilan');
+  await tap('#xb', c.best.slice(0, 2), c.w); await sleep(250);
+  check(await S(() => document.querySelectorAll('#xb square.move-dest').length) > 0, 'les cases possibles de la pièce choisie sont marquées');
+  await tap('#xb', c.best.slice(2, 4), c.w); await sleep(900);
+  check(/Pause/.test(await bar('#xbar')), 'après le bon coup, la suite se joue toute seule');
+  for (let k = 0; k < 250 && !/Revoir|Voir mon erreur/.test(await bar('#xbar')); k++) await sleep(200);
+  check(/Revoir|Voir mon erreur/.test(await bar('#xbar')) && /Bilan/.test(await bar('#xcap')), 'la lecture va au bout et affiche le bilan');
   check((await ls('hist')).length === 1 && (await ls('hist'))[0].r === 2, 'le puzzle est noté dans le journal (du premier coup)');
 
   await page.reload(); await sleep(900);
@@ -83,7 +83,7 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   check(/^1/.test(await bar('#tools .pzprog')), 'après rechargement, l’avancée du jour est conservée');
 
   let n = 1;
-  for (let k = 0; k < 12 && !(await S(() => !!document.querySelector('.recap'))); k++) { await page.click('[data-act="pzshow"]'); await sleep(250); await page.click('[data-act="pznext"]'); await sleep(350); n++; }
+  for (let k = 0; k < 12 && !(await S(() => !!document.querySelector('.recap'))); k++) { await page.click('[data-x="show"]'); await sleep(250); await page.click('[data-act="pznext"]'); await sleep(350); n++; }
   check(await S(() => !!document.querySelector('.recap')), 'un bilan apparaît quand l’objectif du jour est atteint');
   n = (await ls('hist')).length;
   check(await S(() => !!document.querySelector('[data-act="pzredo"]')), 'le bilan propose de refaire les ratés');
@@ -95,7 +95,7 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
 
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#drill/sur`); await sleep(600);
   if (await S(() => window.__cap.dr.items.length >= 3)) {
-    for (let k = 0; k < 2; k++) { await page.click('#drbar .btn'); await sleep(150); await page.click('[data-act="drnext"]'); await sleep(250); }
+    for (let k = 0; k < 2; k++) { await page.click('#xbar .btn'); await sleep(150); await page.click('[data-act="drnext"]'); await sleep(250); }
     await page.reload(); await sleep(800);
     check(await S(() => window.__cap.dr?.i) === 2, 'un échauffement interrompu reprend à la même position');
   }

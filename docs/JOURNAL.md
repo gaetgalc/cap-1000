@@ -175,6 +175,20 @@ Rangé, sans changement de comportement :
 
 Revue d'architecture : six pistes d'approfondissement présentées (écran d'exercice, analyse en deux temps, plan d'entraînement, écrans autonomes, données versionnées et sauvegarde, feuille de style par composant). Recommandation : commencer par l'écran d'exercice. Aucune n'est engagée : le choix revient à Gaëtan.
 
+## 18. Pistes 1 et 2 de la revue d'architecture (15/11)
+
+> go, puis 1 et 2.
+
+Le rangement de la section 17 est publié dans `main`. Puis les deux pistes notées « Fort » :
+
+**Piste 2, analyse en deux temps.** `engine.evaluateGame` ne produit plus que les données brutes (évaluation, meilleur coup, début de suite pour chaque position) ; `classify.js` en déduit erreurs, thèmes et précision, sans moteur. Chaque analyse garde ses données brutes et la version des règles : changer un seuil ou un thème ne demande plus de relancer Stockfish, les parties sont reclassées à l'ouverture du site. Les analyses déjà faites n'avaient pas ces données : elles sont réévaluées une fois, en arrière-plan, l'ancienne restant en place en attendant. Vérifié : résultats identiques à l'ancien code sur 20 parties simulées.
+
+**Piste 1, écran d'exercice.** Nouveau module `exercise.js` : les six écrans à échiquier (puzzle, erreur précise, position inédite, échauffement, position de cours, relecture) lui confient la structure sans défilement, le bandeau, la barre d'actions, les actions des boutons et la lecture des suites. Disparaissent : le déplacement du DOM après le rendu (`fitLayout`), quatre poignées de l'état global (`S.solve`, `S.liapi`, `S.drcg`, `S.exui`), sept branches du gestionnaire de clics, le second lecteur de suites (celui des positions inédites). Aucun changement visible, sauf un détail : sur une position inédite, « Lecture » devient le bouton principal quand la lecture est en pause, comme sur les puzzles. Mesures de mise en page identiques sur les quatre tailles d'écran.
+
+Méthode : le skill prévoit un interrogatoire avant d'écrire le code. Les décisions étant techniques, elles ont été prises sans le faire ; deux choix de produit restent ouverts (voir points ouverts de `CLAUDE.md`).
+
+Tests : 23 tests unitaires, test de bout en bout à 16 vérifications (dont reclassement sans moteur et réévaluation des anciennes analyses).
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |
@@ -187,6 +201,7 @@ Revue d'architecture : six pistes d'approfondissement présentées (écran d'exe
 | Licence | GPL-3.0-or-later | Imposée par chessground et Stockfish |
 | Puzzle raté | Revient le lendemain, plus 5 minutes après | Donnait l'impression que l'app oubliait le travail fait |
 | Prédiction dans les suites | En pas à pas seulement, la lecture est automatique | Demande d'une animation après le bon coup |
+| Anciennes analyses | Réévaluées une fois, automatiquement, en arrière-plan | Sans données brutes, elles ne pourraient pas suivre un changement de règle |
 
 ## Non vérifié à ce jour
 
