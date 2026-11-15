@@ -43,7 +43,9 @@ Routes : `#accueil`, `#puzzles`, `#historique` (journal des exercices faits), `#
 
 `workScreen` + `solveBoard` + `explainUI` dans `app.js`. Avant la solution : coach qui décrit le dernier coup adverse, indices en deux niveaux, « Mon coup », points sur les cases où la pièce choisie peut aller. Après : deux films calculés en direct par Stockfish (`getLines`, suites coupées sur une position calme par `settle`) : « La bonne suite » se joue toute seule (`film` : flèche qui annonce le coup, déplacement, commentaire, flèches de menace `stepShapes`, bilan matériel), puis « Voir mon erreur » joue ce que le coup de la partie permettait. Pause, pas à pas, « Revoir », idée, comparaison, règle à retenir.
 
-Mise en page : sur téléphone, barre du haut (retour, avancée du jour), échiquier juste dessous, texte du coach et commentaires dans le bandeau sous l'échiquier (`.capi`), barre d'actions fixe en bas, 5 onglets ; tout doit tenir sans défiler sur 390 × 664. Sur ordinateur, échiquier à gauche, coach, bandeau et explication à droite (`.split.work`, `.bwrap` en `display: contents`).
+Écrans sans défilement : `fitLayout()` (appelé dans `render` juste après l'écriture de la vue et avant la création des échiquiers, sinon ils naissent à taille nulle) détecte un `.split.work` avec échiquier, pose `body.fit` et réorganise la vue en `.bwrap` (échiquier + commentaire) et `.fitside` (en-tête, consigne, `.fitpanel` qui défile seul, barre d'actions). Ordi : échiquier dimensionné sur la hauteur de la fenêtre (`--bs`), colonne de droite. Téléphone : `.fitside` en `display: contents`, échiquier dimensionné par container query, consigne d'intro reprise dans le bandeau (`.m-txt`). La page elle-même ne défile jamais sur ces écrans.
+
+Sur téléphone, pendant un exercice, l'en-tête (`.pzhead.main`) est masqué et l'avancée du jour (ou le compteur de la série, attribut `data-top`) passe dans la barre du haut ; le texte du coach est repris dans le bandeau (`.m-txt`). Le choix du film (« La bonne suite » / « Ton coup ») est en tête du panneau d'explication.
 
 ## Journal et reprise
 
@@ -80,7 +82,7 @@ python3 -m http.server 8000   # puis http://localhost:8000/?u=gaetcc
 node tests/parcours.js        # parcours puzzles, journal, reprise, échauffement ; 1 à 2 minutes
 ```
 
-Le test génère des parties par coups semi-aléatoires au format Chess.com, intercepte `api.chess.com` et pilote Chromium avec Playwright. Ajouter `&debug` à l'URL expose l'état `S` dans `window.__cap`. Pour un cours privé, injecter un cours dans `S.ai` ; pour Lichess, intercepter `lichess.org`. Toujours vérifier le rendu par captures en 390 × 664 (iPhone avec les barres de Safari) et en 1280 × 860.
+Le test génère des parties par coups semi-aléatoires au format Chess.com, intercepte `api.chess.com` et pilote Chromium avec Playwright. Ajouter `&debug` à l'URL expose l'état `S` dans `window.__cap`. Pour un cours privé, injecter un cours dans `S.ai` ; pour Lichess, intercepter `lichess.org`. Toujours vérifier le rendu par captures en 390 × 664 (iPhone avec les barres de Safari), 390 × 760, 1366 × 768 et 1280 × 860 : la page ne doit jamais défiler sur un écran d'échiquier.
 
 ## Règles internes à respecter
 

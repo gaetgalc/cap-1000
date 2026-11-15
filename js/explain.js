@@ -178,7 +178,7 @@ export function buildLine(fen, moves, me, winning) {
     if (winning && d.tags.bad && d.tags.mine) d.text = d.text.replace(/ : (ton|ta) [^.]*?ce qui est pris/, ' : c’est un sacrifice, la suite montre ce qu’il rapporte');
     const h = d.tags.selfHang;
     if (winning && d.tags.mine) d.tags.shapes = d.tags.shapes.filter((q) => !q.hang); // dans la bonne suite, une pièce « en prise » est un piège, pas un danger
-    else if (h && !d.tags.mate) d.text += ` ${cap(il(h.type))} peut être pris${e_(h.type)} par ${poss(h.by.type, d.m.color === 'w' ? 'b' : 'w', me)}.`;
+    else if (h && !d.tags.mate && !d.m.captured) d.text += ` ${cap(il(h.type))} peut être pris${e_(h.type)} par ${poss(h.by.type, d.m.color === 'w' ? 'b' : 'w', me)}.`;
     steps.push({ raw: { to: d.m.to, captured: d.m.captured, piece: d.m.piece }, san: d.m.san, from: d.m.from, to: d.m.to, fen: d.fen, text: d.text, tags: d.tags, mat: material(d.fen, me), no: +cur.split(' ')[5], white: d.m.color === 'w' });
     cur = d.fen;
     if (d.tags.mate) break;

@@ -365,10 +365,9 @@ function viewInedits() {
   if (L.err) return head + `<div class="card"><p class="err">${esc(L.err)}</p><div><button class="btn pri" data-act="linext">Réessayer</button></div></div>`;
   if (!L.cur) return head + `<div class="card">${coach('Ici, tu travailles le même motif que dans tes parties, mais sur des positions que tu ne peux pas reconnaître : c’est ce qui prouve que le réflexe est acquis. Les positions viennent de la base de puzzles de Lichess, libre de droits.')}<div><button class="btn pri lg" data-act="linext">Commencer</button></div></div>`;
   const P = L.cur, me = P.white ? 'w' : 'b', side = P.white ? 'Blancs' : 'Noirs';
-  const last = justPlayed(describeAt(P.prevFen, P.lastSan, me)), dot = `<i class="dot ${P.white ? 'w' : 'b'}"></i>`;
-  const intro = `${esc(last)} <b>À toi de jouer avec les ${side}.</b> Trouve le meilleur coup${P.sol.length > 2 ? `, puis la suite (${Math.ceil(P.sol.length / 2)} coups à trouver)` : ''}.`;
-  return head + `
-    <div class="split work"><div class="bwrap">${coach(intro, 'intro')}<div class="board" id="lib"></div><div class="cap" id="licap"><p class="capd">${dot} Trait aux ${side}. Joue ton coup sur l’échiquier.</p><p class="capi">${dot} ${esc(last)} <b>Aux ${side} de jouer${P.sol.length > 2 ? ` : ${Math.ceil(P.sol.length / 2)} coups à trouver` : ''}.</b></p></div></div>
+  const last = justPlayed(describeAt(P.prevFen, P.lastSan, me));
+  return head + coach(`${esc(last)} <b>À toi de jouer avec les ${side}.</b> Trouve le meilleur coup${P.sol.length > 2 ? `, puis la suite (${Math.ceil(P.sol.length / 2)} coups à trouver)` : ''}.`, 'intro') + `
+    <div class="split work"><div class="bwrap"><div class="board" id="lib"></div><div class="cap" id="licap"><p><i class="dot ${P.white ? 'w' : 'b'}"></i> <span class="m-txt">${esc(last)} </span>Trait aux ${side}. ${P.sol.length > 2 ? `Trouve le meilleur coup puis la suite (${Math.ceil(P.sol.length / 2)} coups).` : 'Trouve le meilleur coup.'}</p></div></div>
       <div class="stack"><div class="row m-only lisel">${sels}</div><div class="meta small">Puzzle Lichess n° ${esc(P.id)} · niveau ${P.rating} · <a href="${P.url}" target="_blank" rel="noopener">Voir sur Lichess</a></div>
         <div id="lix"><div class="card ghost"><h3>Comment chercher</h3><ol class="routine"><li>Que vient de faire ton adversaire ? Que menace son coup ?</li><li>As-tu un échec, une capture ou une menace ?</li><li>La case où tu vas est-elle attaquée ?</li></ol></div></div></div></div>
     <div class="actbar" id="libar"><button class="btn" data-act="lihint">Indice</button><button class="btn" data-act="lishow">Solution</button></div>`;
@@ -447,10 +446,10 @@ function findErr(t, ply) {
 // Écran de travail d'une position : coach, échiquier, bandeau de commentaire, barre d'actions.
 function workScreen(p, o) {
   const me = p.g.w ? 'w' : 'b', side = p.g.w ? 'Blancs' : 'Noirs';
-  const last = lastMoveText(p.g, p.e.ply, me), dot = `<i class="dot ${p.g.w ? 'w' : 'b'}"></i>`;
-  const intro = `${last ? esc(last) + ' ' : ''}<b>À toi de jouer avec les ${side}.</b> En partie, ton coup ici t’a coûté ${p.e.drop} points de chances de gain. Trouve mieux.`;
-  return `<div class="split work"><div class="bwrap">${coach(intro, 'intro')}<div class="board" id="pzb"></div>
-      <div class="cap" id="pzcap" data-base="cap"><p class="capd">${dot} Trait aux ${side}. Joue ton coup sur l’échiquier.</p><p class="capi">${dot} ${last ? esc(last) + ' ' : ''}<b>Aux ${side} de jouer :</b> trouve mieux qu’en partie.</p></div></div>
+  const last = lastMoveText(p.g, p.e.ply, me);
+  return `${coach(`${last ? esc(last) + ' ' : ''}<b>À toi de jouer avec les ${side}.</b> En partie, ton coup ici t’a coûté ${p.e.drop} points de chances de gain. Trouve mieux.`, 'intro')}
+    <div class="split work"><div class="bwrap"><div class="board" id="pzb"></div>
+      <div class="cap" id="pzcap" data-base="cap"><p><i class="dot ${p.g.w ? 'w' : 'b'}"></i> <span class="m-txt">${last ? esc(last) + ' ' : ''}</span>Trait aux ${side}. <span class="d-txt">Joue ton coup sur l’échiquier.</span><span class="m-txt">Trouve mieux qu’en partie.</span></p></div></div>
       <div class="stack" id="pzside">${o.side || ''}
         <div class="meta small">Coup ${moveNo(p.e)} de ta ${gameRef(p.g)}${p.e.theme ? ` · ${st.THEMES[p.e.theme]}` : ''} · <a href="#partie/${p.g.t}/${p.e.ply}">Ouvrir la partie</a></div>
         <div id="pzx"><div class="card ghost"><h3>Comment chercher</h3><ol class="routine"><li>Que vient de faire ton adversaire ? Que menace son coup ?</li><li>As-tu un échec, une capture ou une menace ?</li><li>La case où tu vas est-elle attaquée ?</li></ol></div></div>
@@ -597,10 +596,9 @@ function explainUI(o) {
     if (best && atEnd) x.endBest = true;
     if (!o.cap._film) {
       o.cap._film = true;
-      o.cap.innerHTML = `<div class="capb"></div><div class="seg2 mini" role="tablist"><button role="tab" data-ex="tab" data-v="best">La bonne suite</button><button role="tab" data-ex="tab" data-v="ref">Ton coup : ${fr(e.played)}</button></div>`;
+      o.cap.innerHTML = '<div class="capb"></div>';
     }
     o.cap.className = 'cap film ' + (best ? 'ok' : 'ko');
-    o.cap.querySelectorAll('[role=tab]').forEach((b) => b.classList.toggle('on', b.dataset.v === x.tab));
     const end = !atEnd || !s ? '' : s.tags.mate ? `<p class="bilan"><b>Bilan :</b> échec et mat${s.tags.mine ? '' : ' contre toi'}.</p>` : `<p class="bilan"><b>Bilan de ${best ? 'la bonne suite' : 'ton coup'} :</b> ${best ? d.ins.bestTxt : d.ins.refTxt}.</p>`;
     $('.capb', o.cap).innerHTML = (o.verdict && best && i <= 1 ? `<div class="verdict">${o.verdict}</div>` : '')
       + (s ? `${capStep(s, i, n, matChip(L, i, d.m0))}<p>${note ? note + ' ' : ''}${esc(s.text)}</p>${guess ? `<p class="ask">${best ? 'À toi : joue la suite sur l’échiquier.' : 'À toi de punir ce coup : joue la meilleure réponse de ton adversaire.'} <span class="small">Ou passe au coup suivant.</span></p>` : ''}${end}`
@@ -608,7 +606,8 @@ function explainUI(o) {
     if (x.ptab !== x.tab) { // le panneau n'est reconstruit qu'au changement de film
       x.ptab = x.tab;
       const real = g.san[e.ply + 1], refReply = d.ref[1];
-      o.panel.innerHTML = `<div class="card idea"><h3>L’idée derrière ${fr(e.bestSan)}</h3><p>${esc(d.ins.idee)}</p></div>
+      o.panel.innerHTML = `<div class="seg2 mini" role="tablist"><button role="tab" data-ex="tab" data-v="best" class="${best ? 'on' : ''}">La bonne suite</button><button role="tab" data-ex="tab" data-v="ref" class="${best ? '' : 'on'}">Ton coup : ${fr(e.played)}</button></div>
+        <div class="card idea"><h3>L’idée derrière ${fr(e.bestSan)}</h3><p>${esc(d.ins.idee)}</p></div>
         <h3 class="lh">${best ? 'La bonne suite, coup par coup' : `Ce que permettait ${fr(e.played)}`}</h3>
         <ol class="line">${L.map((q, k) => `<li data-ex="jump" data-v="${k + 1}"><b>${q.white ? q.no + '.' : (k === 0 ? q.no + '…' : '')} ${fr(q.san)}</b><span>${esc(q.text)}</span></li>`).join('')}</ol>
         ${!best && real && refReply && real !== refReply.san ? `<p class="small">En partie, ton adversaire a répondu ${fr(real)} au lieu de ${fr(refReply.san)} : il n’a pas trouvé la meilleure réponse. Ton coup restait une erreur, un adversaire plus attentif l’aurait punie.</p>` : ''}
@@ -1200,7 +1199,8 @@ function viewDrill(type) {
   const it = d.items[d.i];
   return `<div class="pzhead main"><h1>${D.t}</h1><div class="row" data-top><span class="chip">${d.i + 1} / ${n}</span><span class="chip good">${pl(d.ok, 'juste')}</span></div></div>
     <div class="seg">${d.items.map((_, k) => `<i class="${k < d.i ? 'done' : k === d.i ? 'cur' : ''}"></i>`).join('')}</div>
-    <div class="split work"><div class="bwrap">${coach(it.q, 'intro')}<div class="board" id="drb"></div><div class="cap" id="drcap"><p class="capd"><i class="dot ${it.white ? 'w' : 'b'}"></i> Tu as les ${it.white ? 'Blancs' : 'Noirs'}.${it.tap ? ' Touche une pièce sur l’échiquier.' : ''}</p><p class="capi"><i class="dot ${it.white ? 'w' : 'b'}"></i> ${it.q}</p></div></div>
+    ${coach(it.q)}
+    <div class="split work"><div class="bwrap"><div class="board" id="drb"></div><div class="cap" id="drcap"><p><i class="dot ${it.white ? 'w' : 'b'}"></i> Tu as les ${it.white ? 'Blancs' : 'Noirs'}.${it.tap ? ' Touche une pièce sur l’échiquier.' : ''}</p></div></div>
       <div class="stack"><div class="card ghost"><h3>Pourquoi cet exercice</h3><p class="sub">${D.why}</p></div></div></div>
     <div class="actbar" id="drbar">${it.options.map(([v, l]) => `<button class="btn" data-act="drans" data-v="${v}">${l}</button>`).join('')}</div>`;
 }
@@ -1313,11 +1313,12 @@ function render(keepScroll) {
   paintJob();
   $('#nav').hidden = !S.data;
   document.querySelectorAll('#nav a').forEach((x) => x.classList.toggle('on', x.getAttribute('href') === '#' + ({ partie: 'parties', erreur: 'puzzles', inedits: 'puzzles', drill: 'puzzles', historique: 'puzzles' }[r] || r) || (x.getAttribute('href') === '#plus' && ['ouvertures', 'plan', 'stats', 'exos'].includes(r))));
-  if (!S.data) { header(); v.innerHTML = viewWelcome(); const f = $('#wf'); f.onsubmit = (ev) => { ev.preventDefault(); const u = $('#wu').value.trim(); if (u) doImport(u); }; return; }
+  if (!S.data) { document.body.classList.remove('fit'); header(); v.innerHTML = viewWelcome(); const f = $('#wf'); f.onsubmit = (ev) => { ev.preventDefault(); const u = $('#wu').value.trim(); if (u) doImport(u); }; return; }
   if (r !== 'partie') S.gv = null;
   if (r !== 'drill' && S.dr && S.dr.i >= S.dr.items.length) S.dr = null; // une série en cours se reprend, une série finie repart de zéro
   const html = r === 'puzzles' ? viewPuzzles() : r === 'erreur' ? viewPuzzles([a, b]) : r === 'plus' ? viewPlus() : r === 'historique' ? viewHistory() : r === 'exos' ? viewExos() : r === 'inedits' ? viewInedits() : r === 'drill' ? viewDrill(a) : r === 'cours' ? (a ? viewLecon(a, b) : viewCours()) : r === 'ouvertures' ? viewOuvertures() : r === 'parties' ? viewParties() : r === 'partie' ? viewPartie(a, b) : r === 'plan' ? viewPlan() : r === 'stats' ? viewStats(S, H) : viewAccueil();
   v.innerHTML = html;
+  fitLayout(); // avant de créer les échiquiers : ils naissent à leur taille définitive
   if (r === 'puzzles' || r === 'erreur') { mountPuzzle(); const s = $('#pzt'); if (s) s.onchange = () => { S.pz.theme = s.value; S.pz.cur = null; S.pz.show = null; render(); }; }
   else if (r === 'cours' && a) mountLecon();
   else if (r === 'ouvertures') board($('#exb'), { fen: S.exFen, orientation: S.white ? 'white' : 'black', viewOnly: true });
@@ -1335,6 +1336,24 @@ function render(keepScroll) {
   header();
   keepUi();
   if (keepScroll) scrollTo(0, y); else scrollTo(0, 0);
+}
+// Écrans avec échiquier : tout tient dans la fenêtre, sans défilement de la page.
+// L'échiquier et son commentaire d'un côté, le reste dans une colonne qui défile seule si besoin.
+function fitLayout() {
+  const v = $('#view'), sw = v.querySelector(':scope > .split.work');
+  const fit = !!sw?.querySelector('.board');
+  document.body.classList.toggle('fit', fit);
+  if (!fit) return;
+  const bw = sw.querySelector(':scope > .bwrap'), stk = sw.querySelector(':scope > .stack'), side = document.createElement('div');
+  side.className = 'fitside';
+  let pre = true;
+  for (const el of [...v.children]) {
+    if (el === sw) { pre = false; if (stk) { stk.classList.add('fitpanel'); side.append(stk); } continue; }
+    if (pre) el.dataset.pre = '';
+    side.append(el);
+  }
+  sw.replaceWith(bw);
+  v.append(side);
 }
 
 document.addEventListener('click', (ev) => {

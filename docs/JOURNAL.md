@@ -135,7 +135,13 @@ Précision demandée, réponse : « Des puzzles inédits ». Fait : onglet « Po
 
 Corrigé : rendus d'arrière-plan qui interrompaient un exercice en cours, échec de mise à jour silencieux, vérification d'un coup qui aboutissait après avoir quitté l'écran, analyses illisibles comptées dans les statistiques, chantier épuisé affichant « tout est à jour », étape puzzles impossible à valider sans puzzle dû, touches hors pièce comptées comme réponses dans les échauffements, puzzle Lichess désynchronisé après un nouveau rendu, clé de semaine en UTC, plan non aligné sur le chantier, chiffre non sourcé (« 100 Elo »), collision d'attributs `data-ex`, file d'attente du moteur sans priorité, code mort, README périmé, fichier LICENSE manquant. Points laissés à l'arbitrage listés dans `CLAUDE.md` (points ouverts).
 
-## 15. Simplicité d'usage : historique, animation, points de déplacement (15 novembre)
+## 15. Plus de défilement sur les écrans d'échiquier (15/11)
+
+> fais en sorte que je n'ai pas à scroller sur ordi et sur tel
+
+Fait : puzzles, erreurs, positions inédites, échauffements, positions de cours et relecture de partie tiennent dans la fenêtre. Ordi : échiquier calé sur la hauteur de l'écran à gauche (610 px sur 1366×768, 820 px sur grand écran), commentaire dessous, consigne, explications et boutons à droite ; les explications longues défilent dans leur panneau. Téléphone : échiquier quasi pleine largeur, consigne dans le bandeau sous l'échiquier, panneau d'explications court qui défile seul, boutons fixes en bas. Vérifié sur 5 tailles d'écran (parties simulées). Les pages de tableau de bord (Séance, Stats, Parties) défilent toujours.
+
+## 16. Simplicité d'usage : historique, animation, points de déplacement (15/11)
 
 > réfléchis à tout ce qui pourrait m'aider à ce que l'app soit plus user friendly. par exemple, il n'y a pas d'historique quand je fais le puzzle. je viens d'en faire 8, j'ai quitté la page et ça a oublié que j'avais tout fait. résultat je suis frustré.
 > Pareil après un bon coup j'aimerai avoir une animation qui me montre l'enchainement logique des coups ensuite pour comprendre l'idée d'un échange ou d'une prise. globalement je veux rendre le plus simple possible l'utilisation, qui n'est pas encore idéal. je veux aussi des petits points pour montrer les cases potentiels d'une pièce
@@ -150,7 +156,7 @@ Fait :
 - Reprise : puzzle en cours, étape du cours, échauffement entamé et position inédite sont retrouvés après avoir quitté ou rechargé la page.
 - Animation : après la solution, la bonne suite se joue toute seule (flèche qui annonce le coup, pièce qui bouge, commentaire, flèches sur ce que le coup attaque, bilan matériel), puis « Voir mon erreur » joue ce que le coup de la partie permettait. Pause, pas à pas, « Revoir », clavier (flèches, espace). Les suites ne s'arrêtent plus au milieu d'un échange, ce qui faussait le bilan matériel.
 - Points sur les cases où la pièce choisie peut aller, anneau sur une pièce à prendre, roi en échec signalé en rouge.
-- Téléphone : l'échiquier remonte sous la barre du haut, le texte du coach passe dessous ; l'indice et le message d'erreur ne sont plus cachés par la barre d'actions. Ordinateur : le commentaire est à droite de l'échiquier, visible sans défiler.
+- Mise en page : ce travail a été mené en parallèle de la section 15 (autre conversation) et fusionné dessus. La mise en page sans défilement de la section 15 sert de base ; s'y ajoutent, sur téléphone, l'avancée du jour dans la barre du haut à la place de l'en-tête, et une place réservée au commentaire de la lecture sous l'échiquier (échiquier un peu plus petit sur les fenêtres basses : 558 px au lieu de 610 sur 1366×768).
 - Icônes dessinées à la place des flèches Unicode (affichées en émojis sur iPhone).
 - Corrigé au passage : plantage de l'explication quand une suite finissait par un mat ; course entre « Solution » et le retour d'un mauvais coup.
 - Test de bout en bout versionné : `node tests/parcours.js`.
