@@ -541,6 +541,7 @@ function mountPuzzle() {
 
 // ---------- Apprendre les ouvertures ----------
 // Fiches (histoire, idées, pièges, lignes) et lignes récitées de mémoire, en révision espacée comme les puzzles.
+const COACH_TABS = (on) => `<div class="seg2 pztabs"><a class="${on === 'day' ? 'on' : ''}" href="#accueil">Séance du jour</a><a class="${on === 'plan' ? 'on' : ''}" href="#plan">Plan et réglages</a></div>`;
 const OP_TABS = (on) => `<div class="seg2 pztabs"><a class="${on === 'mine' ? 'on' : ''}" href="#ouvertures">Mes ouvertures</a><a class="${on === 'learn' ? 'on' : ''}" href="#ouvertures/apprendre">Apprendre</a></div>`;
 const allLineKeys = () => OPENINGS.flatMap((o) => o.lines.map((_, k) => lineKey(o, k)));
 const lineHref = (key, voir) => '#ligne/' + key.replace(':', '/') + (voir ? '/voir' : '');
@@ -964,7 +965,7 @@ function viewAccueil() {
   }).join('');
   const sigHtml = (arr, c, empty) => (arr.length ? arr.slice(0, 4).map((x) => `<div class="sig" style="--c:var(--${c})"><b>${esc(x.t)}</b><span>${esc(x.d)}</span>${x.lesson ? `<a href="#${x.lesson === 'ouvertures' ? 'ouvertures' : 'cours/' + x.lesson}">${x.lesson === 'ouvertures' ? 'Voir tes ouvertures' : 'Ouvrir le cours'}</a>` : ''}</div>`).join('') : `<p class="sub">${empty}</p>`);
   const all = st.tally(gs);
-  return `<div class="row" style="justify-content:space-between"><h1>Bonjour ${esc(S.data.profile.username)}</h1>
+  return `${COACH_TABS('day')}<div class="row" style="justify-content:space-between"><h1>Bonjour ${esc(S.data.profile.username)}</h1>
     <span class="chip d-only ${stk ? 'warn' : ''}" title="Jours consécutifs avec au moins un puzzle ou un cours">Série : ${stk} jour${stk > 1 ? 's' : ''}</span></div>
   <section class="card today"><div class="row" style="justify-content:space-between"><h2>${nDone === steps.length ? 'Séance du jour terminée' : 'Ta séance du jour'}</h2><span class="chip ${nDone === steps.length ? 'good' : ''}">${nDone} / ${steps.length}</span></div>
     ${nDone === steps.length ? coach('Séance bouclée. Reviens demain : les puzzles réussis reviendront au bon moment pour ancrer le réflexe.') : ''}
@@ -1227,13 +1228,20 @@ function gvBest(v, k) {
   const m = uciMove(new Chess(v.fens[k]), uci);
   return m ? { uci, san: m.san, played: v.mv[k] && v.mv[k].from + v.mv[k].to === uci.slice(0, 4) } : null;
 }
+// Flèches de la relecture : coup joué en partie depuis cette position (rouge) et meilleur coup (vert, par-dessus).
+function gvShapes(v, k) {
+  const e = v.errAt[k]; if (e) return errShapes(e);
+  const b = gvBest(v, k); if (!b) return [];
+  const m = v.mv[k];
+  return [b.played || !m ? null : { orig: m.from, dest: m.to, brush: 'red' }, arrow(b.uci, 'green')].filter(Boolean);
+}
 // Bandeau de la relecture : cls est la classe d'état du bandeau (sans « cap »).
 function gvCap(v) {
   const k = v.k, g = v.g, a = v.a, e = v.errAt[k], prevErr = v.errAt[k - 1], me = g.w ? 'w' : 'b';
   const kindChip = (x) => `<span class="chip ${x.kind === 'gaffe' ? 'bad' : x.kind === 'erreur' ? 'warn' : ''}">${x.kind === 'gaffe' ? 'Gaffe' : x.kind === 'erreur' ? 'Erreur' : 'Imprécision'}</span>`;
   if (e) return { cls: 'ko', html: `<div class="capm"><span class="capn">Moment clé, coup ${moveNo(e)}</span>${kindChip(e)}</div><p>${explain(e)}</p><a class="btn pri sm" href="#erreur/${g.t}/${e.ply}">Comprendre cette erreur</a>` };
   const txtK = k > 0 ? moveText(g, k, me) : 'Position de départ. Avance coup par coup : chaque coup est commenté ici.';
-  const b = gvBest(v, k), bestP = b ? `<span class="small">meilleur coup <b class="ok">${fr(b.san)}</b>${b.played ? ' (joué)' : ''}</span>` : '';
+  const b = gvBest(v, k), bestP = b ? `<span class="capbest">Meilleur <b>${fr(b.san)}</b>${b.played ? ' (joué)' : ''}</span>${!b.played && v.mv[k] ? `<span class="capbest ko">Joué <b>${fr(v.mv[k].san)}</b></span>` : ''}` : '';
   return { cls: '', html: `<div class="capm"><span class="capn">${k > 0 ? `<i class="dot ${k % 2 ? 'w' : 'b'}"></i>${Math.ceil(k / 2)}${k % 2 ? '.' : '…'} ${fr(v.mv[k - 1].san)}` : 'Début'}</span>${prevErr ? kindChip(prevErr) : ''}${a ? `<span class="small">éval ${fmtEval(g.w ? a.ev[k] : -a.ev[k])}</span>` : ''}${bestP}</div><p>${esc(txtK)}</p>` };
 }
 function gvBar(v) {
@@ -1266,8 +1274,8 @@ function viewPartie(t, plyArg) {
 }
 // Met à jour l'écran de relecture sans le reconstruire : les pièces s'animent d'un coup à l'autre.
 function gvSync() {
-  const v = S.gv, k = v.k, e = v.errAt[k], cap = gvCap(v);
-  v.cg.set({ fen: v.fens[k], lastMove: k > 0 ? [v.mv[k - 1].from, v.mv[k - 1].to] : undefined, drawable: { autoShapes: e ? errShapes(e) : gvBest(v, k) ? [arrow(gvBest(v, k).uci, 'green')] : [] } });
+  const v = S.gv, k = v.k, cap = gvCap(v);
+  v.cg.set({ fen: v.fens[k], lastMove: k > 0 ? [v.mv[k - 1].from, v.mv[k - 1].to] : undefined, drawable: { autoShapes: gvShapes(v, k) } });
   v.x.say(cap.cls, cap.html);
   v.x.setBar(gvBar(v));
   document.querySelectorAll('.moves button').forEach((b, i) => b.classList.toggle('cur', i + 1 === k));
@@ -1365,7 +1373,7 @@ function viewPlus() {
     ${row('#ouvertures', 'Ouvertures', 'Tes résultats, ton répertoire, apprendre les grandes ouvertures', svg('<path d="M11 3h2v5h5v4h-2v-2h-3v3h3v8H8v-8h3v-3H8v2H6V8h5z"/>'))}
     ${row('#stats', 'Stats', 'Toutes tes données depuis ta première partie', svg('<path d="M4 20V10h4v10zm6 0V4h4v16zm6 0v-7h4v7z"/>'))}
     ${row('#gagner', 'Gagner les parties gagnées', 'Rejoue tes avantages gâchés contre le moteur', svg('<path d="M5 3h14v3a5 5 0 0 1-4 4.900V14h2v3H7v-3h2v-3.100A5 5 0 0 1 5 6zm2 18h10v-2H7z"/>'))}
-    ${row('#plan', 'Plan et réglages', 'Plan de la semaine, objectif, coach Claude, sauvegarde', svg('<path d="M7 2h2v2h6V2h2v2h3v17H4V4h3zm-1 7v10h12V9z"/>'))}</div>
+</div>
   <div class="card"><h2>Tes données</h2><p class="sub">Compte ${esc(S.user)}. Dernière mise à jour le ${new Date(S.data.fetchedAt).toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}.</p>
     <div class="stack filters">${filtersHtml()}</div></div>
   ${backupCard()}`;
@@ -1397,7 +1405,7 @@ function viewPlan() {
     weakOp ? ['op', `Explorer ton ouverture la plus fragile : ${weakOp}`, '#ouvertures'] : null,
   ].filter(Boolean);
   const g = gb.g;
-  return `<h1>Plan de la semaine</h1>
+  return `${COACH_TABS('plan')}<h1>Plan de la semaine</h1>
   <div class="hero">${gb.html}
     <div class="card"><h2>Semaine du ${new Date(wk + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}</h2>
       <div class="row"><label for="hrs" class="sub">Temps disponible</label><select id="hrs">${[3, 4, 5, 6, 8, 10].map((h) => `<option value="${h}" ${h === hours ? 'selected' : ''}>${h} h par semaine</option>`).join('')}</select></div>
@@ -1460,7 +1468,7 @@ function render(keepScroll) {
   const v = $('#view'), [r, a, b, c] = route();
   paintJob();
   $('#nav').hidden = !S.data;
-  document.querySelectorAll('#nav a').forEach((x) => x.classList.toggle('on', x.dataset.grp ? x.dataset.grp.split(' ').includes(r) : x.getAttribute('href') === '#' + ({ partie: 'parties', erreur: 'puzzles', inedits: 'puzzles', drill: 'puzzles', historique: 'puzzles', ligne: 'ouvertures' }[r] || r) || (x.getAttribute('href') === '#plus' && ['ouvertures', 'ligne', 'plan', 'stats', 'exos', 'gagner'].includes(r))));
+  document.querySelectorAll('#nav a').forEach((x) => x.classList.toggle('on', x.dataset.grp ? x.dataset.grp.split(' ').includes(r) : x.getAttribute('href') === '#' + ({ partie: 'parties', erreur: 'puzzles', inedits: 'puzzles', drill: 'puzzles', historique: 'puzzles', ligne: 'ouvertures' }[r] || r) || (x.getAttribute('href') === '#plus' && ['ouvertures', 'ligne', 'stats', 'exos', 'gagner'].includes(r))));
   if (!S.data) { v.innerHTML = viewWelcome(); exo.attach(); header(); const f = $('#wf'); f.onsubmit = (ev) => { ev.preventDefault(); const u = $('#wu').value.trim(); if (u) doImport(u); }; return; }
   if (r !== 'partie') S.gv = null;
   if (r !== 'drill' && S.dr && S.dr.i >= S.dr.items.length) S.dr = null; // une série en cours se reprend, une série finie repart de zéro

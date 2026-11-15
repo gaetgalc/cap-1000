@@ -212,6 +212,10 @@ Tests : 31 tests unitaires (8 nouveaux), test de bout en bout à 27 vérificatio
 
 Demande : dans l'onglet Parties, voir le meilleur coup sur l'échiquier par défaut. Fait : à chaque position de la relecture, flèche verte du coup du moteur (`a.best[k]`, déjà calculé à l'analyse, sans nouveau calcul) et « meilleur coup X » sur la ligne du coup, avec « (joué) » s'il a été joué en partie. Aux moments clés, flèches rouge (coup joué) et verte inchangées. Rien sur une partie non analysée. Test de bout en bout : 3 vérifications de plus. Captures aux 4 tailles : pas de défilement.
 
+Puis, à la demande, couleurs plus vives : flèches de tous les échiquiers (vert #2bd46a, rouge #f0443c, bleu, orange) au lieu des teintes sombres de chessground, opacité 85 % au lieu de 60 %, ombre légère pour le contraste sur les cases claires ; « Meilleur Cf3 » en pastille verte sur la ligne du coup.
+
+Puis : coup joué depuis la position en flèche rouge (sous la verte), seulement s'il diffère du meilleur, avec une pastille rouge « Joué h4 ». Couleurs du site ravivées dans `:root` (accent, bouton principal, vert, orange, rouge, cases de l'échiquier) ; ombre du bouton principal en jeton `--btn-edge`.
+
 ## 21. Apprendre les ouvertures (15/11)
 
 > dans l'onglet ouverture je veux pouvoir apprendre, travailler les ouvertures pour ma culture G (utilisation dans le temps, etc..) et par les principales lignes à savoir
