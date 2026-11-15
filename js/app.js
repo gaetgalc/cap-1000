@@ -569,7 +569,8 @@ function getLines(g, e) {
 function explainUI(o) {
   const e = o.e, g = o.g, x = { tab: 'best', d: null, seenRef: false, endBest: false, note: '', ptab: null };
   const lastMv = e.prev ? [e.prev.slice(0, 2), e.prev.slice(2, 4)] : undefined;
-  const matChip = (s, prev) => { const d = s.mat - prev; return d ? `<span class="chip ${d > 0 ? 'good' : 'bad'}">Matériel ${d > 0 ? '+' : '−'}${Math.abs(d)}</span>` : ''; };
+  // Bilan matériel cumulé depuis le début de la suite : dans un échange, on voit +9 puis « égalité », pas +9 puis −9.
+  const matChip = (L, i, m0) => { if (!L.slice(0, i).some((q) => q.raw.captured)) return ''; const d = L[i - 1].mat - m0; return `<span class="chip ${d > 0 ? 'good' : d < 0 ? 'bad' : ''}">${d ? `Bilan ${d > 0 ? '+' : '−'}${Math.abs(d)}` : 'Bilan : égalité'}</span>`; };
   o.cap.className = 'cap'; o.cap.innerHTML = `<p>${o.verdict || ''} Je prépare l’explication…</p>`;
   document.body.classList.add('solved');
   if (innerWidth < 860) scrollTo(0, 0);
@@ -602,7 +603,7 @@ function explainUI(o) {
     o.cap.querySelectorAll('[role=tab]').forEach((b) => b.classList.toggle('on', b.dataset.v === x.tab));
     const end = !atEnd || !s ? '' : s.tags.mate ? `<p class="bilan"><b>Bilan :</b> échec et mat${s.tags.mine ? '' : ' contre toi'}.</p>` : `<p class="bilan"><b>Bilan de ${best ? 'la bonne suite' : 'ton coup'} :</b> ${best ? d.ins.bestTxt : d.ins.refTxt}.</p>`;
     $('.capb', o.cap).innerHTML = (o.verdict && best && i <= 1 ? `<div class="verdict">${o.verdict}</div>` : '')
-      + (s ? `${capStep(s, i, n, matChip(s, i > 1 ? L[i - 2].mat : d.m0))}<p>${note ? note + ' ' : ''}${esc(s.text)}</p>${guess ? `<p class="ask">${best ? 'À toi : joue la suite sur l’échiquier.' : 'À toi de punir ce coup : joue la meilleure réponse de ton adversaire.'} <span class="small">Ou passe au coup suivant.</span></p>` : ''}${end}`
+      + (s ? `${capStep(s, i, n, matChip(L, i, d.m0))}<p>${note ? note + ' ' : ''}${esc(s.text)}</p>${guess ? `<p class="ask">${best ? 'À toi : joue la suite sur l’échiquier.' : 'À toi de punir ce coup : joue la meilleure réponse de ton adversaire.'} <span class="small">Ou passe au coup suivant.</span></p>` : ''}${end}`
         : `<p><b>Position de départ.</b> ${best ? 'La flèche verte montre le meilleur coup.' : 'La flèche rouge montre le coup que tu as joué en partie.'}</p>`);
     if (x.ptab !== x.tab) { // le panneau n'est reconstruit qu'au changement de film
       x.ptab = x.tab;
