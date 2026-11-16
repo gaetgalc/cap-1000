@@ -10,7 +10,8 @@ import { fr, settle, buildLine, insight, hintFor, lastMoveText, moveText, materi
 import { $, esc, dfmt, TC, HOW, coach, txt, pl, f1, ico, wdl, WDL_LEGEND } from './ui.js';
 import { lineChart } from './charts.js';
 import { progress, DAY } from './progress.js';
-import { board, destroyBoards, destsOf, arrow, errShapes } from './board.js';
+import { board, destroyBoards, destsOf, arrow, errShapes, REDUCED } from './board.js';
+import { moveMark, evalShare, errStep } from './review.js';
 import * as exo from './exercise.js';
 import { LI_ANGLES, LI_FOR, LI_DIFF, fetchPuzzle } from './lichess.js';
 import { DRILLS, DRILL_FOR, makeRound } from './drills.js';
@@ -1288,6 +1289,32 @@ function viewParties() {
     </tbody></table></div>${gs.length > S.listN ? '<div><button class="btn" data-act="more">Afficher 50 parties de plus</button></div>' : ''}</div>`;
 }
 
+// Symbole du coup qui mène à la position k : ?? ? ?! sur une erreur classée, ! si le joueur a trouvé le seul coup qui tenait.
+// Seuls les coups du joueur sont classés ; mp vient de l'analyse stockée ou du calcul fait pendant la relecture (gvOnly).
+function gvMark(v, k) {
+  const i = k - 1, m = v.mv[i];
+  if (!v.a || !m || (i % 2 === 0) !== v.g.w) return null;
+  return moveMark(v.errAt[i], { played: m.from + m.to + (m.promotion || ''), best: v.a.best?.[i], mp: v.a.mp?.[i] || v.mp[i] });
+}
+// Pastille du symbole, dans le coin haut droit de la case d'arrivée (repère de chessground : la case fait 100 × 100).
+const markSvg = (mk) => `<g><circle cx="81" cy="19" r="19" fill="var(--${mk.c})" stroke="var(--bg)" stroke-width="3"/><text x="81" y="20" text-anchor="middle" dominant-baseline="central" font-family="Geist Mono, monospace" font-size="${mk.s.length > 1 ? 17 : 22}" font-weight="600" fill="var(--bg)">${mk.s}</text></g>`;
+// Formes de la position k : flèches, puis symbole du dernier coup.
+function gvAuto(v) {
+  const k = v.k, mk = gvMark(v, k);
+  return [...gvShapes(v, k), ...(mk ? [{ orig: v.mv[k - 1].to, customSvg: { html: markSvg(mk) } }] : [])];
+}
+// « ! » : quand le joueur a joué le meilleur coup, le moteur cherche si d'autres coups tenaient (3 meilleurs coups).
+// Calcul gardé en mémoire pour la partie affichée, jamais pendant une analyse en cours ; un seul à la fois.
+async function gvOnly(v) {
+  const i = v.k - 1, m = v.mv[i], best = v.a?.best?.[i];
+  if (v.busy || S.job.running || !best || !m || v.errAt[i] || (i % 2 === 0) !== v.g.w || i in v.mp || v.a.mp?.[i]) return;
+  if (m.from + m.to !== best.slice(0, 4)) return;
+  v.busy = true;
+  try { S.play ||= new Engine(); const r = await S.play.evalFen(v.fens[i], DEPTH, false, 3); v.mp[i] = r.lines.map((l) => l.cp); } catch { S.play = null; v.mp[i] = null; }
+  v.busy = false;
+  if (S.gv !== v || !v.x?.alive()) return;
+  if (v.k === i + 1) v.cg.setAutoShapes(gvAuto(v)); else gvOnly(v);
+}
 // Meilleur coup du moteur dans la position k de la relecture (null si partie non analysée ou terminée).
 function gvBest(v, k) {
   const uci = v.a?.best?.[k]; if (!uci) return null;
@@ -1305,14 +1332,32 @@ function gvShapes(v, k) {
 function gvCap(v) {
   const k = v.k, g = v.g, a = v.a, e = v.errAt[k], prevErr = v.errAt[k - 1], me = g.w ? 'w' : 'b';
   const kindChip = (x) => `<span class="chip ${x.kind === 'gaffe' ? 'bad' : x.kind === 'erreur' ? 'warn' : ''}">${x.kind === 'gaffe' ? 'Gaffe' : x.kind === 'erreur' ? 'Erreur' : 'Imprécision'}</span>`;
-  if (e) return { cls: 'ko', html: `<div class="capm"><span class="capn">Moment clé, coup ${moveNo(e)}</span>${kindChip(e)}</div><p>${explain(e)}</p><a class="btn pri sm" href="#erreur/${g.t}/${e.ply}">Comprendre cette erreur</a>` };
+  if (e) return { cls: 'ko', html: `<div class="capm"><span class="capn">Moment clé, coup ${moveNo(e)}</span>${kindChip(e)}<a class="btn pri sm gvwhy" href="#erreur/${g.t}/${e.ply}">Comprendre<span class="d-txt">cette erreur</span></a></div><p>${explain(e)}</p>` };
   const txtK = k > 0 ? moveText(g, k, me) : 'Position de départ. Avance coup par coup : chaque coup est commenté ici.';
   const b = gvBest(v, k), bestP = b ? `<span class="capbest">Meilleur <b>${fr(b.san)}</b>${b.played ? ' (joué)' : ''}</span>${!b.played && v.mv[k] ? `<span class="capbest ko">Joué <b>${fr(v.mv[k].san)}</b></span>` : ''}` : '';
-  return { cls: '', html: `<div class="capm"><span class="capn">${k > 0 ? `<i class="dot ${k % 2 ? 'w' : 'b'}"></i>${Math.ceil(k / 2)}${k % 2 ? '.' : '…'} ${fr(v.mv[k - 1].san)}` : 'Début'}</span>${prevErr ? kindChip(prevErr) : ''}${a ? `<span class="small">éval ${fmtEval(g.w ? a.ev[k] : -a.ev[k])}</span>` : ''}${bestP}</div><p>${esc(txtK)}</p>` };
+  const evp = a ? `<span class="chip evnum" title="Évaluation du moteur, de ton point de vue">${fmtEval(g.w ? a.ev[k] : -a.ev[k])}</span>` : '';
+  return { cls: '', html: `<div class="capm"><span class="capn">${k > 0 ? `<i class="dot ${k % 2 ? 'w' : 'b'}"></i>${Math.ceil(k / 2)}${k % 2 ? '.' : '…'} ${fr(v.mv[k - 1].san)}` : 'Début'}</span>${evp}${prevErr ? kindChip(prevErr) : ''}${bestP}</div><p>${esc(txtK)}</p>` };
 }
+// Barre : début et fin (ordinateur seulement : sur téléphone, la bande de coups commence par « Début »), coup précédent et
+// suivant, erreur précédente et suivante (gaffes et erreurs du joueur, sans boucler). Sur un moment clé, le bouton plein
+// est « Comprendre » dans le bandeau : « Coup suivant » passe en secondaire.
 function gvBar(v) {
-  const k = v.k, n = v.mv.length;
-  return `<button class="btn ico" data-act="goto" data-k="0" aria-label="Début" ${k === 0 ? 'disabled' : ''}>${ico('first')}</button><button class="btn ico" data-act="goto" data-k="${Math.max(0, k - 1)}" aria-label="Coup précédent" ${k === 0 ? 'disabled' : ''}>${ico('prev')}</button><button class="btn ico pri" data-act="goto" data-k="${Math.min(n, k + 1)}" aria-label="Coup suivant" ${k === n ? 'disabled' : ''}>${ico('next')}</button><button class="btn ico" data-act="goto" data-k="${n}" aria-label="Fin" ${k === n ? 'disabled' : ''}>${ico('last')}</button>${v.a?.errs.some((x) => x.theme) ? '<button class="btn" data-act="nexterr">Erreur suivante</button>' : ''}`;
+  const k = v.k, n = v.mv.length, pe = errStep(v.keys, k, -1), ne = errStep(v.keys, k, 1);
+  return `<button class="btn ico gvfl" data-act="goto" data-k="0" aria-label="Début" ${k === 0 ? 'disabled' : ''}>${ico('first')}</button><button class="btn ico" data-act="goto" data-k="${Math.max(0, k - 1)}" aria-label="Coup précédent" ${k === 0 ? 'disabled' : ''}>${ico('prev')}</button><button class="btn ico ${v.errAt[k] ? '' : 'pri'}" data-act="goto" data-k="${Math.min(n, k + 1)}" aria-label="Coup suivant" ${k === n ? 'disabled' : ''}>${ico('next')}</button><button class="btn ico gvfl" data-act="goto" data-k="${n}" aria-label="Fin" ${k === n ? 'disabled' : ''}>${ico('last')}</button>`
+    + (v.keys.length ? `<button class="btn gve" data-act="goto" data-k="${pe ?? 0}" aria-label="Erreur précédente" title="Erreur précédente" ${pe == null ? 'disabled' : ''}>${ico('prev')}Erreur</button><button class="btn gve" data-act="goto" data-k="${ne ?? 0}" aria-label="Erreur suivante" title="Erreur suivante" ${ne == null ? 'disabled' : ''}>Erreur${ico('next')}</button>` : '');
+}
+// Liste des coups : grille numéro / Blancs / Noirs sur ordinateur, bande d'une ligne sur téléphone (styles .gvm).
+// Sur ordinateur, chaque gaffe ou erreur du joueur est rappelée sous son coup (.gvnote) : un clic mène au moment clé.
+function gvMoves(v) {
+  const { mv, errAt } = v, note = (e) => (e?.theme ? `<button class="gvnote" data-act="goto" data-k="${e.ply}"><span class="chip ${e.kind === 'gaffe' ? 'bad' : 'warn'}">${e.kind === 'gaffe' ? '??' : '?'}</span><span>Coup ${moveNo(e)} : ${fr(e.played)}, mieux <b>${fr(e.bestSan)}</b> · ${esc(st.THEMES[e.theme])}</span></button>` : '');
+  let h = '<button class="mv gvst" data-act="goto" data-k="0">Début</button>';
+  mv.forEach((m, i) => {
+    const mk = errAt[i] ? moveMark(errAt[i]) : null;
+    if (i % 2 === 0) h += `<span class="n">${i / 2 + 1}.</span>`;
+    h += `<button class="mv ${errAt[i]?.kind || ''}" data-act="goto" data-k="${i + 1}">${fr(m.san)}${mk ? `<sup>${mk.s}</sup>` : ''}</button>`;
+    if (i % 2 === 1 || i === mv.length - 1) h += (i % 2 === 1 ? note(errAt[i - 1]) : '') + note(errAt[i]);
+  });
+  return h;
 }
 function viewPartie(t, plyArg) {
   const g = S.data.games.find((x) => String(x.t) === String(t));
@@ -1320,39 +1365,42 @@ function viewPartie(t, plyArg) {
   const a = S.an[g.id] && !S.an[g.id].bad ? S.an[g.id] : null;
   const ch = new Chess(), fens = [ch.fen()], mv = [];
   for (const s of g.san) { const m = ch.move(s, { sloppy: true }); if (!m) break; mv.push(m); fens.push(ch.fen()); }
-  if (!S.gv || S.gv.t !== g.t) S.gv = { t: g.t, k: plyArg != null ? Math.min(+plyArg, mv.length) : 0 };
-  const v = Object.assign(S.gv, { fens, mv, g, a, errAt: a ? Object.fromEntries(a.errs.map((e) => [e.ply, e])) : {} });
-  const errAt = v.errAt, cap = gvCap(v);
-  const moves = mv.map((m, i) => `${i % 2 === 0 ? `<span class="n">${i / 2 + 1}.</span>` : ''}<button data-act="goto" data-k="${i + 1}" class="${errAt[i]?.kind || ''}">${fr(m.san)}${errAt[i] ? `<sup>${errAt[i].kind === 'gaffe' ? '??' : errAt[i].kind === 'erreur' ? '?' : '?!'}</sup>` : ''}</button>`).join('');
+  if (!S.gv || S.gv.t !== g.t) S.gv = { t: g.t, k: plyArg != null ? Math.min(+plyArg, mv.length) : 0, mp: {} };
   const serious = a ? a.errs.filter((x) => x.theme) : [];
+  const v = Object.assign(S.gv, { fens, mv, g, a, errAt: a ? Object.fromEntries(a.errs.map((e) => [e.ply, e])) : {}, keys: serious.map((x) => x.ply).sort((p, q) => p - q) });
+  const cap = gvCap(v);
   const res = `<span class="chip ${g.out === 'W' ? 'good' : g.out === 'L' ? 'bad' : ''}">${g.out === 'W' ? 'Victoire' : g.out === 'L' ? 'Défaite' : 'Nulle'}${HOW[g.how] ? ' (' + HOW[g.how] + ')' : ''}</span>`;
+  const link = `<a class="btn sm" href="${esc(g.id)}" target="_blank" rel="noopener">Chess.com</a>`;
   return exo.screen({
-    head: `<div class="pzhead"><h1>${g.w ? 'Blancs' : 'Noirs'} contre ${esc(g.opp)} <span class="small num">${g.or}</span></h1>
-      <div class="row">${res}<span class="chip">${dfmt(g.t)}</span><span class="chip">${esc(g.fam)}</span><a class="btn sm" href="${esc(g.id)}" target="_blank" rel="noopener">Chess.com</a></div></div>`,
+    head: `<div class="pzhead gvhead"><h1>${g.w ? 'Blancs' : 'Noirs'} contre ${esc(g.opp)} <span class="small num">${g.or}</span></h1>
+      <div class="row">${res}<span class="chip">${dfmt(g.t)}</span><span class="chip">${esc(g.fam)}</span>${link}</div></div>`,
+    wrap: 'gv',
+    rail: a ? `<div class="evbar ${g.w ? '' : 'flip'}" id="gvev" aria-hidden="true" style="--ev:${evalShare(a.ev[v.k])}"><i></i></div>` : '',
     cap: cap.html, capClass: cap.cls,
-    panel: `${a ? `<div class="row"><span class="chip bad">${pl(a.errs.filter((x) => x.kind === 'gaffe').length, 'gaffe')} ??</span><span class="chip warn">${pl(a.errs.filter((x) => x.kind === 'erreur').length, 'erreur')} ?</span><span class="chip">${pl(a.errs.filter((x) => x.kind === 'imprecision').length, 'imprécision')} ?!</span><span class="chip good">Précision ${a.acc?.toFixed(0)} %</span></div>
-      <div class="card"><h2>Tes chances de gain</h2><div class="chart" id="evc"></div><p class="small">Points rouges : gaffes. Points orange : erreurs. Touche la courbe pour aller au coup.</p></div>`
+    panel: `${a ? `<div class="row gvsum"><span class="chip bad">${pl(a.errs.filter((x) => x.kind === 'gaffe').length, 'gaffe')} ??</span><span class="chip warn">${pl(a.errs.filter((x) => x.kind === 'erreur').length, 'erreur')} ?</span><span class="chip">${pl(a.errs.filter((x) => x.kind === 'imprecision').length, 'imprécision')} ?!</span><span class="chip good">Précision ${a.acc?.toFixed(0)} %</span></div>
+      <div class="gvch"><p class="small">Tes chances de gain. Points rouges : gaffes, orange : erreurs. Touche la courbe pour aller au coup.</p><div class="chart" id="evc"></div></div>`
     : `<div class="card"><p class="sub">Cette partie n’est pas encore analysée.</p><div><button class="btn pri" data-act="analyse1" ${S.job.running ? 'disabled' : ''}>${S.job.running ? 'Analyse en cours' : 'Analyser cette partie'}</button></div></div>`}
-      <div class="card"><h2>Coups</h2><div class="moves">${moves}</div></div>
-      ${serious.length ? `<div class="card"><h2>Moments clés</h2>${serious.map((x) => `<a class="row" href="#" data-act="goto" data-k="${x.ply}" style="justify-content:space-between;text-decoration:none"><span>Coup ${moveNo(x)} : ${fr(x.played)}, mieux ${fr(x.bestSan)}</span><span class="chip ${x.kind === 'gaffe' ? 'bad' : 'warn'}">${st.THEMES[x.theme]}</span></a>`).join('')}</div>` : ''}`,
+      <div class="gvm" id="gvm">${gvMoves(v)}</div>
+      <div class="gvmore stack"><div class="row">${res}<span class="chip">${dfmt(g.t)}</span>${link}</div>
+      ${serious.length ? `<div class="card"><h2>Moments clés</h2>${serious.map((x) => `<a class="row" href="#" data-act="goto" data-k="${x.ply}" style="justify-content:space-between;text-decoration:none"><span>Coup ${moveNo(x)} : ${fr(x.played)}, mieux ${fr(x.bestSan)}</span><span class="chip ${x.kind === 'gaffe' ? 'bad' : 'warn'}">${st.THEMES[x.theme]}</span></a>`).join('')}</div>` : ''}</div>`,
     bar: gvBar(v),
   });
 }
 // Met à jour l'écran de relecture sans le reconstruire : les pièces s'animent d'un coup à l'autre.
 function gvSync() {
   const v = S.gv, k = v.k, cap = gvCap(v);
-  v.cg.set({ fen: v.fens[k], lastMove: k > 0 ? [v.mv[k - 1].from, v.mv[k - 1].to] : undefined, drawable: { autoShapes: gvShapes(v, k) } });
+  v.cg.set({ fen: v.fens[k], lastMove: k > 0 ? [v.mv[k - 1].from, v.mv[k - 1].to] : undefined, drawable: { autoShapes: gvAuto(v) } });
   v.x.say(cap.cls, cap.html);
   v.x.setBar(gvBar(v));
-  document.querySelectorAll('.moves button').forEach((b, i) => b.classList.toggle('cur', i + 1 === k));
-  const box = $('.moves'), curB = $('.moves .cur'); // défile la liste des coups, jamais la page
-  if (box && curB) box.scrollTop = curB.offsetTop - box.offsetTop - box.clientHeight / 2;
-  const c = $('#evc');
-  if (c && v.a) {
-    const pts = v.a.ev.map((cp, i) => ({ x: i, y: winPct(v.g.w ? cp : -cp), tip: (i ? `Coup ${Math.ceil(i / 2)} (${fr(v.mv[i - 1]?.san || '')}) : ` : 'Début : ') + Math.round(winPct(v.g.w ? cp : -cp)) + ' %' }));
-    const marks = v.a.errs.filter((x) => x.kind !== 'imprecision').map((x) => ({ i: x.ply, c: x.kind === 'gaffe' ? 'bad' : 'warn' }));
-    lineChart(c, pts, { h: 170, min: 0, max: 100, step: 25, base: 0, yfmt: (y) => y + ' %', marks, cursor: Math.min(k, pts.length - 1), label: 'Chances de gain au fil de la partie', x0: 'Début', x1: 'Fin', onPick: gvGo });
+  const box = $('#gvm');
+  if (box) { // coup courant surligné et gardé au centre de la liste, qui défile seule (jamais la page)
+    box.querySelectorAll('.mv').forEach((b) => b.classList.toggle('cur', +b.dataset.k === k));
+    const c = box.querySelector('.mv.cur');
+    if (c) box.scrollTo({ top: c.offsetTop - (box.clientHeight - c.offsetHeight) / 2, left: c.offsetLeft - (box.clientWidth - c.offsetWidth) / 2, behavior: REDUCED ? 'auto' : 'smooth' });
   }
+  v.chart?.cursor(k);
+  if (v.a) $('#gvev')?.style.setProperty('--ev', evalShare(v.a.ev[k]));
+  gvOnly(v);
 }
 function gvGo(k) {
   const v = S.gv; if (!v) return;
@@ -1363,6 +1411,16 @@ function mountPartie() {
   const v = S.gv, X = exo.current(); if (!X || !v) return;
   v.x = X;
   v.cg = X.board({ fen: v.fens[v.k], orientation: v.g.w ? 'white' : 'black', viewOnly: true });
+  v.chart = null;
+  const c = $('#evc');
+  if (c && v.a) { // courbe dessinée une fois ; seul le curseur suit le coup affiché
+    const pts = v.a.ev.map((cp, i) => ({ x: i, y: winPct(v.g.w ? cp : -cp), tip: (i ? `Coup ${Math.ceil(i / 2)} (${fr(v.mv[i - 1]?.san || '')}) : ` : 'Début : ') + Math.round(winPct(v.g.w ? cp : -cp)) + ' %' }));
+    const marks = v.a.errs.filter((x) => x.kind !== 'imprecision').map((x) => ({ i: x.ply, c: x.kind === 'gaffe' ? 'bad' : 'warn' }));
+    const o = { min: 0, max: 100, base: 0, marks, cursor: Math.min(v.k, pts.length - 1), label: 'Chances de gain au fil de la partie', onPick: gvGo };
+    v.chart = lineChart(c, pts, matchMedia('(min-width: 860px)').matches ? { ...o, h: 140, step: 25, yfmt: (y) => y + ' %', x0: 'Début', x1: 'Fin' } : { ...o, h: 48, compact: true, mid: 50 });
+  }
+  X.on({ first: () => gvGo(0), prev: () => gvGo(v.k - 1), next: () => gvGo(v.k + 1), last: () => gvGo(v.mv.length) });
+  X.keys = { ArrowLeft: 'prev', ArrowRight: 'next', Home: 'first', End: 'last' };
   gvSync();
 }
 
@@ -1633,7 +1691,6 @@ document.addEventListener('click', (ev) => {
   }
   else if (act === 'clq') { S.cl.quiz[+el.dataset.q] = +el.dataset.c; render(true); }
   else if (act === 'keydel') { ls.del('key'); render(true); }
-  else if (act === 'nexterr') { const v = S.gv, list = v.a.errs.filter((x) => x.theme).map((x) => x.ply); const nx = list.find((p) => p > v.k) ?? list[0]; if (nx != null) gvGo(nx); }
   else if (act === 'color') { S.white = el.dataset.w === '1'; S.path = []; render(true); }
   else if (act === 'exmove') { S.path.push(el.dataset.san); render(true); }
   else if (act === 'expath') { S.path = S.path.slice(0, +el.dataset.n); render(true); }

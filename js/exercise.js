@@ -14,11 +14,12 @@ let pending = null, cur = null;
 //   panel     contenu du panneau (colonne de droite sur ordinateur, sous le bandeau sur téléphone ; il défile seul)
 //   bar       boutons de la barre d'actions : data-x="nom" pour une action de l'exercice, data-act pour la navigation
 //   top       () => HTML : avancée montrée dans la barre du haut sur téléphone
+//   rail      HTML placé dans le cadre de l'échiquier, avant lui (barre d'évaluation de la relecture) ; wrap : classe du cadre
 //   live      true si un rendu d'arrière-plan ne doit pas reconstruire l'écran (exercice en cours)
 //   autres champs : libres, retrouvés au montage dans X.spec
 export function screen(spec) {
   pending = spec;
-  return `<div class="bwrap"><div class="board" id="xb"></div><div class="cap ${spec.capClass || ''}" id="xcap">${spec.cap || ''}</div></div>
+  return `<div class="bwrap ${spec.wrap || ''}">${spec.rail || ''}<div class="board" id="xb"></div><div class="cap ${spec.capClass || ''}" id="xcap">${spec.cap || ''}</div></div>
     <div class="fitside"><div class="fithead">${spec.head || ''}</div><div class="stack fitpanel" id="xpanel">${spec.panel || ''}</div><div class="actbar" id="xbar">${spec.bar || ''}</div></div>`;
 }
 

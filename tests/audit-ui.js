@@ -6,7 +6,7 @@
 const { chromium } = require('playwright');
 const fs = require('fs'), path = require('path'), os = require('os');
 const { USER, GAMES, startServer, stopServer, routeChessCom } = require('./fixture');
-const PORT = 8766, OUT = path.resolve(process.argv[2] || path.join(__dirname, 'out/audit'));
+const PORT = +process.env.PORT || 8766, OUT = path.resolve(process.argv[2] || path.join(__dirname, 'out/audit'));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const SIZES = [
