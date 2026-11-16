@@ -47,3 +47,9 @@ test('tournant non puni par la faute décisive : un seul moment, qui dit tout', 
   assert.deepEqual(m.map((x) => x.k), ['ouv', 'tour', 'fin']);
   assert.match(m[1].text, /Mais tu ne le punis pas : Fb7 au lieu de Fxa8 \(Pièce posée en prise\), tes chances de gain passent de \d+ % à \d+ %\./);
 });
+
+test('sortie de l’ouverture : le plan typique de l’ouverture jouée est rappelé', () => {
+  const { g, a } = setup(() => 0, []);
+  const m = moments(g, a, { plan: 'Le fou en c4 vise f7.', name: 'Partie italienne' });
+  assert.match(m[0].text, /Partie italienne, le plan pour ton camp : Le fou en c4 vise f7\.$/);
+});

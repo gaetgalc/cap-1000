@@ -1,7 +1,7 @@
 // Brief du coach de l'accueil : faits tirés des parties, puis trois phrases. node --test tests/
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-const { briefFacts, coachBrief, CAUSES } = await import('../js/brief.js');
+const { briefFacts, coachBrief, CAUSES, selfVerdict } = await import('../js/brief.js');
 
 // Partie analysée : out (W/L/D), erreurs [ply, thème, genre], pendule optionnelle (secondes restantes après chaque demi-coup).
 const game = (t, out, errs, clk) => ({ g: { id: 'g' + t, t, out, w: true, base: 600, tc: 'rapid', san: Array(60).fill('x'), clk: clk || [] }, a: { errs: errs.map(([ply, theme, kind = 'gaffe']) => ({ ply, theme, kind })) } });
@@ -48,4 +48,12 @@ test('brief : sans partie analysée, chantier validé', () => {
   const ok = coachBrief({ facts: { n: 10, lost: 1, lostWith: 0, errs: 0, avgMove: null, low: 0, timed: 0 }, theme: 'Mat raté', rule: 'R.', fs: { base: 0.5, now: 0.1, nAfter: 6, target: 0.25, ok: true }, cause: { n: 0, by: {}, top: null }, next: null });
   assert.match(ok.diag, /plus aucune erreur de type « Mat raté »/);
   assert.match(ok.goal, /^Objectif atteint/);
+});
+
+test('auto-évaluation confrontée à l’analyse de la partie', () => {
+
+  assert.equal(selfVerdict(true, [], 'Mat raté'), 'Confirmé : aucune erreur « Mat raté » dans cette partie. Continue comme ça.');
+  assert.equal(selfVerdict(true, [18, 25], 'Pièce posée en prise'), 'Tu dis oui, mais l’analyse trouve 2 « Pièce posée en prise » (coups 18 et 25). Rejoue-les dans tes puzzles.');
+  assert.match(selfVerdict(false, [], 'X'), /^Tu ne l’as pas appliquée, et pourtant aucune erreur « X »/);
+  assert.equal(selfVerdict(false, [12], 'X'), 'Tu ne l’as pas appliquée, et ça se voit : 1 « X » (coup 12).');
 });

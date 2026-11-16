@@ -148,6 +148,16 @@ export function makeProgress(store = ls, now = () => Date.now()) {
     return { n: last.length, by, top: id ? { id, n, share: Math.round((100 * n) / last.length) / 100 } : null };
   }
 
+  // ---- Auto-évaluation d'une partie (clé 'self') : « As-tu appliqué la règle du chantier ? » ----
+  const selfAll = () => store.get('self', {});
+  function recordSelf(id, y) {
+    const s = selfAll(); s[id] = { y: !!y, t: now() };
+    store.set('self', Object.fromEntries(Object.entries(s).sort((a, b) => b[1].t - a[1].t).slice(0, 100)));
+  }
+  const selfOf = (id) => selfAll()[id] || null;
+  // ---- Exercice de plan (choisir la bonne idée) : journal k 'i', 2 trouvé, 0 raté ----
+  function recordIdea(id, ok) { log({ k: 'i', id, r: ok ? 2 : 0 }); bump('idea'); }
+
   // ---- Lecture : le jour en cours ----
   const todayPuzzles = () => { const d0 = dayStart(); return hist().filter((h) => h.k === 'm' && !h.re && h.t >= d0); };
   // Ratés du jour qui n'ont pas été réussis depuis. exists(id) écarte les positions qui ne sont plus disponibles.
@@ -169,7 +179,7 @@ export function makeProgress(store = ls, now = () => Date.now()) {
     return { done, due, goal: Math.max(1, Math.min(GOAL, done + due)), t };
   }
 
-  return { dkey, dayStart, act, bump, streak, hist, queue, acquired, recordPuzzle, rateInfo, ratePuzzle, recordLichess, lichessStat, recordDrill, recordConversion, conversions, recordLine, lineState, linesDue, drills, lessonsRead, setLessonRead, todayPuzzles, run, failedToday, day, recordCause, causeOf, causes };
+  return { dkey, dayStart, act, bump, streak, hist, queue, acquired, recordPuzzle, rateInfo, ratePuzzle, recordLichess, lichessStat, recordDrill, recordConversion, conversions, recordLine, lineState, linesDue, drills, lessonsRead, setLessonRead, todayPuzzles, run, failedToday, day, recordCause, causeOf, causes, recordSelf, selfOf, recordIdea };
 }
 
 export const progress = makeProgress();

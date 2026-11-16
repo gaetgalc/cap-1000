@@ -47,3 +47,11 @@ export function coachBrief({ facts: f, theme, rule, fs, cause, next }) {
   else goal = `Objectif : ${f1(fs.target)} par partie sur 5 parties. Tu es à ${f1(fs.nAfter && fs.now != null ? fs.now : fs.base)}.`;
   return { diag, todo, goal };
 }
+
+// Auto-évaluation après une partie (« As-tu appliqué la règle ? ») confrontée à l'analyse.
+// moves : numéros de coup des erreurs du chantier dans cette partie.
+export function selfVerdict(yes, moves, theme) {
+  const th = `« ${theme} »`, n = moves.length, where = n ? ` (coup${n > 1 ? 's' : ''} ${n > 1 ? moves.slice(0, -1).join(', ') + ' et ' + moves[n - 1] : moves[0]})` : '';
+  if (yes) return n ? `Tu dis oui, mais l’analyse trouve ${n} ${th}${where}. Rejoue-les dans tes puzzles.` : `Confirmé : aucune erreur ${th} dans cette partie. Continue comme ça.`;
+  return n ? `Tu ne l’as pas appliquée, et ça se voit : ${n} ${th}${where}.` : `Tu ne l’as pas appliquée, et pourtant aucune erreur ${th} : bonne partie, mais garde la routine.`;
+}

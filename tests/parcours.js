@@ -237,6 +237,28 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   await page.waitForFunction(() => window.__cap?.job.total > 0 && !window.__cap.job.running, null, { timeout: 180000 });
   check(await S(() => Object.values(window.__cap.an).every((a) => a.bad || a.mp)) && await errCount() === nErr, 'analyses sans coups qui tiennent : complétées une fois, mêmes erreurs');
 
+  // ---- Tier 2 : idées de plan, avant de jouer, auto-évaluation, Mon jeu ----
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#idees`); await sleep(900);
+  const nIdeas = await S(() => document.querySelectorAll('#xpanel .idea-c').length);
+  if (nIdeas) {
+    check(nIdeas >= 2 && nIdeas <= 3, 'idées de plan : deux ou trois idées proposées');
+    await page.click('#xpanel .idea-c'); await sleep(400);
+    check((await ls('hist')).some((h) => h.k === 'i') && /Le bon plan/.test(await bar('#idex')) && /Position suivante/.test(await bar('#xbar')), 'idées de plan : le choix est noté, le bon plan expliqué');
+  } else check(/Pas encore de position calme/.test(await bar('#view')), 'idées de plan : message clair sans position calme');
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#accueil`); await sleep(500);
+  // Partie récente simulée en mémoire (les parties de test ont plus de 3 jours) : la dernière, jouée il y a une heure, après le début du chantier.
+  await S(() => { const s = window.__cap, g = s.data.games.filter((x) => x.tc === 'rapid' && s.an[x.id] && !s.an[x.id].bad).pop(); g.t = Math.floor(Date.now() / 1000) - 3600; const f = JSON.parse(localStorage.getItem('cap1000:focus')); f.since = g.t - 60; localStorage.setItem('cap1000:focus', JSON.stringify(f)); location.hash = '#bilan'; });
+  await sleep(400); await S(() => { location.hash = '#accueil'; }); await sleep(500);
+  check(/As-tu appliqué ta règle/.test(await bar('.brief')), 'accueil : après une partie récente, le coach demande si la règle a été appliquée');
+  await page.setViewportSize({ width: 390, height: 664 }); await sleep(300);
+  check(await S(() => document.querySelector('.lgbtn').getBoundingClientRect().bottom <= document.querySelector('#nav').getBoundingClientRect().top), 'accueil en 390 × 664 avec la question : rien ne passe sous la barre du bas');
+  await page.setViewportSize({ width: 390, height: 760 }); await sleep(300);
+  await page.click('.brief [data-act="selfck"][data-v="1"]'); await sleep(400);
+  check(/Confirmé|Tu dis oui/.test(await bar('.brief .bdiag')), 'accueil : la réponse est confrontée à l’analyse de la partie');
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#avantpartie`); await sleep(500);
+  check(/Ta routine/.test(await bar('#view')) && await S(() => document.querySelectorAll('#view .btn.pri').length === 1 && /chess\.com/.test(document.querySelector('#view .btn.pri').href)), 'avant de jouer : règle, routine et un seul bouton vers Chess.com');
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#bilan`); await sleep(700);
+  check(/Ton programme/.test(await bar('#view')) && /Semaine 1 · Comprendre/.test(await bar('#view')), 'Mon jeu : programme de 4 semaines du chantier');
   check(errs.length === 0, 'aucune erreur JavaScript' + (errs.length ? ' : ' + errs.join(' | ') : ''));
   await browser.close(); stopServer();
   console.log(failed ? `\n${failed} échec(s)` : '\nTout passe.');

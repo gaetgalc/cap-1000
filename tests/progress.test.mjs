@@ -208,3 +208,13 @@ test('cause d’une erreur : une réponse par puzzle, modifiable, et la cause do
   for (let i = 0; i < 30; i++) { clock.t += 1000; P.recordCause('t' + i, 'temps'); }
   assert.deepEqual(P.causes().by, { temps: 30 }, 'seules les 30 dernières réponses comptent');
 });
+
+test('auto-évaluation d’une partie et exercice de plan : notés, relus, au journal', () => {
+  const { P } = setup();
+  assert.equal(P.selfOf('g1'), null);
+  P.recordSelf('g1', true); P.recordSelf('g1', false);
+  assert.equal(P.selfOf('g1').y, false, 'la dernière réponse compte');
+  P.recordIdea('5:38', true); P.recordIdea('5:40', false);
+  assert.deepEqual(P.hist().filter((h) => h.k === 'i').map((h) => [h.id, h.r]), [['5:38', 2], ['5:40', 0]]);
+  assert.equal(P.act()[P.dkey()].idea, 2);
+});

@@ -176,7 +176,7 @@ export function buildLine(fen, moves, me, winning) {
 const matTxt = (d) => (d === 0 ? 'matériel inchangé' : d > 0 ? `+${d} point${d > 1 ? 's' : ''} de matériel pour toi` : `${d} point${d < -1 ? 's' : ''} de matériel pour toi`.replace('-', '−'));
 
 // Règle à retenir pour chaque type d'intention (plan.js).
-const PLAN_RULE = {
+export const PLAN_RULE = {
   prepare: 'Un bon coup calme prépare le suivant : avant de jouer, demande-toi quelle pièce tu veux amener, et sur quelle case.',
   trap: 'Une pièce sans case est une cible : la prochaine étape est de l’attaquer.',
   block: 'Un pion passé se bloque avec une pièce posée juste devant lui, idéalement un cavalier.',
