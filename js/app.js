@@ -16,7 +16,10 @@ import * as exo from './exercise.js';
 import { LI_ANGLES, LI_FOR, LI_DIFF, fetchPuzzle } from './lichess.js';
 import { DRILLS, DRILL_FOR, makeRound } from './drills.js';
 import { OPENINGS, GROUPS, byId, lineKey, movesOf, matchGame } from './openings.js';
-import { MODELS, coachKey, coachModel, facts, genLesson, askCoach, buildPrompt, parseLesson } from './coach.js';
+import { MODELS, coachKey, coachModel, facts, genLesson, askCoach, buildPrompt, parseLesson, askPosition, positionText } from './coach.js';
+import { coachBrief, briefFacts, CAUSES, mainCause } from './brief.js';
+import { moments } from './debrief.js';
+import { intent } from './plan.js';
 import * as backup from './backup.js';
 import { toast } from './toast.js';
 import * as sound from './sound.js';
@@ -434,6 +437,25 @@ function viewHistory() {
 
 // ---------- Explication : suites commentées, idée, comparaison ----------
 const LINES = new Map();
+// Pourquoi l'erreur en partie : la réponse de l'élève oriente le brief du coach et l'échauffement (brief.js, CAUSES).
+function whyCard(id, e) {
+  const cur = progress.causeOf(id);
+  return `<div class="card whyq"><h3>Pourquoi as-tu joué ${fr(e.played)} en partie ?</h3><div class="whyb">${Object.entries(CAUSES).map(([k, c]) => `<button class="btn sm ${cur === k ? 'on' : ''}" data-x="why" data-v="${k}" aria-pressed="${cur === k}">${c.label}</button>`).join('')}</div>
+    <p class="small">${cur ? esc(CAUSES[cur].tip) : 'Ta réponse oriente mes prochains conseils et ton échauffement.'}</p></div>`;
+}
+// « Demande au coach » : Claude commente la position (clé API), ou la question est copiée pour une conversation Claude.
+const ASK = new Map(); // réponses par position, le temps de la session
+const askLabel = () => (coachKey() ? 'Demande au coach' : 'Copier la question pour Claude');
+async function askRun(key, p, out) {
+  if (ASK.has(key)) return ASK.get(key);
+  if (!coachKey()) {
+    const t = positionText(p);
+    try { await navigator.clipboard.writeText(t); toast('Question copiée : colle-la dans une conversation Claude'); } catch { if (out) out.innerHTML = `<p class="small">Copie ce texte dans une conversation Claude :</p><textarea readonly rows="4" aria-label="Question pour Claude">${esc(t)}</textarea>`; }
+    return null;
+  }
+  if (out) out.innerHTML = coach('Je regarde la position…');
+  const a = await askPosition(p); ASK.set(key, a); return a;
+}
 function getLines(g, e) {
   const id = g.t + ':' + e.ply;
   if (LINES.has(id)) return LINES.get(id);
@@ -462,6 +484,8 @@ function explainUI(X, o) {
   X.say('', `<p>${o.verdict || ''} Je prépare l’explication…</p>`);
   X.solved();
   if (o.rate) X.on({ rate(v) { progress.ratePuzzle(o.rate, v || ''); document.querySelectorAll('.rate').forEach((el) => { el.outerHTML = rateRow(o.rate); }); } });
+  if (o.why) X.on({ why(v) { if (progress.recordCause(o.why, v)) document.querySelectorAll('.whyq').forEach((el) => { el.outerHTML = whyCard(o.why, e); }); } });
+  const askKey = e.fen + '|' + e.playedUci;
   X.setBar(X.spec.exit);
   getLines(g, e).then((d) => {
     if (!X.alive()) return;
@@ -469,6 +493,12 @@ function explainUI(X, o) {
     const chip = (L) => (i) => { if (!L.slice(0, i).some((q) => q.raw.captured)) return ''; const m = L[i - 1].mat - d.m0; return `<span class="chip ${m > 0 ? 'good' : m < 0 ? 'bad' : ''}">${m ? `Bilan ${m > 0 ? '+' : '−'}${Math.abs(m)}` : 'Bilan : égalité'}</span>`; };
     const bilan = (L, label, txt) => { const s = L[L.length - 1]; return !s ? '' : s.tags.mate ? `<b>Bilan :</b> échec et mat${s.tags.mine ? '' : ' contre toi'}.` : `<b>Bilan de ${label} :</b> ${txt}.`; };
     const real = g.san[e.ply + 1], refReply = d.ref[1];
+    X.on({ async ask(_, btn) {
+      const out = btn.parentElement.querySelector('.askout'); btn.disabled = true;
+      const p = { fen: e.fen, me: g.w ? 'w' : 'b', played: e.playedUci, best: e.best, pv: d.best.map((q) => q.san), ev: e.e0, context: `Partie du ${dfmt(g.t)} contre ${g.opp} (${g.or} Elo), ouverture ${g.fam}. Type d’erreur détecté : ${st.THEMES[e.theme] || 'imprécision'}.` };
+      try { const a = await askRun(askKey, p, out); if (a && X.alive()) { out.innerHTML = coach(txt(a)); btn.remove(); } else btn.disabled = false; }
+      catch (err) { out.innerHTML = `<p class="small">${esc(err.message || err)}</p>`; btn.disabled = false; }
+    } });
     X.player({
       view: o.api.view, arrows: o.api.arrows, ask: o.api.ask,
       films: {
@@ -479,7 +509,8 @@ function explainUI(X, o) {
       },
       verdict: o.verdict, exit: X.spec.exit, from: o.exact === false ? 0 : 1, rest: 1,
       panel: o.panel, panelHtml: (key) => { const best = key === 'best', L = d[key]; return `${rateRow(o.rate)}<div class="seg2 mini" role="tablist"><button role="tab" data-x="film" data-v="best" class="${best ? 'on' : ''}">La bonne suite</button><button role="tab" data-x="film" data-v="ref" class="${best ? '' : 'on'}">Ton coup : ${fr(e.played)}</button></div>
-        <div class="card idea"><h3>L’idée derrière ${fr(e.bestSan)}</h3><p>${esc(d.ins.idee)}</p></div>
+        <div class="card idea"><h3>L’idée derrière ${fr(e.bestSan)}</h3><p>${esc(d.ins.idee)}</p>${ASK.has(askKey) ? `<div class="askout">${coach(txt(ASK.get(askKey)))}</div>` : `<div class="askrow"><button class="btn sm" data-x="ask">${askLabel()}</button><div class="askout"></div></div>`}</div>
+        ${o.why ? whyCard(o.why, e) : ''}
         <h3 class="lh">${best ? 'La bonne suite, coup par coup' : `Ce que permettait ${fr(e.played)}`}</h3>
         <ol class="line">${L.map((q, k) => `<li data-x="jump" data-v="${k + 1}"><b>${q.white ? q.no + '.' : (k === 0 ? q.no + '…' : '')} ${fr(q.san)}</b><span>${esc(q.text)}</span></li>`).join('')}</ol>
         ${!best && real && refReply && real !== refReply.san ? `<p class="small">En partie, ton adversaire a répondu ${fr(real)} au lieu de ${fr(refReply.san)} : il n’a pas trouvé la meilleure réponse. Ton coup restait une erreur, un adversaire plus attentif l’aurait punie.</p>` : ''}
@@ -571,7 +602,7 @@ function mountPuzzle() {
   const api = solveBoard(X, p.g, p.e, {
     done: (res, first, html, exact) => {
       if (first) pzRecord(p, res); // noté tout de suite : quitter la page ne fait rien perdre
-      explainUI(X, { g: p.g, e: p.e, api, panel: $('#pzx'), verdict: html, exact, rate: res === 2 ? p.id : null });
+      explainUI(X, { g: p.g, e: p.e, api, panel: $('#pzx'), verdict: html, exact, rate: res === 2 ? p.id : null, why: p.id });
     },
   });
 }
@@ -970,7 +1001,8 @@ function session() {
   const { done: pzDone, due, goal: pzGoal } = pzDay();
   const mid = new Date(); mid.setHours(0, 0, 0, 0);
   const played = rapidAll().filter((g) => g.t >= mid.getTime() / 1000).length;
-  const les = fc ? fc.id : nextLesson(ids), dr = fc ? DRILL_FOR[fc.id] : 'sur';
+  const cz = mainCause(progress.causes()); // la cause que l'élève donne à ses erreurs choisit l'échauffement, quand elle en a un
+  const les = fc ? fc.id : nextLesson(ids), dr = (cz && CAUSES[cz].drill) || (fc ? DRILL_FOR[fc.id] : 'sur');
   // Un exercice commencé puis quitté se reprend là où il s'est arrêté.
   const drOn = S.dr && S.dr.type === dr && S.dr.day === dkey() && S.dr.i > 0 && S.dr.i < S.dr.items.length;
   const clOn = S.cl && S.cl.id === les && S.cl.step > 0 && S.ai[les];
@@ -998,6 +1030,14 @@ function focusCard(fc, es) {
     <div><button class="btn" data-act="lifocus">Travailler ce thème sur des positions inédites</button></div>
     <div class="row">${fs.ok && others[0] ? `<button class="btn pri" data-act="focusnext" data-id="${others[0].id}">Chantier suivant : ${st.THEMES[others[0].id]}</button>` : ''}
       ${others.length ? `<label class="small" for="fsel">Changer</label><select id="fsel" data-f="focus"><option value="${fc.id}">${st.THEMES[fc.id]}</option>${others.map((t) => `<option value="${t.id}">${st.THEMES[t.id]} (${t.n})</option>`).join('')}</select>` : ''}</div></section>`;
+}
+// Pourquoi tu te trompes : les réponses données après les puzzles tirés de tes parties (progress.causes).
+function causesCard() {
+  const c = progress.causes(), top = mainCause(c);
+  if (!c.n) return `<div class="card"><h2>Pourquoi tu te trompes</h2><p class="sub">Après chaque puzzle tiré de tes parties, dis-moi pourquoi tu avais joué ce coup. Je m’en sers pour choisir tes conseils et ton échauffement.</p></div>`;
+  return `<div class="card"><h2>Pourquoi tu te trompes <span class="small">${pl(c.n, 'réponse')}</span></h2>
+    <table><tbody>${Object.entries(CAUSES).map(([k, x]) => `<tr><td>${x.label}</td><td class="r"><b>${c.by[k] || 0}</b></td></tr>`).join('')}</tbody></table>
+    ${top ? `<p class="rulet">« ${esc(CAUSES[top].tip)} »</p><p class="small">C’est la consigne de ton brief${CAUSES[top].drill ? ` ; l’échauffement du jour devient « ${DRILLS[CAUSES[top].drill].t} »` : ''}.</p>` : '<p class="small">Pas encore de cause dominante : il faut au moins 3 réponses, dont 40 % identiques.</p>'}</div>`;
 }
 function trendCard(gs) {
   const tr = st.themeTrend(gs, S.an);
@@ -1042,13 +1082,15 @@ function sessionCard(steps, nDone) {
   const prog = `<ul class="dayplan d-only">${steps.map((x) => `<li class="${x.done ? 'done' : x === cur ? 'on' : ''}"><i aria-hidden="true">${x.done ? '✓' : ''}</i><span><b>${x.t}${x === cur ? ' <span class="chip">en cours</span>' : ''}</b>${x === cur ? '' : `<span>${esc(x.d)}</span>`}</span></li>`).join('')}</ul>`;
   return `<section class="card today"><div class="row d-flex" style="justify-content:space-between"><h2>${all ? 'Séance du jour terminée' : 'Ta séance du jour'}</h2><span class="chip ${all ? 'good' : ''}">${nDone} / ${steps.length}</span></div>${dots}${body}${prog}</section>`;
 }
-function focusMini(fc) {
+// Mot du coach : ce que je vois dans tes parties, ce qu'on fait aujourd'hui, à quoi on saura que ça marche (brief.js).
+// Le détail chiffré reste dans « Mon jeu ».
+const STEP_NEXT = { dr: 'l’échauffement', pz: 'les puzzles de ton chantier', les: 'ton cours', play: 'tes 2 parties' };
+function briefCard(fc, steps) {
   if (!fc) return '';
-  const fs = focusStats(fc), cls = fs.now != null && fs.base != null ? (fs.now < fs.base ? 'ok' : fs.now > fs.base ? 'ko' : '') : '';
-  const nums = fs.base == null ? 'Joue quelques parties pour le mesurer.'
-    : `${f1(fs.base)} → <b class="${cls}">${fs.nAfter ? f1(fs.now) : '?'}</b> par partie · objectif ${f1(fs.target)}${fs.nAfter < 5 ? ` · ${fs.nAfter} / 5 parties` : ''}`;
-  return `<a class="card fmini" href="#bilan"><span class="hlab d-flex">Ton chantier${fs.ok ? ' <span class="chip good">validé</span>' : ''}<span class="chev" aria-hidden="true">›</span></span>
-    <b class="htitle"><span class="m-only">Chantier : </span>${st.THEMES[fc.id]}</b><span class="frule">« ${RULES[fc.id]} »</span><span class="sub fnums">${nums}</span></a>`;
+  const fs = focusStats(fc), cur = steps.find((x) => !x.done);
+  const b = coachBrief({ facts: briefFacts(S.data.games.filter((g) => g.tc === targetTc()), S.an, fc.id), theme: st.THEMES[fc.id], rule: RULES[fc.id], fs, cause: progress.causes(), next: cur ? STEP_NEXT[cur.k] : null });
+  return `<a class="card fmini brief" href="#bilan"><span class="hlab">Le mot du coach · chantier ${esc(st.THEMES[fc.id].toLowerCase())}${fs.ok ? ' <span class="chip good">validé</span>' : ''}<span class="chev" aria-hidden="true">›</span></span>
+    <span class="bdiag">${esc(b.diag)}</span><span class="btodo d-only">${esc(b.todo)}</span><span class="sub fnums">${esc(b.goal)}</span></a>`;
 }
 // Dernière partie de la cadence suivie : résultat et pire faute, à revoir ou à rejouer en un clic.
 // Dernière partie de la cadence suivie : résultat et pire faute, à revoir ou à rejouer en un clic.
@@ -1066,7 +1108,7 @@ function lastGameCard() {
   // Ordinateur : la position de la pire faute, coup joué en rouge (la solution reste à trouver dans « Rejouer l'erreur »).
   const pos = e ? `<a class="lgpos d-only" href="#partie/${g.t}/${e.ply}" aria-label="Position avant ${esc(fr(e.played))}"><span class="board" id="lgb" data-t="${g.t}" data-ply="${e.ply}"></span></a>` : '';
   const btns = !e ? '' : `<div class="lgbtn"><a class="btn" href="#partie/${g.t}/${e.ply}"><span class="d-only">Voir ce que j’ai joué</span><span class="m-only">Voir mon coup</span></a><a class="btn" href="#erreur/${g.t}/${e.ply}">Rejouer l’erreur</a></div>`;
-  return `<section class="card lgame"><span class="hlab d-flex">Ta dernière partie<span class="small">${dfmt(g.t)}</span></span>
+  return `<section class="card lgame"><span class="hlab d-flex">Ta dernière partie<span class="small">${dfmt(g.t)}${a && !a.bad ? ` · <a href="#partie/${g.t}/d">Débrief</a>` : ''}</span></span>
     ${e ? `<div class="lgrow">${pos}<div class="lgtxt">${head}${body}</div></div>${btns}` : head + body}</section>`;
 }
 // Mini-échiquier de la dernière partie : non interactif, créé seulement s'il est affiché (ordinateur).
@@ -1079,7 +1121,7 @@ function mountAccueil() {
 }
 function viewAccueil() {
   const { steps, fc, nDone } = session();
-  return `<div class="home">${goalStrip()}${sessionCard(steps, nDone)}<div class="hside">${focusMini(fc)}${lastGameCard()}</div></div>`;
+  return `<div class="home">${goalStrip()}${sessionCard(steps, nDone)}<div class="hside">${briefCard(fc, steps)}${lastGameCard()}</div></div>`;
 }
 
 // ---------- Mon jeu : objectif, chantier, points forts et faibles, tendance, bilan ----------
@@ -1092,6 +1134,7 @@ function viewBilan() {
   <div class="hero">${gb.html}
     <div class="card"><h2>Ton classement ${S.f.tc === 'all' ? 'Rapide' : TC[S.f.tc]}</h2><div class="chart" id="rc"></div></div></div>
   ${focusCard(fc, es)}
+  ${causesCard()}
   ${gs.length ? `<div class="grid">
     <div class="card"><h2>Points forts</h2>${sigHtml(sig.forces, 'good', 'Pas encore assez de parties pour dégager un point fort net.')}</div>
     <div class="card"><h2>Points faibles</h2>${sigHtml(sig.faiblesses, 'bad', 'Aucune faiblesse nette détectée pour ce filtre.')}</div>
@@ -1461,17 +1504,25 @@ function gvShapes(v, k) {
 // Bandeau de la relecture : cls est la classe d'état du bandeau (sans « cap »).
 function gvCap(v) {
   const k = v.k, g = v.g, a = v.a, e = v.errAt[k], prevErr = v.errAt[k - 1], me = g.w ? 'w' : 'b';
+  if (v.db != null) { const L = gvDbList(v), m = L[v.db]; return { cls: 'db', html: `<div class="capm"><span class="capn">Débrief ${v.db + 1} / ${L.length}</span><span class="chip">${m.title}</span></div><p>${esc(m.text)}</p>` }; }
+  if (v.ask?.k === k) return { cls: 'coachq', html: `<div class="capm"><span class="capn">Le coach</span><button class="btn sm gvwhy" data-act="askclose">Fermer</button></div>${v.ask.err ? `<p>${esc(v.ask.err)}</p>` : v.ask.html ? `<p>${txt(v.ask.html)}</p>` : '<p>Je regarde la position…</p>'}` };
+  const askB = `<button class="btn sm capask" data-act="askpos" title="${coachKey() ? 'Demande au coach de commenter cette position' : 'Copie la question pour la coller dans Claude'}">Coach</button>`;
   const kindChip = (x) => `<span class="chip ${x.kind === 'gaffe' ? 'bad' : x.kind === 'erreur' ? 'warn' : ''}">${x.kind === 'gaffe' ? 'Gaffe' : x.kind === 'erreur' ? 'Erreur' : 'Imprécision'}</span>`;
-  if (e) return { cls: 'ko', html: `<div class="capm"><span class="capn">Moment clé, coup ${moveNo(e)}</span>${kindChip(e)}<a class="btn pri sm gvwhy" href="#erreur/${g.t}/${e.ply}">Comprendre<span class="d-txt">cette erreur</span></a></div><p>${explain(e)}</p>` };
+  if (e) return { cls: 'ko', html: `<div class="capm"><span class="capn">Moment clé, coup ${moveNo(e)}</span>${kindChip(e)}<a class="btn pri sm gvwhy" href="#erreur/${g.t}/${e.ply}">Comprendre<span class="d-txt">cette erreur</span></a>${askB}</div><p>${explain(e)}</p>` };
+  const dbB = a ? ' <button class="btn sm" data-act="dbgo" data-i="0">Débrief de la partie</button>' : '';
   const txtK = k > 0 ? moveText(g, k, me) : 'Position de départ. Avance coup par coup : chaque coup est commenté ici.';
-  const b = gvBest(v, k), bestP = b ? `<span class="capbest">Meilleur <b>${fr(b.san)}</b>${b.played ? ' (joué)' : ''}</span>${!b.played && v.mv[k] ? `<span class="capbest ko">Joué <b>${fr(v.mv[k].san)}</b></span>` : ''}` : '';
+  const b = gvBest(v, k), it = b && !b.played ? intent(v.fens[k], a.pv?.[k]?.[0] === b.uci ? a.pv[k] : [b.uci], me) : null, bestP = b ? `<span class="capbest">Meilleur <b>${fr(b.san)}</b>${b.played ? ' (joué)' : ''}</span>${!b.played && v.mv[k] ? `<span class="capbest ko">Joué <b>${fr(v.mv[k].san)}</b></span>` : ''}` : '';
   const evp = a ? `<span class="chip evnum" title="Évaluation du moteur, de ton point de vue">${fmtEval(g.w ? a.ev[k] : -a.ev[k])}</span>` : '';
-  return { cls: '', html: `<div class="capm"><span class="capn">${k > 0 ? `<i class="dot ${k % 2 ? 'w' : 'b'}"></i>${Math.ceil(k / 2)}${k % 2 ? '.' : '…'} ${fr(v.mv[k - 1].san)}` : 'Début'}</span>${evp}${prevErr ? kindChip(prevErr) : ''}${bestP}</div><p>${esc(txtK)}</p>` };
+  return { cls: '', html: `<div class="capm"><span class="capn">${k > 0 ? `<i class="dot ${k % 2 ? 'w' : 'b'}"></i>${Math.ceil(k / 2)}${k % 2 ? '.' : '…'} ${fr(v.mv[k - 1].san)}` : 'Début'}</span>${evp}${prevErr ? kindChip(prevErr) : ''}${bestP}${askB}</div><p>${esc(txtK)}${it ? `<span class="d-txt"> Idée de ${fr(b.san)} : ${esc(it.text.replace(/^Ce coup /, ''))}</span>` : ''}${k === 0 || k === v.mv.length ? dbB : ''}</p>` };
 }
 // Barre : début et fin (ordinateur seulement : sur téléphone, la bande de coups commence par « Début »), coup précédent et
 // suivant, erreur précédente et suivante (gaffes et erreurs du joueur, sans boucler). Sur un moment clé, le bouton plein
 // est « Comprendre » dans le bandeau : « Coup suivant » passe en secondaire.
 function gvBar(v) {
+  if (v.db != null) {
+    const i = v.db, last = i === gvDbList(v).length - 1;
+    return `<button class="btn ico" data-act="dbgo" data-i="${i - 1}" aria-label="Moment précédent" ${i === 0 ? 'disabled' : ''}>${ico('prev')}</button>${last ? '<button class="btn pri" data-act="dbend">Terminer le débrief</button>' : `<button class="btn pri" data-act="dbgo" data-i="${i + 1}">Moment suivant${ico('next')}</button><button class="btn" data-act="dbend">Quitter</button>`}`;
+  }
   const k = v.k, n = v.mv.length, pe = errStep(v.keys, k, -1), ne = errStep(v.keys, k, 1);
   return `<button class="btn ico gvfl" data-act="goto" data-k="0" aria-label="Début" ${k === 0 ? 'disabled' : ''}>${ico('first')}</button><button class="btn ico" data-act="goto" data-k="${Math.max(0, k - 1)}" aria-label="Coup précédent" ${k === 0 ? 'disabled' : ''}>${ico('prev')}</button><button class="btn ico ${v.errAt[k] ? '' : 'pri'}" data-act="goto" data-k="${Math.min(n, k + 1)}" aria-label="Coup suivant" ${k === n ? 'disabled' : ''}>${ico('next')}</button><button class="btn ico gvfl" data-act="goto" data-k="${n}" aria-label="Fin" ${k === n ? 'disabled' : ''}>${ico('last')}</button>`
     + (v.keys.length ? `<button class="btn gve" data-act="goto" data-k="${pe ?? 0}" aria-label="Erreur précédente" title="Erreur précédente" ${pe == null ? 'disabled' : ''}>${ico('prev')}Erreur</button><button class="btn gve" data-act="goto" data-k="${ne ?? 0}" aria-label="Erreur suivante" title="Erreur suivante" ${ne == null ? 'disabled' : ''}>Erreur${ico('next')}</button>` : '');
@@ -1489,15 +1540,36 @@ function gvMoves(v) {
   });
   return h;
 }
+// Débrief : le coach raconte la partie en moments clés (debrief.js), l'échiquier suit.
+const gvDbList = (v) => (v.a ? (v.dbl ||= moments(v.g, v.a)) : []);
+function gvDb(i) {
+  const v = S.gv, L = v ? gvDbList(v) : []; if (!L.length) return;
+  v.var = null; v.ask = null; v.db = Math.max(0, Math.min(L.length - 1, i)); v.k = Math.min(v.mv.length, L[v.db].ply);
+  if (v.x?.alive() && v.cg) gvSync(); else render(true);
+}
+// « Coach » dans la relecture : Claude commente la position affichée, la réponse s'affiche dans le bandeau.
+async function gvAsk() {
+  const v = S.gv; if (!v || v.var) return;
+  const k = v.k, g = v.g, a = v.a, key = v.fens[k] + '|' + (v.mv[k]?.san || '');
+  const p = { fen: v.fens[k], me: g.w ? 'w' : 'b', played: v.mv[k]?.san, best: a?.best?.[k] || undefined, pv: a?.pv?.[k], ev: a ? (g.w ? a.ev[k] : -a.ev[k]) : null, context: `Partie du ${dfmt(g.t)} contre ${g.opp} (${g.or} Elo), ouverture ${g.fam}.` };
+  if (!coachKey() && !ASK.has(key)) { await askRun(key, p, null); return; }
+  v.db = null; v.ask = { k, html: ASK.get(key) || null }; gvSync();
+  if (v.ask.html) return;
+  try { const r = await askRun(key, p, null); if (S.gv === v && v.ask?.k === k) { v.ask.html = r; gvSync(); } }
+  catch (err) { if (S.gv === v && v.ask?.k === k) { v.ask.err = err.message || String(err); gvSync(); } }
+}
 function viewPartie(t, plyArg) {
   const g = S.data.games.find((x) => String(x.t) === String(t));
   if (!g) return viewParties();
   const a = S.an[g.id] && !S.an[g.id].bad ? S.an[g.id] : null;
   const ch = new Chess(), fens = [ch.fen()], mv = [];
   for (const s of g.san) { const m = ch.move(s, { sloppy: true }); if (!m) break; mv.push(m); fens.push(ch.fen()); }
-  if (!S.gv || S.gv.t !== g.t) S.gv = { t: g.t, k: plyArg != null ? Math.min(+plyArg, mv.length) : 0, mp: {} };
+  const fresh = !S.gv || S.gv.t !== g.t;
+  if (fresh) S.gv = { t: g.t, k: plyArg != null && plyArg !== 'd' ? Math.min(+plyArg, mv.length) : 0, mp: {} };
   const serious = a ? a.errs.filter((x) => x.theme) : [];
   const v = Object.assign(S.gv, { fens, mv, g, a, errAt: a ? Object.fromEntries(a.errs.map((e) => [e.ply, e])) : {}, keys: serious.map((x) => x.ply).sort((p, q) => p - q) });
+  // #partie/<t>/d : débrief d'entrée, puis l'adresse redevient celle de la partie (un rendu suivant ne le relance pas).
+  if (plyArg === 'd') { if (gvDbList(v).length) { v.var = null; v.ask = null; v.db = 0; v.k = Math.min(mv.length, v.dbl[0].ply); } history.replaceState(null, '', '#partie/' + g.t); }
   const cap = gvCap(v);
   const res = `<span class="chip ${g.out === 'W' ? 'good' : g.out === 'L' ? 'bad' : ''}">${g.out === 'W' ? 'Victoire' : g.out === 'L' ? 'Défaite' : 'Nulle'}${HOW[g.how] ? ' (' + HOW[g.how] + ')' : ''}</span>`;
   const link = `<a class="btn sm" href="${esc(g.id)}" target="_blank" rel="noopener">Chess.com</a>`;
@@ -1507,7 +1579,7 @@ function viewPartie(t, plyArg) {
     wrap: 'gv',
     rail: a ? `<div class="evbar ${g.w ? '' : 'flip'}" id="gvev" aria-hidden="true" style="--ev:${evalShare(a.ev[v.k])}"><i></i></div>` : '',
     cap: cap.html, capClass: cap.cls,
-    panel: `${a ? `<div class="row gvsum"><span class="chip bad">${pl(a.errs.filter((x) => x.kind === 'gaffe').length, 'gaffe')} ??</span><span class="chip warn">${pl(a.errs.filter((x) => x.kind === 'erreur').length, 'erreur')} ?</span><span class="chip">${pl(a.errs.filter((x) => x.kind === 'imprecision').length, 'imprécision')} ?!</span><span class="chip good">Précision ${a.acc?.toFixed(0)} %</span></div>
+    panel: `${a ? `<div class="row gvsum"><span class="chip bad">${pl(a.errs.filter((x) => x.kind === 'gaffe').length, 'gaffe')} ??</span><span class="chip warn">${pl(a.errs.filter((x) => x.kind === 'erreur').length, 'erreur')} ?</span><span class="chip">${pl(a.errs.filter((x) => x.kind === 'imprecision').length, 'imprécision')} ?!</span><span class="chip good">Précision ${a.acc?.toFixed(0)} %</span><button class="btn sm" data-act="dbgo" data-i="0">Débrief</button></div>
       <div class="gvch"><p class="small">Tes chances de gain. Points rouges : gaffes, orange : erreurs. Touche la courbe pour aller au coup.</p><div class="chart" id="evc"></div></div>`
     : `<div class="card"><p class="sub">Cette partie n’est pas encore analysée.</p><div><button class="btn pri" data-act="analyse1" ${S.job.running ? 'disabled' : ''}>${S.job.running ? 'Analyse en cours' : 'Analyser cette partie'}</button></div></div>`}
       <div class="gvm" id="gvm">${gvMoves(v)}</div>
@@ -1599,7 +1671,7 @@ function gvSync() {
 }
 function gvGo(k) {
   const v = S.gv; if (!v) return;
-  v.var = null; // aller à un coup de la partie quitte la variante
+  v.var = null; v.db = null; v.ask = null; // aller à un coup de la partie quitte la variante, le débrief et la réponse du coach
   v.k = Math.max(0, Math.min(v.mv.length, k));
   if (v.x?.alive() && v.cg) gvSync(); else render(true);
 }
@@ -2019,6 +2091,10 @@ document.addEventListener('click', (ev) => {
   else if (act === 'open') location.hash = '#partie/' + el.dataset.t;
   else if (act === 'more') { S.listN += 50; render(true); }
   else if (act === 'goto') gvGo(+el.dataset.k);
+  else if (act === 'dbgo') gvDb(+el.dataset.i);
+  else if (act === 'dbend') gvGo(S.gv?.k ?? 0);
+  else if (act === 'askpos') gvAsk();
+  else if (act === 'askclose') { if (S.gv) { S.gv.ask = null; gvSync(); } }
   else if (act === 'vgo') gvVarGo(+el.dataset.i);
   else if (act === 'vexit') { const k0 = S.gv?.var?.k0; if (k0 != null) gvGo(k0); }
   else if (act === 'bakexp') { const m = $('#bakmsg'); backup.exportFile(S.user).then((n) => { if (m) m.textContent = `Fichier ${n} téléchargé. Range-le dans tes fichiers ou envoie-le sur ton autre appareil.`; toast('Sauvegarde téléchargée'); }).catch((e) => { if (m) m.textContent = 'Sauvegarde impossible : ' + (e.message || e); }); }

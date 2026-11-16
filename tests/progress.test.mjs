@@ -194,3 +194,17 @@ test('réussites d’affilée du jour : série en cours et meilleure série, ré
   P.recordPuzzle(pz('i'), 0);
   assert.deepEqual(P.run(), { cur: 0, best: 4 });
 });
+
+test('cause d’une erreur : une réponse par puzzle, modifiable, et la cause dominante sur les 30 dernières', () => {
+  const { P, clock } = setup();
+  assert.equal(P.causes().n, 0);
+  assert.equal(P.causes().top, null);
+  P.recordCause('a', 'vu'); P.recordCause('b', 'calc'); P.recordCause('c', 'vu');
+  P.recordCause('b', 'vu'); // l'élève corrige sa réponse
+  assert.equal(P.causeOf('b'), 'vu');
+  assert.deepEqual(P.causes(), { n: 3, by: { vu: 3 }, top: { id: 'vu', n: 3, share: 1 } });
+  P.recordCause('d', 'nimporte'); // cause inconnue : ignorée
+  assert.equal(P.causes().n, 3);
+  for (let i = 0; i < 30; i++) { clock.t += 1000; P.recordCause('t' + i, 'temps'); }
+  assert.deepEqual(P.causes().by, { temps: 30 }, 'seules les 30 dernières réponses comptent');
+});

@@ -30,6 +30,10 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   check(await S(() => document.querySelectorAll('.home .stepper li').length === 4 && document.querySelectorAll('.home .btn.pri').length === 1 && !!document.querySelector('.gstrip') && !!document.querySelector('.lgame a[href^="#erreur/"]')), 'accueil : objectif, séance à un seul bouton, dernière partie avec son erreur');
   check(await S(() => document.documentElement.scrollHeight <= innerHeight && document.querySelector('.lgame').getBoundingClientRect().bottom <= document.querySelector('#nav').getBoundingClientRect().top), 'accueil : rien ne défile, tout est au-dessus de la barre du bas');
   // Navigation à 4 entrées (16/11) : chaque entrée ouvre un volet de ses pages ; sur téléphone, le premier appui ouvre, le second ferme
+  check(/dernières parties/.test(await bar('.brief .bdiag')) && /Objectif|Joue et analyse/.test(await bar('.brief .fnums')), 'accueil : le mot du coach donne un diagnostic chiffré et un objectif');
+  await page.setViewportSize({ width: 390, height: 664 }); await sleep(300);
+  check(await S(() => document.querySelector('.lgbtn').getBoundingClientRect().bottom <= document.querySelector('#nav').getBoundingClientRect().top), 'accueil en 390 × 664 : les boutons de la dernière partie restent au-dessus de la barre du bas');
+  await page.setViewportSize({ width: 390, height: 760 }); await sleep(300);
   check(await S(() => document.querySelectorAll('#nav .grp-h').length === 4 && document.querySelector('#nh-ent').dataset.grp.split(' ').includes('cours')), 'navigation : 4 entrées, S’entraîner couvre aussi les cours');
   await page.tap('#nh-ent'); await sleep(250);
   check(await S(() => location.hash === '#accueil' && document.querySelector('#nh-ent').getAttribute('aria-expanded') === 'true' && [...document.querySelectorAll('#fly-ent a')].every((a) => a.getBoundingClientRect().height >= 44) && document.querySelector('#fly-ent').getBoundingClientRect().bottom <= document.querySelector('#nh-ent').getBoundingClientRect().top), 'navigation : un appui ouvre le volet au-dessus de la barre, cibles de 44 px, sans changer de page');
@@ -54,6 +58,11 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   check(/Facile · 3 j/.test(await bar('#xpanel .rate')), 'après une réussite du premier coup, l’avis facile ou difficile est proposé avec son délai');
   const due1 = (await ls('pz'))[c.id].due;
   await page.click('#xpanel .rate [data-v="e"]'); await sleep(200);
+  await page.click('#xpanel .whyq [data-v="vu"]'); await sleep(200);
+  check((await ls('why'))?.[c.id]?.c === 'vu' && await S(() => !!document.querySelector('#xpanel .whyq [data-v="vu"].on')), 'pourquoi l’erreur : la réponse est notée et reste sélectionnée');
+  check(/Copier la question pour Claude/.test(await bar('#xpanel [data-x="ask"]')), 'sans clé API, « Demande au coach » propose de copier la question');
+  await page.click('#xpanel [data-x="ask"]'); await sleep(400);
+  check(await S(() => /Trait aux/.test(document.querySelector('#xpanel .askout textarea')?.value || '') || /Question copiée/.test(document.body.innerText)), 'la question pour Claude est copiée, ou affichée à copier');
   check((await ls('pz'))[c.id].due - due1 === 2 * 86400000 && await S(() => document.querySelector('#xpanel .rate [data-v="e"]').classList.contains('on')), '« Facile » repousse le retour du puzzle (1 jour → 3 jours)');
 
   await page.reload(); await sleep(900);
@@ -122,7 +131,7 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
 
   // ---- Relecture : l'échiquier se joue, un autre coup ouvre une variante évaluée ----
   await page.keyboard.press('Home'); await sleep(300);
-  const gw = await S(() => window.__cap.gv.g.w);
+  const gw = await S(() => window.__cap.gv.g.w), gt = await S(() => window.__cap.gv.g.t);
   const alt0 = await S(() => { const v = window.__cap.gv, real = v.mv[0]; return new Chess(v.fens[0]).moves({ verbose: true }).find((x) => x.from + x.to !== real.from + real.to); });
   const real0 = await S(() => window.__cap.gv.mv[0]);
   await tap('#xb', real0.from, gw); await sleep(150); await tap('#xb', real0.to, gw); await sleep(400);
@@ -137,6 +146,15 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   check(await S(() => window.__cap.gv.var?.mv.length === 2), 'relecture : l’autre camp se joue aussi dans la variante');
   await page.click('#xbar [data-act="vexit"]'); await sleep(300);
   check(await S(() => !window.__cap.gv.var && window.__cap.gv.k === 0), 'relecture : retour à la partie au coup de départ');
+  await page.click('#xcap [data-act="dbgo"]'); await sleep(400);
+  check(/Débrief 1 \//.test(await bar('#xcap')) && /Moment suivant/.test(await bar('#xbar')), 'débrief : le coach raconte la partie, premier moment');
+  const t1 = await bar('#xcap');
+  await page.click('#xbar [data-act="dbgo"][data-i="1"]'); await sleep(400);
+  check(/Débrief 2 \//.test(await bar('#xcap')) && await bar('#xcap') !== t1 && await S(() => window.__cap.gv.k === window.__cap.gv.dbl[1].ply), 'débrief : moment suivant, l’échiquier suit');
+  await page.click('#xbar [data-act="dbend"]'); await sleep(300);
+  check(await S(() => window.__cap.gv.db == null) && !/Débrief \d/.test(await bar('#xcap')), 'débrief : on le quitte pour revenir à la relecture');
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#partie/${gt}/d`); await sleep(800);
+  check(/Débrief 1 \//.test(await bar('#xcap')), 'débrief : l’adresse #partie/<partie>/d l’ouvre directement');
 
   // ---- Gagner les parties gagnées ----
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#gagner`); await sleep(500);

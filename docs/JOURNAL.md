@@ -381,6 +381,20 @@ Demande : dans « Mes ouvertures », cliquer sur une ouverture pour la détaille
 - Contenu : échiquier sur le tronc commun à toutes les parties, score et barre victoires/nulles/défaites, verdict ; « En chiffres » (part des parties de la couleur, première et dernière fois, classement moyen des adversaires, évaluation après 10 coups, précision, fautes avant le 12e coup) ; courbe « Dans le temps » (par semaine, mois ou trimestre selon la durée, survol : score et part des parties) ; suites jouées au moins deux fois, chacune ouvre l'explorateur sur ses coups ; variantes ; dernières fautes de l'ouverture avec « Rejouer » ; 6 dernières parties ; lien vers la fiche du catalogue quand l'ouverture y figure.
 - Calcul pur dans `stats.famDetail`, testé dans `tests/stats.test.mjs` ; parcours et audit (écran `mon-ouverture`) étendus.
 
+## 36. Un vrai coach privé : les 5 idées du tier 1 (16/11)
+
+> comment faire pour que le site agisse vraiment comme un coach privé ? […] j'aimerai qu'il me dise que l'idée d'un coup ici est d'attaquer ci ou ça par la suite, de garder bloquer une de ses pièces etc.
+
+20 idées proposées et classées ; Gaëtan a demandé les 5 premières (« fais toutes les t1 »).
+
+1. **Mot du coach sur l'accueil** (`brief.js`, `briefCard`) : à la place du chantier en 3 lignes, un diagnostic chiffré sur les 10 dernières parties (défaites liées au chantier, coup moyen, pendule sous 2 min), la consigne du jour (ordinateur) et l'objectif chiffré. La cause que l'élève donne à ses erreurs (point 5) remplace la règle du chantier dans la consigne.
+2. **Intention des coups** (`plan.js`, `geom.js`) : sur un coup calme, ce qu'il prépare (le coup suivant de la suite devient jouable, avec sa cible), la pièce adverse qu'il enferme, le pion passé qu'il bloque, l'avant-poste, la colonne ouverte ou semi-ouverte, les cases visées autour du roi, la rupture de pions, le gain d'activité. Dit dans chaque coup des suites commentées, dans « L'idée derrière… » (fini la phrase passe-partout « améliore ta position sans rien donner »), dans la relecture (coup joué, lu dans la suite réelle de la partie ; idée du meilleur coup sur ordinateur). Géométrie commune sortie d'`explain.js` dans `geom.js`.
+3. **Demande au coach** (`coach.positionPrompt`, `askPosition`, `positionText`) : sur le panneau d'explication et dans la relecture (bouton « Coach » du bandeau), Claude commente la position comme un entraîneur (plan, cible, pièce gênée, règle), à partir de faits vérifiés seulement : pièces, coup joué, suite du moteur, intention calculée, repères (`plan.features` : pions passés, colonnes ouvertes, pièces sans case). Sans clé API, la question est copiée pour une conversation Claude.
+4. **Débrief raconté** (`debrief.js`, `gvDb`) : 5 moments au plus, dans l'ordre (sortie de l'ouverture, tournant donné par l'adversaire et ta réponse, occasion manquée, faute décisive, fin). Bouton « Débrief » dans la relecture, lien sur la dernière partie de l'accueil (ordinateur), adresse `#partie/<end_time>/d`. Le coach parle dans le bandeau, l'échiquier suit, barre « Moment suivant / Quitter ».
+5. **Pourquoi tu t'es trompé** (`progress.recordCause`, `causes`, clé `why`) : après un puzzle tiré de tes parties, 4 réponses (pas vu sa menace, mal calculé, trop vite, autre idée). Une cause dominante (3 réponses, 40 %) change la consigne du brief et l'échauffement du jour (`CAUSES[c].drill` : menace, compte). Carte « Pourquoi tu te trompes » dans Mon jeu.
+
+Vérifié : 75 tests unitaires (nouveaux : `plan`, `brief`, `debrief`, `coach`, causes dans `progress`), parcours de bout en bout (étapes coach, cause, débrief ajoutées), audit sans écart sur 24 écrans (nouvel écran `partie-debrief`), captures en 390 × 664 et 1366 × 768 avec une API Claude simulée.
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |
@@ -396,11 +410,13 @@ Demande : dans « Mes ouvertures », cliquer sur une ouverture pour la détaille
 | Anciennes analyses | Réévaluées une fois, automatiquement, en arrière-plan | Sans données brutes, elles ne pourraient pas suivre un changement de règle |
 | Synchronisation | Fichier de sauvegarde, pas de serveur | Le site reste statique, sans compte |
 | Refonte | Système du skill taste-skill, sans sa partie site vitrine ; Geist ; bouton principal en relief ; 5 entrées, Progrès en volet | Maquette validée le 15/11, faite le 16/11 ; voir `docs/REFONTE.md` |
+| Explications positionnelles | Heuristiques (`plan.js`) d'abord, Claude à la demande | Gratuit et sans clé ; Claude seulement pour les positions où la règle ne suffit pas |
 | Puzzles flous | Écartés s'ils n'ont pas de motif tactique et que 3 coups tenaient | Un puzzle sans réponse nette n'apprend rien |
 
 ## Non vérifié à ce jour
 
 - Import et analyse sur le vrai compte `gaetcc`.
-- Qualité des cours réellement générés par Claude.
+- Qualité des cours réellement générés par Claude, et des réponses de « Demande au coach ».
+- Justesse des intentions (`plan.js`) sur de vraies parties : heuristiques testées sur des positions construites.
 - Rendu du site en ligne (inaccessible depuis l'environnement de Claude).
 - Rythme de l'animation des suites (environ 3 secondes par coup) et lisibilité des points de déplacement sur le téléphone de Gaëtan.
