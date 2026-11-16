@@ -128,6 +128,26 @@ export function makeProgress(store = ls, now = () => Date.now()) {
     d[id] = !!on; store.set('lus', d); bump('les', on ? 1 : -1);
   }
 
+  // ---- Pourquoi l'erreur a été faite en partie : réponse de l'élève, une par puzzle (clé 'why') ----
+  // vu : je n'ai pas vu sa menace ; calc : j'ai mal calculé ; temps : je jouais vite ; plan : je suivais une autre idée.
+  const WHY = ['vu', 'calc', 'temps', 'plan'];
+  const whyAll = () => store.get('why', {});
+  function recordCause(id, c) {
+    if (!WHY.includes(c)) return false;
+    const w = whyAll(); w[id] = { c, t: now() };
+    const keep = Object.entries(w).sort((a, b) => b[1].t - a[1].t).slice(0, 200);
+    store.set('why', Object.fromEntries(keep));
+    return true;
+  }
+  const causeOf = (id) => whyAll()[id]?.c || null;
+  // Les 30 dernières réponses : compte par cause et cause dominante.
+  function causes() {
+    const last = Object.values(whyAll()).sort((a, b) => b.t - a.t).slice(0, 30), by = {};
+    for (const x of last) by[x.c] = (by[x.c] || 0) + 1;
+    const [id, n] = Object.entries(by).sort((a, b) => b[1] - a[1])[0] || [];
+    return { n: last.length, by, top: id ? { id, n, share: Math.round((100 * n) / last.length) / 100 } : null };
+  }
+
   // ---- Lecture : le jour en cours ----
   const todayPuzzles = () => { const d0 = dayStart(); return hist().filter((h) => h.k === 'm' && !h.re && h.t >= d0); };
   // Ratés du jour qui n'ont pas été réussis depuis. exists(id) écarte les positions qui ne sont plus disponibles.
@@ -149,7 +169,7 @@ export function makeProgress(store = ls, now = () => Date.now()) {
     return { done, due, goal: Math.max(1, Math.min(GOAL, done + due)), t };
   }
 
-  return { dkey, dayStart, act, bump, streak, hist, queue, acquired, recordPuzzle, rateInfo, ratePuzzle, recordLichess, lichessStat, recordDrill, recordConversion, conversions, recordLine, lineState, linesDue, drills, lessonsRead, setLessonRead, todayPuzzles, run, failedToday, day };
+  return { dkey, dayStart, act, bump, streak, hist, queue, acquired, recordPuzzle, rateInfo, ratePuzzle, recordLichess, lichessStat, recordDrill, recordConversion, conversions, recordLine, lineState, linesDue, drills, lessonsRead, setLessonRead, todayPuzzles, run, failedToday, day, recordCause, causeOf, causes };
 }
 
 export const progress = makeProgress();

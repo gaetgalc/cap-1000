@@ -5,6 +5,8 @@ import { ls } from './store.js';
 import { THEMES } from './stats.js';
 import { fmtEval } from './classify.js';
 import { fr } from './explain.js';
+import { intent, features } from './plan.js';
+import { play } from './geom.js';
 
 export const MODELS = [['claude-sonnet-5-5', 'Sonnet 5.5 (recommandé)'], ['claude-opus-5-5', 'Opus 5.5 (plus fin, plus cher)'], ['claude-haiku-5-5', 'Haiku 5.5 (rapide, économique)']];
 export const coachKey = () => ls.get('key', '');
@@ -136,3 +138,31 @@ export async function askCoach(context, question) {
   return call(SYSTEM.replace('Tu réponds uniquement par un objet JSON valide, sans texte autour ni balises de code.', 'Tu réponds en texte simple, sans mise en forme, en 3 à 6 phrases.'),
     `Contexte du cours et de la position :\n${context}\n\nQuestion de l'élève : ${question}`, 700);
 }
+
+// « Demande au coach » sur n'importe quelle position : faits vérifiés (pièces, moteur, intention, repères) et consigne d'entraîneur.
+// p : { fen, me, played (SAN ou UCI, coup joué en partie depuis cette position), best (UCI), pv (UCI, commence par best), ev (cp, point de vue du joueur), context }
+const POS_SYSTEM = SYSTEM.replace('Tu réponds uniquement par un objet JSON valide, sans texte autour ni balises de code.',
+  `Tu commentes une position comme un entraîneur assis à côté de l'élève : tu parles de plans et d'idées, pas de chiffres du moteur.
+Explique l'idée du meilleur coup (quelle pièce il améliore, quelle cible il prépare, quelle pièce adverse il gêne ou bloque), ce que le coup joué en partie changeait, puis donne une règle courte à retenir.
+Tu réponds en texte simple, sans mise en forme, en 4 à 6 phrases.`);
+export function positionPrompt(p) {
+  const side = (c) => (c === 'w' ? 'Blancs' : 'Noirs'), turn = p.fen.split(' ')[1], no = p.fen.split(' ')[5] || '?';
+  const san = (fen, list) => { const c = new Chess(fen), out = []; for (const u of list || []) { const m = play(c, u); if (!m) break; out.push(fr(m.san)); } return out; };
+  const line = san(p.fen, p.pv && p.pv.length ? p.pv : p.best ? [p.best] : []), played = p.played ? san(p.fen, [p.played])[0] : null;
+  const it = p.best ? intent(p.fen, p.pv && p.pv.length ? p.pv : [p.best], p.me) : null, rep = features(p.fen, p.me);
+  const user = [
+    p.context || '',
+    `Tu joues les ${side(p.me)}. Trait aux ${side(turn)} (${turn === p.me ? 'toi' : 'ton adversaire'}), coup ${no}.`,
+    pieces(p.fen),
+    played ? `Coup joué en partie : ${played}.` : '',
+    line.length ? `Meilleur coup selon le moteur : ${line[0]}. Suite du moteur : ${line.join(' ')}.` : '',
+    p.ev != null ? `Évaluation : ${fmtEval(p.ev)}, de ton point de vue (+1 vaut un pion d’avance).` : '',
+    it ? `Intention du meilleur coup (calculée) : ${it.text}` : '',
+    rep.length ? 'Repères de la position :\n' + rep.map((x) => '- ' + x).join('\n') : '',
+    '\nExplique-moi cette position comme mon entraîneur.',
+  ].filter(Boolean).join('\n');
+  return { system: POS_SYSTEM, user };
+}
+export const askPosition = (p) => { const { system, user } = positionPrompt(p); return call(system, user, 900); };
+// Texte à coller dans une conversation Claude, sans clé API.
+export const positionText = (p) => { const { system, user } = positionPrompt(p); return `${system}\n\n${user}`; };

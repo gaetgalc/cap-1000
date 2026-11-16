@@ -1,40 +1,12 @@
 // Explications pédagogiques : décrit chaque coup d'une suite en langage clair, dégage l'idée,
 // et compare le meilleur coup au coup joué. Tout est déduit des règles et des suites du moteur.
 /* global Chess */
-export const VAL = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
-export const NOM = { p: 'pion', n: 'cavalier', b: 'fou', r: 'tour', q: 'dame', k: 'roi' };
-const FEM = { r: 1, q: 1 };
+import { VAL, NOM, FEM, fr, sqOf, rf, poss, il, e_, attacksFrom, attackers, cheapest, play } from './geom.js';
+import { intent } from './plan.js';
+export { VAL, NOM, fr, poss };
 const UN = { p: 'un pion', n: 'un cavalier', b: 'un fou', r: 'une tour', q: 'la dame' };
-const FR = { N: 'C', B: 'F', R: 'T', Q: 'D', K: 'R' };
-export const fr = (san) => String(san).replace(/[NBRQK]/g, (c) => FR[c]);
-const sqOf = (r, f) => 'abcdefgh'[f] + (8 - r);
-const rf = (sq) => [8 - +sq[1], sq.charCodeAt(0) - 97];
-// « ton cavalier », « sa dame » : toujours du point de vue du joueur (me).
-export const poss = (type, color, me) => (color === me ? (FEM[type] ? 'ta ' : 'ton ') : (FEM[type] ? 'sa ' : 'son ')) + NOM[type];
-const il = (type) => (FEM[type] ? 'elle' : 'il');
-const e_ = (type) => (FEM[type] ? 'e' : '');
 export const fem = e_;
 
-function attacksFrom(B, r, f) {
-  const p = B[r][f]; if (!p) return [];
-  const out = [], on = (a, b) => a >= 0 && a < 8 && b >= 0 && b < 8;
-  const step = (list) => { for (const [dr, df] of list) if (on(r + dr, f + df)) out.push([r + dr, f + df]); };
-  const ray = (list) => { for (const [dr, df] of list) { let a = r + dr, b = f + df; while (on(a, b)) { out.push([a, b]); if (B[a][b]) break; a += dr; b += df; } } };
-  const D = [[1, 1], [1, -1], [-1, 1], [-1, -1]], O = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-  if (p.type === 'n') step([[1, 2], [2, 1], [-1, 2], [-2, 1], [1, -2], [2, -1], [-1, -2], [-2, -1]]);
-  else if (p.type === 'k') step([...D, ...O]);
-  else if (p.type === 'p') step(p.color === 'w' ? [[-1, 1], [-1, -1]] : [[1, 1], [1, -1]]);
-  else if (p.type === 'b') ray(D); else if (p.type === 'r') ray(O); else ray([...D, ...O]);
-  return out;
-}
-function attackers(B, sq, color) {
-  const [tr, tf] = rf(sq), out = [];
-  for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
-    const p = B[r][f];
-    if (p && p.color === color && attacksFrom(B, r, f).some(([a, b]) => a === tr && b === tf)) out.push({ sq: sqOf(r, f), type: p.type });
-  }
-  return out;
-}
 export function cap(s) { return s[0].toUpperCase() + s.slice(1); }
 // Pour une pièce à longue portée : dans chaque direction, les deux premières pièces rencontrées.
 function xrays(B, r, f) {
@@ -48,7 +20,6 @@ function xrays(B, r, f) {
   }
   return out;
 }
-const cheapest = (list) => list.slice().sort((a, b) => VAL[a.type] - VAL[b.type])[0];
 export function material(fen, me) {
   let m = 0;
   for (const c of fen.split(' ')[0]) { const l = c.toLowerCase(); if (VAL[l] != null && l !== 'k') m += (c === l ? 'b' : 'w') === me ? VAL[l] : -VAL[l]; }
@@ -66,11 +37,6 @@ export function hanging(B, color) {
   return out.sort((a, b) => VAL[b.type] - VAL[a.type]);
 }
 
-function play(ch, mv) {
-  if (!mv) return null;
-  if (/^[a-h][1-8][a-h][1-8][qrbn]?$/.test(mv)) return ch.move({ from: mv.slice(0, 2), to: mv.slice(2, 4), promotion: mv[4] || 'q' });
-  return ch.move(mv, { sloppy: true });
-}
 
 // Décrit un coup. `me` : couleur du joueur. `next` : coup suivant de la suite (pour reconnaître un échange).
 function describe(fen, mv, me, next, prev) {
@@ -113,9 +79,8 @@ function describe(fen, mv, me, next, prev) {
   if (tags.check) t += t.includes(' : ') ? '. C’est aussi un échec' : ', avec échec';
   const out = [t + '.'];
   if (!m.captured && !fled && !wasCheck && !tags.castle) {
-    const home = m.color === 'w' ? '1' : '8', own = (f) => B1.some((row) => row[f] && row[f].type === 'p' && row[f].color === m.color);
+    const home = m.color === 'w' ? '1' : '8';
     if ((m.piece === 'n' || m.piece === 'b') && m.from[1] === home) out.push('Une pièce de plus en jeu.');
-    else if (m.piece === 'r' && !own(m.to.charCodeAt(0) - 97) && m.from[0] !== m.to[0]) out.push('La tour prend une colonne sans pion devant elle.');
     else if (m.piece === 'p' && /^[de][45]$/.test(m.to)) out.push('Le pion occupe le centre.');
     else if (m.piece === 'p' && (m.color === 'w' ? +m.to[1] >= 6 : +m.to[1] <= 3)) out.push('Le pion avance vers la promotion.');
   }
@@ -183,6 +148,13 @@ export function settle(fen, moves, base = 5, max = 9) {
   return moves.slice(0, Math.max(n, 1));
 }
 
+// Coup calme (rien de tactique à dire) : ajoute son intention, lue dans la suite qui commence par ce coup.
+function withIntent(d, fen, moves, me) {
+  const t = d.tags;
+  if (d.m.captured || t.check || t.castle || t.escape || t.threat || t.fork || t.pin || t.skewer || t.discovered || t.defend || t.selfHang) return;
+  const it = intent(fen, moves, me);
+  if (it) { d.text += ' ' + it.text; t.intent = it; }
+}
 // Construit une suite commentée à partir d'une liste de coups (UCI ou SAN).
 export function buildLine(fen, moves, me, winning) {
   const steps = []; let cur = fen;
@@ -193,6 +165,7 @@ export function buildLine(fen, moves, me, winning) {
     const h = d.tags.selfHang;
     if (winning && d.tags.mine) d.tags.shapes = d.tags.shapes.filter((q) => !q.hang); // dans la bonne suite, une pièce « en prise » est un piège, pas un danger
     else if (h && !d.tags.mate && !d.m.captured) d.text += ` ${cap(il(h.type))} peut être pris${e_(h.type)} par ${poss(h.by.type, d.m.color === 'w' ? 'b' : 'w', me)}.`;
+    withIntent(d, cur, moves.slice(i), me);
     steps.push({ raw: { to: d.m.to, captured: d.m.captured, piece: d.m.piece }, san: d.m.san, from: d.m.from, to: d.m.to, fen: d.fen, text: d.text, tags: d.tags, mat: material(d.fen, me), no: +cur.split(' ')[5], white: d.m.color === 'w' });
     cur = d.fen;
     if (d.tags.mate) break;
@@ -202,6 +175,17 @@ export function buildLine(fen, moves, me, winning) {
 
 const matTxt = (d) => (d === 0 ? 'matériel inchangé' : d > 0 ? `+${d} point${d > 1 ? 's' : ''} de matériel pour toi` : `${d} point${d < -1 ? 's' : ''} de matériel pour toi`.replace('-', '−'));
 
+// Règle à retenir pour chaque type d'intention (plan.js).
+const PLAN_RULE = {
+  prepare: 'Un bon coup calme prépare le suivant : avant de jouer, demande-toi quelle pièce tu veux amener, et sur quelle case.',
+  trap: 'Une pièce sans case est une cible : la prochaine étape est de l’attaquer.',
+  block: 'Un pion passé se bloque avec une pièce posée juste devant lui, idéalement un cavalier.',
+  outpost: 'Un cavalier sur une case que les pions adverses ne peuvent plus chasser gêne ton adversaire toute la partie.',
+  file: 'Les tours se placent sur les colonnes ouvertes : c’est par là qu’elles entrent dans le camp adverse.',
+  king: 'Plus tu amènes de pièces près du roi adverse, plus les coups tactiques apparaissent.',
+  break: 'Une rupture de pions ouvre des lignes pour tes pièces : joue-la quand tes pièces sont prêtes à en profiter.',
+  active: 'Quand rien ne presse, améliore ta pièce la moins active.',
+};
 // Idée du meilleur coup, raison de l'échec du coup joué, bilan comparé.
 export function insight(fen, me, best, ref) {
   const opp = me === 'w' ? 'b' : 'w', ch = new Chess(fen), B0 = ch.board(), m0 = material(fen, me);
@@ -227,6 +211,7 @@ export function insight(fen, me, best, ref) {
   }
   else if (b0.tags.threat) idee = `${fr(b0.san)} crée une menace concrète sur ${poss(b0.tags.threat.type, opp, me)} en ${b0.tags.threat.sq}. Ton adversaire doit y répondre, et c’est toi qui gardes la main.`;
   else if (b0.tags.castle) idee = 'Le bon coup met ton roi à l’abri. Tant que le roi reste au centre, chaque ouverture de ligne devient un danger.';
+  else if (b0.tags.intent) idee = `${fr(b0.san)} ${b0.tags.intent.text.replace(/^Ce coup /, '')} ${PLAN_RULE[b0.tags.intent.k]}`;
   else idee = `${fr(b0.san)} garde toutes tes pièces défendues et améliore ta position sans rien donner. Quand aucune tactique n’existe, le bon coup est celui qui ne laisse rien en prise.`;
 
   if (!r0) pourquoi = '';
@@ -279,6 +264,7 @@ export function moveText(g, k, me) {
   for (let i = 0; i < k - 1; i++) if (!ch.move(g.san[i], { sloppy: true })) return '';
   const prev = k > 1 ? ch.history({ verbose: true }).slice(-1)[0] : null;
   const d = describe(ch.fen(), g.san[k - 1], me, g.san[k], prev ? { to: prev.to, captured: prev.captured } : null);
+  if (d) withIntent(d, ch.fen(), g.san.slice(k - 1, k + 2), me);
   return d ? d.text : '';
 }
 

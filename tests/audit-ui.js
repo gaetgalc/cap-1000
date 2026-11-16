@@ -27,6 +27,7 @@ const SCREENS = [
   ['ligne-reciter', 'ligne/italienne/0'], ['ligne-voir', 'ligne/italienne/0/voir'],
   ['parties'], ['stats'], ['entrainer'],
   ['partie', () => { const s = window.__cap, g = s.data.games.find((x) => s.an[x.id] && !s.an[x.id].bad); return 'partie/' + g.t; }],
+  ['partie-debrief', () => { const s = window.__cap, g = s.data.games.find((x) => s.an[x.id] && !s.an[x.id].bad); return 'partie/' + g.t + '/d'; }],
   ['erreur', () => { const s = window.__cap; for (const g of s.data.games) { const e = s.an[g.id]?.errs?.[0]; if (e) return 'erreur/' + g.t + '/' + e.ply; } return 'puzzles'; }],
   // Position d'un cours privé : cours simulé injecté dans l'état (jamais enregistré), sur la première erreur analysée.
   ['cours-position', () => {
