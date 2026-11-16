@@ -282,6 +282,16 @@ Fait :
 
 Écart avec `docs/REFONTE.md` (plan du 15/11 d'une autre session) : il prévoyait « pas de volet au survol ». La demande de Gaëtan du 16/11 prime ; à reprendre à l'étape 3 de la refonte (navigation).
 
+## 26. Refonte de l'interface, étapes 2 à 8 (16/11)
+
+> lance tout
+
+Fait (détail dans `docs/REFONTE.md`) : polices Geist et Geist Mono, toutes les valeurs visuelles dans `:root` (6 tailles de texte au lieu de 21, 2 rayons au lieu de 14), bouton principal lisible avec son relief, navigation à 5 entrées (Aujourd'hui, S'entraîner, Apprendre, Parties, Progrès) avec une page S'entraîner nouvelle, un seul bouton plein par écran, cibles de 44 px sur téléphone, survol réservé à la souris, colonne réduite aux icônes pendant un exercice.
+
+Conciliation avec la session parallèle du 16/11 (§25) : son accueil sans défilement est gardé ; sa demande d'un menu déroulant à gauche à la place des onglets du haut est appliquée à « Progrès » (Mon jeu, Stats, Plan et réglages) ; sur téléphone, Mon jeu propose Stats et Plan en tête, comme le faisait « Plus ».
+
+Vérifié : `audit-ui.js` sans écart sur 22 écrans aux 4 tailles, 34 tests unitaires, test de bout en bout complet. Non vérifié : rendu sur un vrai iPhone et sur le site en ligne.
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |
@@ -296,7 +306,7 @@ Fait :
 | Prédiction dans les suites | En pas à pas seulement, la lecture est automatique | Demande d'une animation après le bon coup |
 | Anciennes analyses | Réévaluées une fois, automatiquement, en arrière-plan | Sans données brutes, elles ne pourraient pas suivre un changement de règle |
 | Synchronisation | Fichier de sauvegarde, pas de serveur | Le site reste statique, sans compte |
-| Refonte | Système du skill taste-skill, sans sa partie site vitrine ; Geist ; bouton principal en relief | Maquette validée le 15/11 ; voir `docs/REFONTE.md` |
+| Refonte | Système du skill taste-skill, sans sa partie site vitrine ; Geist ; bouton principal en relief ; 5 entrées, Progrès en volet | Maquette validée le 15/11, faite le 16/11 ; voir `docs/REFONTE.md` |
 | Puzzles flous | Écartés s'ils n'ont pas de motif tactique et que 3 coups tenaient | Un puzzle sans réponse nette n'apprend rien |
 
 ## Non vérifié à ce jour

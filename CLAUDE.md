@@ -6,7 +6,7 @@ Site : https://gaetgalc.github.io/cap-1000/?u=gaetcc
 
 Le journal complet des échanges et des décisions est dans `docs/JOURNAL.md`. Le lire avant toute évolution.
 
-Refonte de l'interface en cours (depuis le 15/11) : décisions, état des lieux et étapes dans `docs/REFONTE.md`. Toute retouche visuelle suit ses règles (Geist, échelle de texte, un bouton plein par vue, cibles de 44 px).
+Refonte de l'interface en cours (depuis le 15/11) : décisions, état des lieux et étapes dans `docs/REFONTE.md`. Toute retouche visuelle suit ses règles (Geist, jetons de `:root`, un bouton plein par vue, cibles de 44 px sur téléphone) et se vérifie avec `node tests/audit-ui.js`, qui doit rester sans écart.
 
 ## Ce que veut l'utilisateur
 
@@ -23,8 +23,8 @@ Site statique sans build, servi par GitHub Pages depuis `main` (racine). Tout to
 
 | Fichier | Rôle |
 |---|---|
-| `index.html` | Coquille, navigation (sur ordinateur, entrée « Coach » qui ouvre au survol un volet Séance du jour `#accueil` / Mon jeu `#bilan` / Plan et réglages `#plan`, sans sous-onglets dans les pages ; sur téléphone, « Coach » mène à l'accueil et Mon jeu / Plan sont dans « Plus » ; entrée « Leçons » qui ouvre au survol un volet Puzzles / Cours / Ouvertures : `.grp`, `.fly` ; sur téléphone, le volet s'efface et ses liens restent dans la barre du bas) |
-| `css/app.css` | Thème unique sombre, jetons dans `:root` |
+| `index.html` | Coquille, navigation à 5 entrées (refonte du 16/11) : Aujourd'hui `#accueil`, S'entraîner `#entrainer`, Apprendre `#cours`, Parties `#parties`, Progrès `#bilan`. Chaque lien porte dans `data-grp` les routes de sa section (une fiche d'ouverture compte pour Apprendre, `#ouvertures` seul pour Parties). Sur ordinateur, Progrès ouvre au survol un volet Mon jeu / Stats / Plan et réglages (`.grp`, `.fly` ; demande du 16/11 : pas d'onglets en haut) ; sur téléphone, Mon jeu propose Stats et Plan en tête (`PROG_MENU`). Pendant un exercice, la colonne de gauche se réduit aux icônes (`body.fit`, `--side`) |
+| `css/app.css` | Thème unique sombre. Toute couleur, taille de texte (6 : `--t-xs` 13 à `--t-xxl` 40), rayon (`--r-s` 8, `--r` 12), durée et la cible tactile `--hit` (44 px) viennent de `:root` : aucune valeur en dur ailleurs |
 | `js/app.js` | État `S`, routage par hash, toutes les vues, événements |
 | `js/ui.js` | Aides d'affichage sans état : `$`, `esc`, formats, icônes `ico()`, bulle du coach, barre victoires/nulles/défaites |
 | `js/charts.js` | `lineChart` : courbe SVG interactive |
@@ -48,9 +48,9 @@ Site statique sans build, servi par GitHub Pages depuis `main` (racine). Tout to
 | `tests/parcours.js` | Test de bout en bout (Playwright, parties simulées, `api.chess.com` intercepté) |
 | `tests/audit-ui.js` | Audit de l'interface : 22 écrans aux 4 tailles, captures et mesures (défilement, tailles de texte, contraste, cibles de 44 px, boutons pleins, arrondis) |
 | `tests/*.test.mjs` | Tests unitaires sans navigateur : légalité de chaque ligne de `openings.js`, règles de `progress.js`, positions de référence de `explain.js`, classement de `classify.js` sur des évaluations enregistrées, pendule et erreurs répétées de `stats.js`, format de `backup.js` |
-| `vendor/` | chess.js 0.10.3, chessground 9, Stockfish 19 lite single-thread (WASM), polices Sora et IBM Plex Sans |
+| `vendor/` | chess.js 0.10.3, chessground 9, Stockfish 19 lite single-thread (WASM), polices Geist et Geist Mono (`vendor/fonts/`, licence OFL ; Sora et IBM Plex Sans ne sont plus chargées) |
 
-Routes : `#accueil` (séance du jour), `#bilan` (Mon jeu : objectif détaillé, courbe du classement, chantier complet, points forts et faibles, tendance, bilan), `#puzzles`, `#historique` (journal des exercices faits), `#erreur/<end_time>/<ply>` (travail d'une erreur précise), `#plus` (menu mobile), `#exos`, `#inedits` (puzzles Lichess), `#drill/<sur|menace|cadeau|compte>`, `#cours`, `#cours/<id>[/fiche]`, `#gagner` (parties gagnantes gâchées), `#gagner/<end_time>` (la rejouer contre le moteur), `#ouvertures`, `#ouvertures/apprendre` (catalogue), `#ouvertures/<id>` (fiche), `#ligne/<id>/<k>[/voir]` (réciter une ligne de mémoire, ou la découvrir commentée), `#parties`, `#partie/<end_time>[/<ply>]`, `#plan`, `#stats`.
+Routes : `#accueil` (séance du jour), `#bilan` (Mon jeu : objectif détaillé, courbe du classement, chantier complet, points forts et faibles, tendance, bilan), `#puzzles`, `#historique` (journal des exercices faits), `#erreur/<end_time>/<ply>` (travail d'une erreur précise), `#entrainer` (S'entraîner : puzzles, échauffements, lignes à réviser, parties gagnées, inédits, historique), `#plus` (ancien menu mobile, redirigé vers `#plan`), `#exos`, `#inedits` (puzzles Lichess), `#drill/<sur|menace|cadeau|compte>`, `#cours`, `#cours/<id>[/fiche]`, `#gagner` (parties gagnantes gâchées), `#gagner/<end_time>` (la rejouer contre le moteur), `#ouvertures`, `#ouvertures/apprendre` (catalogue), `#ouvertures/<id>` (fiche), `#ligne/<id>/<k>[/voir]` (réciter une ligne de mémoire, ou la découvrir commentée), `#parties`, `#partie/<end_time>[/<ply>]`, `#plan`, `#stats`.
 
 ## Écran d'exercice (`js/exercise.js`)
 
@@ -103,7 +103,7 @@ Idées non faites : import des parties Lichess, comptes et synchronisation (la s
 - L'environnement cloud de Claude ne peut pas joindre `api.chess.com` ni `*.github.io` : impossible d'y tester sur les vraies parties ou de vérifier le site en ligne. Les tests se font avec des parties simulées.
 - Claude peut pousser sur ce dépôt (app GitHub installée) mais pas modifier ses réglages (Pages).
 - L'abonnement Claude Pro n'inclut pas l'API : les cours passent soit par copier-coller dans une conversation Claude, soit par une clé API saisie dans le site (stockée en localStorage, jamais dans le dépôt).
-- Pas de synchronisation entre appareils : analyses, cours et progression sont locaux. Transfert possible par fichier (Coach > Plan et réglages ou Plus > Sauvegarde).
+- Pas de synchronisation entre appareils : analyses, cours et progression sont locaux. Transfert possible par fichier (Progrès > Plan et réglages > Sauvegarde).
 - Dépôt public : ne jamais y écrire de clé, d'e-mail ni de donnée personnelle.
 
 ## Tester

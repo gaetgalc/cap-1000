@@ -49,12 +49,21 @@ Le script de contrôle du skill (`gate.mjs`) n'a pas été lancé : l'exécution
 
 Les captures « avant » ne sont pas versionnées (poids). Pour les refaire : `git checkout fcae6c5 -- . && node tests/audit-ui.js tests/out/avant`, ou relancer l'audit à chaque étape et comparer les `audit.json`.
 
-## Étapes suivantes
+## Étapes 2 à 8 (16/11)
 
-2. Jetons et nettoyage du CSS : Geist et Geist Mono dans `vendor/fonts/`, variables de couleur, d'espacement, de rayon, de durée dans `:root`, aucune couleur en dur ailleurs, échelle de texte réduite à 6 tailles, contraste du bouton principal, hauteurs de 44 px. L'audit doit tomber à 6 tailles de texte, 3 arrondis, aucun contraste faible.
-3. Navigation à 5 entrées et redirections ; `tests/parcours.js` mis à jour. À concilier avec la demande du 16/11 (JOURNAL §25) : Séance du jour, Mon jeu et Plan et réglages dans un volet déroulant sous « Coach », accueil sans défilement.
-4. Aujourd'hui.
-5. S'entraîner et Apprendre (un bouton plein par fiche, onglets qui tiennent en 390 px).
-6. Parties et Progrès.
-7. Mouvement et accessibilité.
-8. Contrôle final : audit à zéro écart, tests, captures aux 4 tailles, journal et `CLAUDE.md`.
+| Étape | Fait |
+|---|---|
+| 2. Jetons | Geist et Geist Mono dans `vendor/fonts/` ; `:root` porte couleurs, 6 tailles de texte, 2 rayons (+ 50 %), espacements, durées, `--hit` ; plus aucune couleur en dur dans les règles ; graisse 700 remplacée par 600 ; bouton principal `#3a8020` (4.9:1) avec son relief ; notation des coups en Geist Mono |
+| 3. Navigation | 5 entrées : Aujourd'hui, S'entraîner (page nouvelle `#entrainer`), Apprendre (`#cours`, onglets Cours / Ouvertures), Parties (onglets Parties / Mes ouvertures), Progrès (Mon jeu). `#plus` redirige vers `#plan`. Toutes les anciennes adresses fonctionnent |
+| 4. Aujourd'hui | Accueil sans défilement de la session parallèle du 16/11 conservé tel quel (JOURNAL §25), passé aux jetons |
+| 5-6. Écrans | Un seul bouton plein par écran : « Travailler cette position », « Jouer », « Travailler », « Activer le coach », « Copier le brief », « M'entraîner sur ce thème », « Les rejouer » passent en secondaire ; le choix Blancs / Noirs devient un bouton sélectionné (`.btn.on`), plus un bouton plein. Onglet « Tes parties » de la fiche d'ouverture renommé « Parties » pour tenir en 390 px |
+| 7. Mouvement et accessibilité | Survol réservé à la souris (`hover: hover` et `pointer: fine`), appui des boutons en 90 ms (`transform` seulement), plus d'animation de largeur, `prefers-reduced-motion` respecté ; cibles de 44 px sur téléphone (boutons, onglets, liens seuls sur leur ligne, lignes de tableau cliquables, coups de la relecture) |
+| 8. Contrôle | `audit-ui.js` : 6 tailles de texte, 3 rayons, aucun contraste faible, aucun texte sous 13 px, un bouton plein au plus, aucune cible sous 44 px sur téléphone, aucun écran d'échiquier qui défile, sur les 22 écrans et les 4 tailles. Tests unitaires et test de bout en bout passent |
+
+### Écarts assumés avec le skill
+
+- **Volet au survol pour Progrès** (le skill n'en veut pas) : demande explicite de Gaëtan du 16/11, « les 3 toggle en haut dans le menu déroulant à gauche ».
+- **Trois boutons dans la barre d'un puzzle** (Indice, Mon coup, Solution ; le skill en veut deux) : « Mon coup » répond à une demande de départ (« voir en un clic ce que j'ai joué »).
+- **Relief du bouton principal** : choix de Gaëtan du 15/11.
+- **Cibles de 44 px seulement sur téléphone** : le skill les exige aux largeurs tactiles ; à la souris, les boutons restent à 44 px mais les petits liens et les coups de la relecture gardent leur taille.
+- Pas de lien d'évitement (« aller au contenu ») : le routage par `#` le transformerait en changement de page.
