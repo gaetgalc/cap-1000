@@ -557,3 +557,17 @@ body.imm .toasts { bottom: calc(84px + var(--s-3) + env(safe-area-inset-bottom))
 /* Changement de vue : fondu court (View Transitions API, déclenché dans app.js seulement sur une navigation) */
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: var(--m-in); animation-timing-function: var(--ease); }
 @media (prefers-reduced-motion: reduce) { .toast { transform: none; } ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; } }
+/* Sons (lot 3) : bouton son / muet d'un exercice, dans la barre du haut (téléphone) ou en bas de la colonne d'icônes (ordinateur) */
+.btn.snd { flex: none; width: var(--hit); height: var(--hit); padding: 0; color: var(--ink2); }
+.btn.snd[aria-pressed="true"] { color: var(--accent-ink); }
+@media (min-width: 860px) {
+  body.fit .tools:has(.snd) { display: flex; align-items: center; }
+  body.fit .tools > :not(.snd) { display: none; }
+}
+@media (max-width: 859px) {
+  /* Barre du haut avec le bouton son : rien ne passe sur deux lignes, le titre s'abrège en dernier recours */
+  .top:has(.snd) { gap: 6px; }
+  body.imm .back { flex: none; }
+  body.imm .ttl { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tools:has(.snd) .chips { flex-wrap: nowrap; }
+}

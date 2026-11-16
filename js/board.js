@@ -1,6 +1,7 @@
 // Échiquier (chessground) : création, roi en échec signalé, flèches, lecture animée d'une suite.
 /* global Chess */
 import { Chessground } from '../vendor/chessground.min.js';
+import { play, enabled, soundFor, moveBetween, moveAt } from './sound.js';
 
 export const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches; // pas de lecture automatique si l'appareil le demande
 const boards = []; // échiquiers de l'écran courant, détruits au rendu suivant
@@ -21,9 +22,16 @@ const BRUSHES = {
 };
 export function board(el, cfg) {
   const drawable = { enabled: false, visible: true, autoShapes: cfg.shapes || [], ...cfg.drawable, brushes: BRUSHES };
-  const cg = Chessground(el, { coordinates: true, animation: { duration: 220 }, ...(cfg.fen ? { check: chkOf(cfg.fen) } : {}), ...cfg, drawable });
+  // Son d'un coup : la position affichée est suivie ; seul un coup légal d'une position à la suivante fait un son
+  // (coup joué à la main, lecture d'une suite, relecture), jamais l'affichage initial ni un retour en arrière.
+  let at = cfg.fen;
+  const userMove = (orig, dest, ...r) => { const u = moveAt(at, orig, dest); if (u) { at = u.fen; play(soundFor(u.move)); } cfg.events?.move?.(orig, dest, ...r); };
+  const cg = Chessground(el, { coordinates: true, animation: { duration: 220 }, ...(cfg.fen ? { check: chkOf(cfg.fen) } : {}), ...cfg, drawable, events: { ...cfg.events, move: userMove } });
   const set0 = cg.set; // le roi en échec est signalé à chaque changement de position
-  cg.set = (c) => set0(c.fen ? { check: chkOf(c.fen), ...c } : c);
+  cg.set = (c) => {
+    if (c.fen) { if (enabled()) play(soundFor(moveBetween(at, c.fen))); at = c.fen; }
+    return set0(c.fen ? { check: chkOf(c.fen), ...c } : c);
+  };
   boards.push(cg);
   return cg;
 }
