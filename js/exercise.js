@@ -32,6 +32,9 @@ export function attach() {
   return cur;
 }
 export const current = () => (cur && cur.alive() ? cur : null);
+// Point d'appel neutre pour les sons (et tout autre retour) : 'good' bon coup, 'bad' coup faux, 'goal' objectif du jour atteint.
+// Un module de sons peut l'écouter sans que les exercices le connaissent.
+export const feedback = (kind) => document.dispatchEvent(new CustomEvent('cap:feedback', { detail: kind }));
 export const live = () => !!current()?.spec.live;
 export const top = () => current()?.spec.top?.() || '';
 // Clic sur un bouton data-x : renvoie false si aucun exercice ne connaît l'action.
@@ -52,7 +55,9 @@ export function key(ev) {
 function handle(el, spec) {
   const X = { el, spec, cap: $('#xcap'), panel: $('#xpanel'), bar: $('#xbar'), actions: {}, keys: null };
   X.alive = () => document.body.contains(el);
-  X.board = (cfg) => board(el, cfg);
+  X.board = (cfg) => (X.cg = board(el, cfg));
+  X.mark = (sq, ok, keep) => mark(X, sq, ok, keep);
+  X.unmark = () => unmark(X);
   X.say = (cls, html) => { X.cap.className = 'cap ' + cls; X.cap.innerHTML = html; };
   X.setBar = (html) => setHtml(X.bar, html); // ne remplace pas un bouton sous le doigt si rien ne change
   X.btn = (name) => X.bar.querySelector(`[data-x="${name}"]`);
@@ -60,6 +65,35 @@ function handle(el, spec) {
   X.solved = () => document.body.classList.add('solved');
   X.player = (o) => player(X, o);
   return X;
+}
+
+// Pastille ronde sur la case d'arrivée d'un coup : coche verte (bon coup) ou croix rouge (coup faux).
+// Visible 600 ms puis effacée, sauf keep (bon coup final : elle reste jusqu'au changement de position, X.unmark).
+const MARK = {
+  ok: '<path d="M6.5 12.5l3.6 3.6 7.4-8" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>',
+  ko: '<path d="M7.5 7.5l9 9M16.5 7.5l-9 9" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>',
+};
+function mark(X, sq, ok, keep) {
+  unmark(X);
+  if (!X.cg || !/^[a-h][1-8]$/.test(sq || '')) return;
+  const white = X.cg.state.orientation === 'white', f = sq.charCodeAt(0) - 97, r = +sq[1] - 1;
+  const x = white ? f : 7 - f, y = white ? 7 - r : r;
+  const m = document.createElement('div');
+  m.className = 'xmark ' + (ok ? 'ok' : 'ko');
+  m.setAttribute('role', 'img'); m.setAttribute('aria-label', ok ? 'Bon coup' : 'Coup faux');
+  m.style.left = `calc(${(x + 1) * 12.5}% - var(--mark) - 0.6%)`; m.style.top = `calc(${y * 12.5}% + 0.6%)`;
+  m.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${MARK[ok ? 'ok' : 'ko']}</svg>`;
+  X.el.appendChild(m);
+  X.markEl = m;
+  feedback(ok ? 'good' : 'bad');
+  if (!keep) X.markTm = setTimeout(() => unmark(X), 600);
+}
+function unmark(X) {
+  clearTimeout(X.markTm);
+  const m = X.markEl; X.markEl = null;
+  if (!m) return;
+  m.classList.add('out'); // fondu de sortie, puis retrait
+  setTimeout(() => m.remove(), REDUCED ? 0 : 160);
 }
 
 const capStep = (s, i, n, extra = '') => `<div class="capm"><span class="capn"><i class="dot ${s.white ? 'w' : 'b'}"></i>${s.no}${s.white ? '.' : '…'} ${fr(s.san)}</span><span class="small">coup ${i} sur ${n}</span>${extra}</div><div class="prog" aria-hidden="true">${Array.from({ length: n }, (_, k) => `<i class="${k < i - 1 ? 'done' : k === i - 1 ? 'cur' : ''}"></i>`).join('')}</div>`;

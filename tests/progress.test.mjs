@@ -178,3 +178,19 @@ test('lignes d’ouverture : même calendrier que les puzzles, mémoire séparé
   assert.equal(P.act()[P.dkey()].op, 1);
   assert.deepEqual(P.hist().map((h) => [h.k, h.r, h.re]).slice(0, 2), [['o', 2, 0], ['o', 0, 1]]);
 });
+
+test('réussites d’affilée du jour : série en cours et meilleure série, révisions et veille ignorées', () => {
+  const { P, tomorrow } = setup();
+  assert.deepEqual(P.run(), { cur: 0, best: 0 });
+  P.recordPuzzle(pz('v'), 2); P.recordPuzzle(pz('w'), 2);
+  tomorrow(); // la veille ne compte pas
+  for (const [id, r] of [['a', 2], ['b', 2], ['c', 2], ['d', 1], ['e', 2]]) P.recordPuzzle(pz(id), r);
+  assert.deepEqual(P.run(), { cur: 1, best: 3 });
+  P.recordPuzzle(pz('d'), 0); // révision du jour : ni casse ni prolonge la série
+  P.recordPuzzle(pz('f'), 2); P.recordPuzzle(pz('g'), 2);
+  assert.deepEqual(P.run(), { cur: 3, best: 3 });
+  P.recordPuzzle(pz('h'), 2);
+  assert.deepEqual(P.run(), { cur: 4, best: 4 });
+  P.recordPuzzle(pz('i'), 0);
+  assert.deepEqual(P.run(), { cur: 0, best: 4 });
+});

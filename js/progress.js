@@ -136,6 +136,12 @@ export function makeProgress(store = ls, now = () => Date.now()) {
     for (const h of hist()) if (h.k === 'm' && h.t >= d0) last.set(h.id, h.r);
     return [...last].filter(([id, r]) => r < 2 && exists(id)).map(([id]) => id);
   }
+  // Réussites du premier coup d'affilée, sur les puzzles du jour (révisions exclues) : série en cours et meilleure série.
+  function run() {
+    let cur = 0, best = 0;
+    for (const h of todayPuzzles()) { cur = h.r === 2 ? cur + 1 : 0; best = Math.max(best, cur); }
+    return { cur, best };
+  }
   // Objectif du jour : GOAL puzzles, ou moins s'il n'y en a pas autant en attente. focusTheme : thème du chantier, servi d'abord.
   function day(puzzles, focusTheme) {
     const t = todayPuzzles(), done = Math.max(act()[dkey()]?.pz || 0, t.length);
@@ -143,7 +149,7 @@ export function makeProgress(store = ls, now = () => Date.now()) {
     return { done, due, goal: Math.max(1, Math.min(GOAL, done + due)), t };
   }
 
-  return { dkey, dayStart, act, bump, streak, hist, queue, acquired, recordPuzzle, rateInfo, ratePuzzle, recordLichess, lichessStat, recordDrill, recordConversion, conversions, recordLine, lineState, linesDue, drills, lessonsRead, setLessonRead, todayPuzzles, failedToday, day };
+  return { dkey, dayStart, act, bump, streak, hist, queue, acquired, recordPuzzle, rateInfo, ratePuzzle, recordLichess, lichessStat, recordDrill, recordConversion, conversions, recordLine, lineState, linesDue, drills, lessonsRead, setLessonRead, todayPuzzles, run, failedToday, day };
 }
 
 export const progress = makeProgress();

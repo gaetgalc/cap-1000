@@ -166,10 +166,14 @@ function allPuzzles() {
 }
 const pzQueue = (theme, free) => progress.queue(allPuzzles(), theme, free);
 // Un puzzle terminé est noté tout de suite (répétition espacée, journal, séance), puis l'avancée affichée est rafraîchie.
+// Le rond qui vient de se remplir rebondit (pzDots) ; l'objectif atteint émet le retour 'goal', après celui du coup.
 function pzRecord(p, res) {
   const fresh = progress.recordPuzzle(p, res);
-  const el = $('#pzdayi'); if (el) el.innerHTML = pzDayHtml();
+  if (fresh) S.popT = Date.now();
+  const d = pzDay();
+  const el = $('#pzdayi'); if (el) el.innerHTML = pzDayHtml(d);
   header();
+  if (fresh && d.done === d.goal) setTimeout(() => exo.feedback('goal'), 450);
   return fresh;
 }
 // Après une réussite du premier coup : l'élève dit si le puzzle était facile ou difficile, ce qui avance ou rapproche son retour.
@@ -185,10 +189,12 @@ const pzDay = () => progress.day(allPuzzles(), ls.get('focus', null)?.id);
 function pzDots(d) {
   const n = Math.min(12, Math.max(d.goal, d.done)), res = d.t.map((h) => h.r);
   while (res.length < d.done) res.unshift(-1); // faits avant l'existence du journal : résultat inconnu
-  const shown = res.slice(-n);
-  return `<span class="dots" aria-hidden="true">${Array.from({ length: n }, (_, k) => `<i class="${k < shown.length ? 'r' + (shown[k] < 0 ? 'x' : shown[k]) : ''}"></i>`).join('')}</span>`;
+  const shown = res.slice(-n), pop = Date.now() - (S.popT || 0) < 1200 ? shown.length - 1 : -1; // rond rempli à l'instant
+  return `<span class="dots" aria-hidden="true">${Array.from({ length: n }, (_, k) => `<i class="${k < shown.length ? 'r' + (shown[k] < 0 ? 'x' : shown[k]) : ''}${k === pop ? ' pop' : ''}"></i>`).join('')}</span>`;
 }
-const pzProg = (d, cls = '') => `<a class="pzprog ${cls}" href="#historique" title="Voir l’historique du jour">${pzDots(d)}<b class="num">${d.done >= d.goal ? d.done + ' fait' + (d.done > 1 ? 's' : '') : d.done + ' / ' + d.goal}</b></a>`;
+// Série en cours : à partir de 3 réussites du premier coup d'affilée dans la journée.
+const runChip = () => { const n = progress.run().cur; return n >= 3 ? `<span class="chip good run">${n} d’affilée</span>` : ''; };
+const pzProg = (d, cls = '') => `<a class="pzprog ${cls}" href="#historique" title="Voir l’historique du jour">${pzDots(d)}<b class="num">${d.done >= d.goal ? d.done + ' fait' + (d.done > 1 ? 's' : '') : d.done + ' / ' + d.goal}</b>${runChip()}</a>`;
 const pzDayHtml = (d = pzDay()) => `${pzProg(d)}<span class="small">aujourd’hui</span><span class="chip">${d.due} en attente</span>`;
 function pzReset(theme, free) { S.pz = { theme, free, cur: null, redo: [], recap: S.pz?.recap, show: null }; }
 // Bouton vers la prochaine étape non faite de la séance du jour.
@@ -356,12 +362,19 @@ function viewPuzzles(force) {
   return workScreen(p, { head, next: '<button class="btn" data-act="pznext">Suivant ›</button>', side: filter, top: () => pzProg(pzDay()) });
 }
 // Bilan des puzzles du jour : résultats, étape suivante, ratés à refaire.
+// Anneau de l'objectif : il se ferme en animation jusqu'à la part faite ; au centre, les puzzles du jour.
+function goalRing(d) {
+  const p = Math.min(1, d.done / d.goal);
+  return `<div class="ring" role="img" aria-label="${d.done} puzzles faits sur un objectif de ${d.goal}"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="trk" cx="60" cy="60" r="52"/>${p ? `<circle class="arc" cx="60" cy="60" r="52" pathLength="100" style="stroke-dashoffset:${(100 - 100 * p).toFixed(1)}"/>` : ''}</svg>
+    <span class="ringc"><b class="num">${d.done}</b><span>sur ${d.goal}</span></span></div>`;
+}
 function pzRecap(title, msg, empty, filter) {
-  const d = pzDay(), t = d.t, c = (r) => t.filter((h) => h.r === r).length, redo = failedToday();
+  const d = pzDay(), t = d.t, c = (r) => t.filter((h) => h.r === r).length, redo = failedToday(), best = progress.run().best;
+  const stat = (n, l) => `<div class="rstat"><b class="num">${n}</b><span>${l}</span></div>`;
   return `<div class="card recap"><h2>${title}</h2>
-    ${t.length ? `<div class="row">${pzDots(d)}<b>${pl(t.length, 'puzzle')} aujourd’hui</b></div><p class="sub">${c(2)} du premier coup · ${c(1)} avec aide · ${c(0)} solution vue</p>` : ''}
+    ${t.length ? `<div class="rcp">${goalRing(d)}<div class="rstats">${stat(c(2), 'du premier coup')}${stat(best, 'd’affilée au mieux')}${stat(c(1), 'avec aide')}${stat(c(0), 'solution vue')}</div></div>` : ''}
+    <div class="next">${nextStep('pz')}</div>
     ${coach(msg)}
-    <div>${nextStep('pz')}</div>
     <div class="row acts">${redo.length ? `<button class="btn" data-act="pzredo">Refaire ${redo.length > 1 ? 'mes ' + redo.length + ' ratés' : 'mon raté'} du jour</button>` : ''}
       ${empty ? '<button class="btn" data-act="pzfree">M’entraîner quand même</button>' : `<button class="btn" data-act="pzmore">Continuer les puzzles (${d.due} en attente)</button>`}
       <a class="btn" href="#historique">Historique</a>${empty && !S.job.running ? '<button class="btn" data-act="analyse">Analyser 20 parties de plus</button>' : ''}</div>${filter}</div>`;
@@ -476,26 +489,29 @@ function solveBoard(X, g, e, o = {}) {
     if (!m) { cg.set({ fen: ch.fen(), movable: mov() }); return; }
     cg.set({ fen: ch.fen(), movable: { color: undefined } });
     const uci = from + to, tk = ++stt.tk; // jeton : annule la suite si la solution ou « Mon coup » est demandé entre-temps
-    if (uci === e.best.slice(0, 4) || ch.in_checkmate()) return finish(true, `<b class="ok">Bien vu.</b> ${fr(m.san)} est le meilleur coup.`, uci === e.best.slice(0, 4));
+    // Bon coup : pastille verte qui reste sur la case tant que la position ne change pas.
+    const good = () => { stt.mfen = ch.fen(); X.mark(to, true, true); };
+    if (uci === e.best.slice(0, 4) || ch.in_checkmate()) return good(), finish(true, `<b class="ok">Bien vu.</b> ${fr(m.san)} est le meilleur coup.`, uci === e.best.slice(0, 4));
     say('', 'Vérification de ton coup…');
     let drop = 100;
     try { S.play ||= new Engine(); const r = await S.play.evalFen(ch.fen(), DEPTH, true); drop = winPct(e.e0) - winPct(-r.cp); } catch { S.play = null; /* moteur indisponible : seul le meilleur coup compte */ }
     if (!X.alive()) return; // l'utilisateur a quitté l'écran pendant la vérification
     if (stt.done || stt.tk !== tk) return;
-    if (drop < 6) return finish(true, `<b class="ok">Bon coup.</b> ${fr(m.san)} tient la position (le moteur préférait ${fr(e.bestSan)}).`, false);
+    if (drop < 6) return good(), finish(true, `<b class="ok">Bon coup.</b> ${fr(m.san)} tient la position (le moteur préférait ${fr(e.bestSan)}).`, false);
     stt.tries++;
-    cg.setAutoShapes([{ orig: to, brush: 'red' }]);
+    X.mark(to, false); // croix rouge sur la case, 600 ms
     say('ko', `<b class="ko">Pas celui-là.</b> ${fr(m.san)} ${uci === e.playedUci.slice(0, 4) ? 'est le coup que tu avais joué en partie' : `fait perdre ${Math.round(drop)} points de chances de gain`}. Réessaie.`);
     if (stt.tries >= 2 && !stt.hints) X.btn('hint')?.classList.add('pulse'); // deux essais ratés : l'indice se signale
-    setTimeout(() => { if (stt.tk !== tk || !X.alive()) return; ch.undo(); cg.set({ fen: ch.fen(), turnColor: color, movable: mov() }); cg.setAutoShapes(hintShape()); }, 900);
+    // La pièce revient à sa place en glissant (chessground anime le changement de position), le bandeau perd sa teinte rouge.
+    setTimeout(() => { if (stt.tk !== tk || !X.alive()) return; ch.undo(); cg.set({ fen: ch.fen(), lastMove: lastMv, turnColor: color, movable: mov() }); cg.setAutoShapes(hintShape()); X.cap.classList.remove('ko'); }, 900);
   }
   const api = {
     stt,
     ask(fen, cb) { const c = new Chess(fen), col = c.turn() === 'w' ? 'white' : 'black'; cg.set({ turnColor: col, movable: { free: false, color: col, dests: destsOf(c), showDests: true, events: { after: cb } } }); },
-    view(fen, last, shapes) { cg.set({ fen, lastMove: last, turnColor: fen.split(' ')[1] === 'w' ? 'white' : 'black', movable: { color: undefined }, drawable: { autoShapes: (shapes || []).filter(Boolean) } }); },
+    view(fen, last, shapes) { if (fen !== stt.mfen) X.unmark(); cg.set({ fen, lastMove: last, turnColor: fen.split(' ')[1] === 'w' ? 'white' : 'black', movable: { color: undefined }, drawable: { autoShapes: (shapes || []).filter(Boolean) } }); },
     arrows(list) { cg.setAutoShapes(list); },
     real(btn) {
-      stt.tk++;
+      stt.tk++; X.unmark();
       if (stt.real) {
         stt.real = false; if (btn) btn.textContent = 'Mon coup';
         ch.load(e.fen);
@@ -520,7 +536,7 @@ function solveBoard(X, g, e, o = {}) {
       if (stt.hints === 1) say('', `<b>Indice 1.</b> ${q} <span class="small">Touche encore « Indice » pour voir quelle pièce joue.</span>`);
       else { cg.set({ drawable: { autoShapes: [{ orig: e.best.slice(0, 2), brush: 'green' }] } }); say('', `<b>Indice 2.</b> ${q} La pièce entourée doit jouer.`); }
     },
-    show() { if (stt.real) api.real(X.btn('real')); if (stt.done) return; stt.shown = true; ch.load(e.fen); const m = uciMove(ch, e.best); cg.set({ fen: ch.fen(), lastMove: m ? [m.from, m.to] : undefined }); finish(false, `La solution était <b>${fr(e.bestSan)}</b>.`, true); },
+    show() { if (stt.real) api.real(X.btn('real')); if (stt.done) return; stt.shown = true; X.unmark(); ch.load(e.fen); const m = uciMove(ch, e.best); cg.set({ fen: ch.fen(), lastMove: m ? [m.from, m.to] : undefined }); finish(false, `La solution était <b>${fr(e.bestSan)}</b>.`, true); },
   };
   X.on({ hint: () => api.hint(), real: (_, btn) => api.real(btn), show: () => api.show() });
   return api;
