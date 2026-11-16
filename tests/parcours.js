@@ -108,7 +108,7 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   check(await S(() => { const a = window.__cap.gv.cg.state.drawable.autoShapes; return !!a[0].customSvg && !a[0].dest && a[0].ldest === 'c3' && !a[1].customSvg; }) && await page.locator('#xb .cg-custom-svgs polyline').count() === 1, 'cavalier : flèche en L, les autres pièces gardent la flèche droite');
 
   // ---- Relecture : l'échiquier se joue, un autre coup ouvre une variante évaluée ----
-  await page.click('#xbar [aria-label="Début"]'); await sleep(300);
+  await page.keyboard.press('Home'); await sleep(300);
   const gw = await S(() => window.__cap.gv.g.w);
   const alt0 = await S(() => { const v = window.__cap.gv, real = v.mv[0]; return new Chess(v.fens[0]).moves({ verbose: true }).find((x) => x.from + x.to !== real.from + real.to); });
   const real0 = await S(() => window.__cap.gv.mv[0]);
