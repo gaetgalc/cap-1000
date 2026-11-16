@@ -91,6 +91,18 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   check(okRed, 'relecture : flèche rouge du coup joué quand il diffère du meilleur');
   check(/Meilleur /.test(await bar('#xcap')) || (await shapes()).err, 'relecture : le bandeau nomme le meilleur coup');
   check(await page.locator('#xb svg.cg-shapes g, #xb svg g').count() > 0, 'relecture : la flèche est dessinée sur l’échiquier');
+  // Façon « Game Review » : barre d'évaluation, liste de coups, erreur suivante, courbe cliquable, symbole sur la case
+  const gvState = () => S(() => { const v = window.__cap.gv; return { k: v.k, ev: document.querySelector('#gvev')?.style.getPropertyValue('--ev'), cur: document.querySelector('#gvm .mv.cur')?.dataset.k, keys: v.keys, mark: [...document.querySelectorAll('#xb .cg-custom-svgs text')].map((x) => x.textContent).join('') }; });
+  let gs = await gvState();
+  check(gs.ev !== '' && gs.ev != null && +gs.cur === gs.k, 'relecture : barre d’évaluation et coup courant surligné dans la liste');
+  if (gs.keys.length) {
+    await page.click('#xbar [aria-label="Erreur suivante"]'); await sleep(300); gs = await gvState();
+    const e1 = gs.keys.find((p) => p > 8) ?? null;
+    check(e1 == null || gs.k === e1, 'relecture : « Erreur suivante » mène au moment clé');
+    if (e1 != null) { await page.click(`#gvm .mv[data-k="${e1 + 1}"]`); await sleep(300); gs = await gvState(); check(gs.k === e1 + 1 && /\?/.test(gs.mark), 'relecture : clic sur un coup de la liste, symbole de l’erreur sur la case'); }
+  }
+  await page.locator('#evc rect').click({ position: { x: 1, y: 20 } }); await sleep(300);
+  check((await gvState()).k === 0, 'relecture : clic sur la courbe, retour au début');
 
   // ---- Gagner les parties gagnées ----
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#gagner`); await sleep(500);

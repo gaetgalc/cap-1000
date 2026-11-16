@@ -54,7 +54,7 @@ h1 { font-size: var(--t-xl); letter-spacing: -.035em; } h2 { font-size: var(--t-
 p { margin: 0; } a { color: var(--accent-ink); }
 .num { font-variant-numeric: tabular-nums; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--r-s); }
-.mono, .moves button, ol.line li b, .opmoves, .lnmv { font-family: var(--mono); letter-spacing: 0; }
+.mono, .gvm .mv, ol.line li b, .opmoves, .lnmv { font-family: var(--mono); letter-spacing: 0; }
 
 .top { display: flex; align-items: center; gap: 16px; padding: 12px 16px; background: var(--surface); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
 .brand { font: 600 var(--t-l) var(--display); color: var(--ink); text-decoration: none; display: flex; align-items: center; gap: 8px; }
@@ -175,12 +175,59 @@ cg-board { background-color: var(--sq-light); background-image: repeating-conic-
 .pc-merida .cg-wrap piece.pawn.black { background-image: url("../vendor/pieces/merida/bP.svg"); } .pc-merida .cg-wrap piece.knight.black { background-image: url("../vendor/pieces/merida/bN.svg"); } .pc-merida .cg-wrap piece.bishop.black { background-image: url("../vendor/pieces/merida/bB.svg"); } .pc-merida .cg-wrap piece.rook.black { background-image: url("../vendor/pieces/merida/bR.svg"); } .pc-merida .cg-wrap piece.queen.black { background-image: url("../vendor/pieces/merida/bQ.svg"); } .pc-merida .cg-wrap piece.king.black { background-image: url("../vendor/pieces/merida/bK.svg"); }
 .pc-chessnut .cg-wrap piece.pawn.white { background-image: url("../vendor/pieces/chessnut/wP.svg"); } .pc-chessnut .cg-wrap piece.knight.white { background-image: url("../vendor/pieces/chessnut/wN.svg"); } .pc-chessnut .cg-wrap piece.bishop.white { background-image: url("../vendor/pieces/chessnut/wB.svg"); } .pc-chessnut .cg-wrap piece.rook.white { background-image: url("../vendor/pieces/chessnut/wR.svg"); } .pc-chessnut .cg-wrap piece.queen.white { background-image: url("../vendor/pieces/chessnut/wQ.svg"); } .pc-chessnut .cg-wrap piece.king.white { background-image: url("../vendor/pieces/chessnut/wK.svg"); }
 .pc-chessnut .cg-wrap piece.pawn.black { background-image: url("../vendor/pieces/chessnut/bP.svg"); } .pc-chessnut .cg-wrap piece.knight.black { background-image: url("../vendor/pieces/chessnut/bN.svg"); } .pc-chessnut .cg-wrap piece.bishop.black { background-image: url("../vendor/pieces/chessnut/bB.svg"); } .pc-chessnut .cg-wrap piece.rook.black { background-image: url("../vendor/pieces/chessnut/bR.svg"); } .pc-chessnut .cg-wrap piece.queen.black { background-image: url("../vendor/pieces/chessnut/bQ.svg"); } .pc-chessnut .cg-wrap piece.king.black { background-image: url("../vendor/pieces/chessnut/bK.svg"); }
-.moves { position: relative; display: flex; flex-wrap: wrap; gap: 2px 4px; font-size: var(--t-s); max-height: 220px; overflow-y: auto; }
-.moves .n { color: var(--ink3); font-size: var(--t-xs); padding: 3px 0 3px 4px; }
-.moves button { font: inherit; border: 0; background: none; color: var(--ink); padding: 3px 5px; border-radius: var(--r-s); cursor: pointer; }
-.moves button:hover { background: var(--sunken); }
-.moves button.cur { background: var(--btn); color: var(--on-btn); }
-.moves button.gaffe { box-shadow: inset 0 -3px 0 var(--bad); } .moves button.erreur { box-shadow: inset 0 -3px 0 var(--warn); }
+/* ===== Relecture de partie (#partie, lot 4 de docs/PLAN-AGREMENT.md) : barre d'évaluation, courbe, liste de coups ===== */
+/* Liste de coups : grille numéro / Blancs / Noirs sur ordinateur, bande d'une ligne sur téléphone (plus bas). */
+.gvm { position: relative; font-size: var(--t-s); }
+.gvm .n { color: var(--ink3); font: var(--t-xs) var(--mono); }
+.gvm .mv { font: inherit; font-family: var(--mono); border: 0; background: none; color: var(--ink); padding: 4px 8px; border-radius: var(--r-s); cursor: pointer; text-align: left; white-space: nowrap; }
+.gvm .mv.cur { background: var(--btn); color: var(--on-btn); }
+.gvm .mv.gaffe { box-shadow: inset 0 -3px 0 var(--bad); } .gvm .mv.erreur { box-shadow: inset 0 -3px 0 var(--warn); }
+.gvm sup { font-size: var(--t-xs); font-weight: 600; margin-left: 2px; }
+.gvm .gaffe sup { color: var(--bad); } .gvm .erreur sup { color: var(--warn); } .gvm .imprecision sup { color: var(--ink3); }
+.gvm .mv.cur sup { color: var(--on-btn); }
+.gvnote { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; margin: 2px 0 4px; padding: 6px 8px; border: 0; border-radius: var(--r-s); background: var(--sunken); color: var(--ink2); font: var(--t-xs)/1.4 var(--body); text-align: left; cursor: pointer; }
+.gvnote b { color: var(--accent-ink); font-family: var(--mono); }
+@media (hover: hover) and (pointer: fine) { .gvm .mv:not(.cur):hover, .gvnote:hover { background: var(--raised); color: var(--ink); } }
+.evnum { font-family: var(--mono); }
+.cap .gvwhy { margin-left: auto; }
+/* Barre d'évaluation : part des Blancs (--ev, 0 à 1) ; le camp du joueur est en bas (ordinateur) ou à gauche (téléphone). */
+.evbar { position: relative; overflow: hidden; background: var(--black); box-shadow: inset 0 0 0 1px var(--line); border-radius: var(--r-s); }
+.evbar i { position: absolute; inset: 0; background: var(--ink); transform-origin: bottom; transform: scaleY(var(--ev, .5)); transition: transform var(--m-panel) var(--ease); }
+.evbar.flip i { transform-origin: top; }
+.evbar::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 2px; margin-top: -1px; background: var(--neutral); opacity: .7; }
+@media (min-width: 860px) {
+  body.fit .bwrap.gv { position: relative; }
+  .bwrap.gv .evbar { position: absolute; left: -16px; top: 0; width: 8px; height: var(--bs); }
+  /* Le panneau ne défile pas : seule la liste de coups défile, sous le bilan et la courbe */
+  body.fit .bwrap.gv + .fitside .fitpanel { overflow: hidden; gap: 12px; }
+  .gvsum, .gvch { flex: none; }
+  .gvch { display: flex; flex-direction: column; gap: 4px; padding: 10px 16px 6px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); }
+  .gvm { flex: 1 1 auto; min-height: 96px; overflow-y: auto; overscroll-behavior: contain; display: grid; grid-template-columns: 44px repeat(2, minmax(0, 140px)); align-content: start; gap: 2px 4px; padding: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); }
+  .gvm .n { align-self: center; padding-left: 6px; }
+  .gvm .gvst, .gvmore { display: none; }
+  .bwrap.gv + .fitside .actbar .btn { padding: 0 12px; } /* six boutons sur une ligne dès 1280 px */
+}
+@media (max-width: 859px) {
+  /* Téléphone : barre horizontale au-dessus de l'échiquier (8 px et 4 px d'espace) ; le bandeau garde 128 px, de quoi
+     montrer un moment clé (en-tête avec « Comprendre », trois lignes) sans défiler */
+  body.fit .bwrap.gv .board, .bwrap.gv .evbar { width: min(100cqw, 100cqh - 140px); }
+  body.fit .bwrap.gv .board { height: min(100cqw, 100cqh - 140px); }
+  .bwrap.gv .evbar { flex: none; height: 8px; margin: 0 auto 4px; }
+  .bwrap.gv .evbar i { transform-origin: left; transform: scaleX(var(--ev, .5)); }
+  .bwrap.gv .evbar.flip i { transform-origin: right; }
+  .bwrap.gv .evbar::after { left: 50%; right: auto; top: 0; bottom: 0; width: 2px; height: auto; margin: 0 0 0 -1px; }
+  /* Sous le bandeau : bande de coups et courbe compacte, toujours visibles ; bilan et moments clés en défilant */
+  body.fit .gvhead { display: none; }
+  body.fit .bwrap.gv + .fitside .fitpanel { max-height: 100px; gap: 8px; }
+  .gvm { order: -2; flex: none; display: flex; flex-wrap: nowrap; align-items: center; gap: 2px; overflow-x: auto; overscroll-behavior: contain; scrollbar-width: none; }
+  .gvm::-webkit-scrollbar { display: none; }
+  .gvm .mv { flex: none; min-height: var(--hit); min-width: var(--hit); text-align: center; }
+  .gvm .n { flex: none; padding-left: 6px; }
+  .gvnote, .gvch .small { display: none; }
+  .gvch { order: -1; flex: none; }
+  .actbar .gvfl { display: none; }
+  .actbar .btn.gve { flex: 1; }
+}
 .fb { padding: 12px; border-radius: var(--r-s); background: var(--sunken); font-size: var(--t-s); }
 .fb.ok { background: var(--good-soft); } .fb.ko { background: var(--bad-soft); }
 .fb b.ok { color: var(--good); } .fb b.ko { color: var(--bad); }
@@ -234,9 +281,6 @@ div.hbar { cursor: default; grid-template-columns: minmax(80px, 150px) 1fr minma
 .btn.choice.right { border-color: var(--good); background: var(--good-soft); } .btn.choice.wrong { border-color: var(--bad); background: var(--bad-soft); }
 a.card.lesson { text-decoration: none; color: inherit; transition: border-color var(--m-in) var(--ease), transform var(--m-in) var(--ease); }
 @media (hover: hover) and (pointer: fine) { a.card.lesson:hover { border-color: var(--accent); transform: translateY(-2px); } }
-.moves sup { font-size: var(--t-xs); font-weight: 600; margin-left: 1px; }
-.moves button.gaffe sup { color: var(--bad); } .moves button.erreur sup { color: var(--warn); } .moves button.imprecision sup { color: var(--ink3); }
-.moves button.cur sup { color: var(--on-btn); }
 details.manual { border-top: 1px solid var(--line); padding-top: 12px; }
 details.manual summary { cursor: pointer; font-weight: 600; margin-bottom: 10px; }
 textarea { font: var(--t-xs)/1.4 ui-monospace, Menlo, monospace; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-s); padding: 8px 10px; width: 100%; resize: vertical; }
@@ -375,7 +419,6 @@ details.gd summary { cursor: pointer; font-size: var(--t-s); color: var(--accent
   .card { border-radius: var(--r); padding: 16px; }
   .btn, .btn.sm { min-height: var(--hit); }
   .seg2 a, .seg2 button { min-height: var(--hit); display: flex; align-items: center; justify-content: center; }
-  .moves button { min-height: var(--hit); min-width: var(--hit); }
   .qlinks a, details.gd summary { min-height: var(--hit); }
   /* Cibles tactiles de 44 px sur les éléments qui ne sont pas des boutons */
   .brand, .gnum, .tools .pzprog, a.row, .sig a { min-height: var(--hit); display: flex; align-items: center; }
@@ -399,7 +442,6 @@ details.gd summary { cursor: pointer; font-size: var(--t-s); color: var(--accent
   .actbar { position: fixed; left: 0; right: 0; bottom: 0; border-radius: 0; border: 0; border-top: 1px solid var(--line); padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); flex-wrap: nowrap; box-shadow: none; z-index: 25; }
   .actbar .btn { flex: 1; min-height: 50px; padding: 8px 6px; font-size: var(--t-s); white-space: nowrap; } .actbar .btn.ico { flex: 0 0 50px; }
   ol.line li { grid-template-columns: 64px 1fr; }
-  .moves { max-height: 160px; }
   table { font-size: var(--t-s); } td, th { padding: 8px 6px; }
   .ex { grid-template-columns: 1fr; } .board.mini { max-width: none; }
   .job { font-size: var(--t-xs); padding: 8px 14px; }
