@@ -324,6 +324,13 @@ Plan dans `docs/PLAN-AGREMENT.md`. Cinq agents en parallèle (copies isolées du
 
 Vérifié : 49 tests unitaires, parcours complet, audit sans écart sur 23 écrans aux 4 tailles, captures relues. Non vérifié : sons à l'oreille, rendu sur iPhone, site en ligne.
 
+## 30. Survol de tous les boutons (16/11)
+
+> ajoute une surbrillance à tous les boutons quand je passe la souris pour améliorer la navigation
+
+- Survol unifié en fin de `css/app.css`, à la souris seulement (`hover: hover` et `pointer: fine`) : fond `--hover` et bord `--hover-line` (jetons de `:root`) sur les boutons, onglets, entrées de navigation, lignes et cartes cliquables, coups de la relecture ; bouton plein éclairci ; liens soulignés plus épais. Transition de 150 ms.
+- Bug trouvé en vérifiant : la fusion du §29 avait perdu l'accolade fermante du bloc téléphone des sons. Toutes les règles suivantes (Apparence, échiquier en multiple de 8 px) ne s'appliquaient que sur téléphone. Corrigé, et nouveau test `tests/css.test.mjs` (accolades équilibrées), rouge sur l'ancienne feuille.
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |

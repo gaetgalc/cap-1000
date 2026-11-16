@@ -11,6 +11,7 @@
   --ink: #f2f1ed; --ink2: #c9c6be; --ink3: #a19e96; --on-btn: #fff; --black: #000;
   --accent: #7fc44f; --accent-ink: #a6e07a; --accent-soft: #2d4022; --btn: #3a8020; --btn-edge: #265713;
   --good: #8fdd5e; --good-soft: #2c4524; --warn: #ffb534; --warn-soft: #4a3a17; --bad: #ff7a6e; --bad-ink: #ff9a90; --bad-soft: #522522;
+  --hover: #3b3934; --hover-line: #6b665d; /* survol à la souris : fond et bord */
   --neutral: #8a877f;
   /* Échiquier (lot 1 du 16/11) : vert du site adouci, propre au site (ni celui de Chess.com ni celui de Lichess).
      Palettes au choix dans Plan et réglages > Apparence (js/look.js pose pal-bois / pal-bleu sur <html>). */
@@ -666,6 +667,7 @@ body.imm .toasts { bottom: calc(84px + var(--s-3) + env(safe-area-inset-bottom))
   body.imm .back { flex: none; }
   body.imm .ttl { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tools:has(.snd) .chips { flex-wrap: nowrap; }
+}
 /* Apparence (Plan et réglages) : aperçu de l'échiquier et choix en segments */
 .grid > .card.look { grid-column: 1 / -1; }
 .lookgrid { display: grid; grid-template-columns: 200px minmax(0, 520px); gap: var(--s-5); align-items: start; }
@@ -681,4 +683,20 @@ body.imm .toasts { bottom: calc(84px + var(--s-3) + env(safe-area-inset-bottom))
     body.fit .bwrap .board { width: round(down, min(100cqw, 100cqh - 84px), 8px); height: round(down, min(100cqw, 100cqh - 84px), 8px); }
     body.fit.solved .bwrap .board { width: round(down, min(100cqw, 100cqh - 150px), 8px); height: round(down, min(100cqw, 100cqh - 150px), 8px); }
   }
+}
+
+/* ===== Survol (demande du 16/11) : tout élément cliquable s'éclaire sous la souris, jamais au toucher ===== */
+.btn, .seg2 button, .seg2 a, .mrow, .oprow, .opdue, .fmini, .check, .gnum, .pzprog, .lgpos, a.card, .nav a, .brand, .moves button, .gvm .mv, .gvnote {
+  transition: background-color var(--m-in) var(--ease), border-color var(--m-in) var(--ease), color var(--m-in) var(--ease), filter var(--m-in) var(--ease), transform var(--m-press) var(--ease);
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn:not(.pri):not([disabled]):hover { background: var(--hover); border-color: var(--hover-line); color: var(--ink); }
+  .btn.pri:not([disabled]):hover { filter: brightness(1.15); }
+  .seg2 button:not(.on):hover, .seg2 a:not(.on):hover { background: var(--hover); color: var(--ink); }
+  .nav a:not(.on):hover, .grp:hover .grp-h:not(.on) { background: var(--hover); color: var(--ink); }
+  .mrow:hover, a.card:hover, .fmini:hover { background: var(--hover); border-color: var(--hover-line); }
+  .oprow:hover, .check:hover, tr.click:hover td, ol.line li:hover { background: var(--hover); }
+  .opdue:hover, .gnum:hover, .pzprog:hover, .lgpos:hover, .brand:hover { filter: brightness(1.15); }
+  .moves button:not(.cur):hover, .gvm .mv:not(.cur):hover, .gvnote:hover { background: var(--hover); color: var(--ink); }
+  a:not(.btn):not(.card):not(.mrow):not(.oprow):not(.opdue):not(.fmini):not(.gnum):not(.pzprog):not(.lgpos):not(.brand):hover { text-decoration-thickness: 2px; }
 }
