@@ -17,6 +17,9 @@ import { DRILLS, DRILL_FOR, makeRound } from './drills.js';
 import { OPENINGS, GROUPS, byId, lineKey, movesOf, matchGame } from './openings.js';
 import { MODELS, coachKey, coachModel, facts, genLesson, askCoach, buildPrompt, parseLesson } from './coach.js';
 import * as backup from './backup.js';
+import * as sound from './sound.js';
+// Retour sonore d'un exercice (sound.js l'écoute) : 'good', 'bad' ou 'goal'.
+const feedback = (k) => document.dispatchEvent(new CustomEvent('cap:feedback', { detail: k }));
 
 const DEPTH = 12; // même profondeur sur tous les appareils : une erreur est classée pareil partout
 
@@ -167,7 +170,8 @@ function allPuzzles() {
 const pzQueue = (theme, free) => progress.queue(allPuzzles(), theme, free);
 // Un puzzle terminé est noté tout de suite (répétition espacée, journal, séance), puis l'avancée affichée est rafraîchie.
 function pzRecord(p, res) {
-  const fresh = progress.recordPuzzle(p, res);
+  const before = pzDay().done, fresh = progress.recordPuzzle(p, res), d = pzDay();
+  if (before < d.goal && d.done >= d.goal) setTimeout(() => feedback('goal'), 350); // après le son du bon coup
   const el = $('#pzdayi'); if (el) el.innerHTML = pzDayHtml();
   header();
   return fresh;
@@ -282,13 +286,13 @@ function mountInedits() {
     if (!m) { cg.set({ fen: ch.fen(), movable: mov() }); return; }
     if (from + to === want.slice(0, 4) || ch.in_checkmate()) {
       L.step++;
-      if (L.step >= P.sol.length || ch.in_checkmate()) { cg.set({ fen: ch.fen() }); return finish(true); }
+      if (L.step >= P.sol.length || ch.in_checkmate()) { cg.set({ fen: ch.fen() }); feedback('good'); return finish(true); }
       const r = uciMove(ch, P.sol[L.step]); L.step++;
       cg.set({ fen: ch.fen(), lastMove: [r.from, r.to], turnColor: color, movable: mov() });
-      if (L.step >= P.sol.length) return finish(true);
+      if (L.step >= P.sol.length) { feedback('good'); return finish(true); }
       X.say('ok', `<p><b class="ok">Bien.</b> Ton adversaire répond ${fr(r.san)}. Trouve la suite.</p>`);
     } else {
-      L.failed = true;
+      L.failed = true; feedback('bad');
       cg.set({ fen: ch.fen(), movable: { color: undefined } });
       cg.setAutoShapes([{ orig: to, brush: 'red' }]);
       X.say('ko', `<p><b class="ko">Pas celui-là.</b> ${fr(m.san)} n’est pas le meilleur coup. Réessaie.</p>`);
@@ -467,6 +471,7 @@ function solveBoard(X, g, e, o = {}) {
   // found : le coup a été trouvé. exact : le meilleur coup du moteur est sur l'échiquier.
   const finish = (found, html, exact) => {
     const first = !stt.done; stt.done = true; stt.tk++;
+    if (found) feedback('good');
     say(found ? 'ok' : '', html);
     cg.set({ movable: { color: undefined }, drawable: { autoShapes: exact ? [] : [arrow(e.best, 'green')] } });
     o.done?.(!found ? 0 : stt.tries === 0 && !stt.shown ? 2 : 1, first, html, exact);
@@ -483,7 +488,7 @@ function solveBoard(X, g, e, o = {}) {
     if (!X.alive()) return; // l'utilisateur a quitté l'écran pendant la vérification
     if (stt.done || stt.tk !== tk) return;
     if (drop < 6) return finish(true, `<b class="ok">Bon coup.</b> ${fr(m.san)} tient la position (le moteur préférait ${fr(e.bestSan)}).`, false);
-    stt.tries++;
+    stt.tries++; feedback('bad');
     cg.setAutoShapes([{ orig: to, brush: 'red' }]);
     say('ko', `<b class="ko">Pas celui-là.</b> ${fr(m.san)} ${uci === e.playedUci.slice(0, 4) ? 'est le coup que tu avais joué en partie' : `fait perdre ${Math.round(drop)} points de chances de gain`}. Réessaie.`);
     if (stt.tries >= 2 && !stt.hints) X.btn('hint')?.classList.add('pulse'); // deux essais ratés : l'indice se signale
@@ -866,8 +871,11 @@ function header() {
   const tr = st.trend(rapidAll()), stk = streak();
   // Sur téléphone, pendant un exercice, la barre du haut montre l'avancée (puzzles du jour, position de la série).
   const top = exo.top();
-  t.innerHTML = `${top ? `<span class="m-only row chips">${top}</span>` : `<span class="m-only row chips">${tr ? `<span class="chip">${tr.cur} Elo</span>` : ''}<span class="chip ${stk ? 'warn' : ''}">Série ${stk} j</span></span>`}<span class="d-only filters">${filtersHtml()}</span>`;
+  t.innerHTML = `${top ? `<span class="m-only row chips">${top}</span>` : `<span class="m-only row chips">${tr ? `<span class="chip">${tr.cur} Elo</span>` : ''}<span class="chip ${stk ? 'warn' : ''}">Série ${stk} j</span></span>`}${exo.current() ? sndBtn() : ''}<span class="d-only filters">${filtersHtml()}</span>`;
 }
+// Bouton son / muet d'un écran d'exercice : barre du haut sur téléphone, bas de la colonne d'icônes sur ordinateur.
+const sndAttrs = (b) => { const on = sound.enabled(); b.setAttribute('aria-pressed', on); b.title = on ? 'Couper les sons' : 'Activer les sons'; b.innerHTML = ico(on ? 'snd' : 'mute'); };
+function sndBtn() { const on = sound.enabled(); return `<button class="btn ico snd" data-act="snd" aria-label="Sons" aria-pressed="${on}" title="${on ? 'Couper les sons' : 'Activer les sons'}">${ico(on ? 'snd' : 'mute')}</button>`; }
 
 function viewWelcome() {
   const imp = S.importing;
@@ -1486,6 +1494,7 @@ function viewPlan() {
     <div class="card"><h2>Ton objectif</h2><div class="row"><label for="gelo" class="sub">Elo visé</label><input type="number" id="gelo" value="${g.elo}" min="100" max="3000" step="50" style="width:100px"></div>
       <div class="row"><label for="gdate" class="sub">Échéance</label><input type="date" id="gdate" value="${g.date}"></div>
       <div><button class="btn sm" data-act="reset">Changer de pseudo ou effacer les données</button></div></div>
+    <div class="card"><h2>Sons</h2><label class="check"><input type="checkbox" data-f="snd" ${sound.enabled() ? 'checked' : ''}><span>Sons des coups, des bonnes réponses et de l’objectif atteint <span class="small">Coupés par défaut. Aussi réglables pendant un exercice.</span></span></label></div>
     ${backupCard()}
     <div class="card"><h2>Coach Claude</h2>${coachKey() ? `<p class="sub">Coach activé. Clé enregistrée sur cet appareil (…${esc(coachKey().slice(-4))}).</p>
       <div class="row"><label for="cmodel" class="sub">Modèle</label><select id="cmodel">${MODELS.map(([v, l]) => `<option value="${v}" ${coachModel() === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
@@ -1632,6 +1641,7 @@ document.addEventListener('click', (ev) => {
     else { S.cl.step++; render(); }
   }
   else if (act === 'clq') { S.cl.quiz[+el.dataset.q] = +el.dataset.c; render(true); }
+  else if (act === 'snd') { sound.setEnabled(!sound.enabled()); document.querySelectorAll('[data-act="snd"]').forEach(sndAttrs); sound.play('move'); }
   else if (act === 'keydel') { ls.del('key'); render(true); }
   else if (act === 'nexterr') { const v = S.gv, list = v.a.errs.filter((x) => x.theme).map((x) => x.ply); const nx = list.find((p) => p > v.k) ?? list[0]; if (nx != null) gvGo(nx); }
   else if (act === 'color') { S.white = el.dataset.w === '1'; S.path = []; render(true); }
@@ -1653,6 +1663,7 @@ document.addEventListener('change', (ev) => {
   if (ev.target.id === 'bakfile') { restoreFrom(ev.target.files[0]); ev.target.value = ''; return; }
   const el = ev.target.closest('[data-f]'); if (!el) return;
   if (el.dataset.f === 'liangle' || el.dataset.f === 'lidiff') { S.li[el.dataset.f === 'liangle' ? 'angle' : 'diff'] = el.value; ls.set('li', { angle: S.li.angle, diff: S.li.diff }); S.li.cur = null; S.li.err = null; render(true); return; }
+  if (el.dataset.f === 'snd') { sound.setEnabled(el.checked); sound.play('good'); return; }
   if (el.dataset.f === 'focus') { ls.set('focus', { id: el.value, since: Math.floor(Date.now() / 1000) }); render(true); return; }
   if (el.dataset.f === 'tc') { S.f.tc = el.value; if (S.pz) pzReset('', false); } else S.f.days = +el.value;
   ls.set('filter', S.f); S.path = []; render(true);
