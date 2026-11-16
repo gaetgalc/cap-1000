@@ -1326,15 +1326,39 @@ function viewOuvertures() {
     <p>Dans le tableau ci-dessus, garde les lignes marquées « À garder » et remplace celles marquées « À travailler » par ce répertoire.</p></div></div>`;
 }
 
+// Liste des parties (demande du 16/11) : une ligne par partie, joueurs et Elo à gauche comme sur un échiquier
+// (adversaire en haut, toi en bas), puis résultat, ouverture et chiffres. Synthèse de la sélection au-dessus.
+const sgn = (x) => (x > 0 ? '+' : x < 0 ? '−' : '±') + Math.abs(x);
+const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+function partiesSummary(gs) {
+  const s = st.listSummary(gs); if (!s.n) return '';
+  const tile = (lab, v, sub = '') => `<div class="glt"><span class="small">${lab}</span><b class="num">${v}</b>${sub ? `<span class="small num">${sub}</span>` : ''}</div>`;
+  return `<div class="glsum">${tile('Parties', s.n, `${s.w} V · ${s.d} N · ${s.l} D`)}${tile('Score', s.score + ' %')}
+    ${s.from != null ? tile('Mon Elo', `${s.to} <span class="${s.to > s.from ? 'up' : s.to < s.from ? 'dn' : ''}">${sgn(s.to - s.from)}</span>`, `depuis ${s.from}`) : ''}
+    ${s.opp ? tile('Adversaires', s.opp, 'Elo moyen') : ''}${s.perf ? tile('Performance', s.perf, 'Elo estimé') : ''}</div>${wdl(s)}`;
+}
+function partieRow(g, fx, allTc) {
+  const a = S.an[g.id], ok = a && !a.bad, acc = ok && a.acc != null ? a.acc : g.acc;
+  const nG = ok ? a.errs.filter((e) => e.kind === 'gaffe').length : null, nE = ok ? a.errs.filter((e) => e.kind === 'erreur').length : null;
+  const res = g.out === 'W' ? ['good', 'Victoire'] : g.out === 'L' ? ['bad', 'Défaite'] : ['', 'Nulle'];
+  const d = new Date(g.t * 1000), hh = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const fau = !ok ? '<span class="small">non analysée</span>' : nG + nE ? `${nG ? `<span class="chip bad">${nG} ??</span>` : ''}${nE ? `<span class="chip warn">${nE} ?</span>` : ''}` : '<span class="chip good">0</span>';
+  return `<a class="gl ${g.out}" href="#partie/${g.t}" aria-label="${res[1]} contre ${esc(g.opp)}, ${dfmt(g.t)}">
+    <span class="gl-pl"><span class="gl-p"><i class="dot ${g.w ? 'b' : 'w'}"></i><span class="gl-n">${esc(g.opp)}</span><b class="num">${g.or || '?'}</b>${fx.gap != null ? `<span class="small num" title="Écart avec ton Elo">${sgn(fx.gap)}</span>` : ''}</span>
+      <span class="gl-p me"><i class="dot ${g.w ? 'w' : 'b'}"></i><span class="gl-n">Moi</span><b class="num">${g.r || '?'}</b>${fx.d != null ? `<span class="num ${fx.d > 0 ? 'up' : fx.d < 0 ? 'dn' : ''}" title="Variation de ton Elo sur cette partie">${sgn(fx.d)}</span>` : g.rated ? '' : '<span class="small">amicale</span>'}</span></span>
+    <span class="gl-res"><span class="chip ${res[0]}">${res[1]}</span><span class="small">${esc(HOW[g.how] || g.how || '')}</span></span>
+    <span class="gl-meta"><span class="gl-op">${esc(g.fam)}</span><span class="gl-c num"><b>${Math.ceil(g.san.length / 2)}</b><span class="gl-u"> coups</span></span>
+      <span class="gl-c num">${acc != null ? `<b>${Math.round(acc)} %</b><span class="vh"> de précision</span>` : '<span class="small">–</span>'}</span>
+      <span class="gl-c gl-f">${fau}</span><span class="gl-c num">${fx.left != null ? `<b>${mmss(fx.left)}</b><span class="vh"> restant à la pendule</span>` : '<span class="small">–</span>'}</span>
+      <span class="gl-d small num">${dfmt(g.t)} ${hh}${allTc ? ` · ${TC[g.tc] || g.tc}` : ''}</span></span></a>`;
+}
 function viewParties() {
-  const gs = games().slice().reverse();
+  const gs = games().slice().reverse(), fx = st.gameFacts(S.data?.games || []), allTc = S.f.tc === 'all';
   S.listN ||= 50;
-  return `${GAMES_TABS('parties')}<h1>Parties</h1><div class="card"><div class="scroll"><table><thead><tr><th>Date</th><th>Résultat</th><th>Adversaire</th><th>Ouverture</th><th class="r">Coups</th><th class="r">Précision</th><th class="r">Gaffes</th></tr></thead><tbody>
-    ${gs.slice(0, S.listN).map((g) => { const a = S.an[g.id]; return `<tr class="click" data-act="open" data-t="${g.t}"><td class="num">${dfmt(g.t)}</td>
-      <td><span class="row" style="gap:6px;flex-wrap:nowrap"><i class="dot ${g.w ? 'w' : 'b'}" title="${g.w ? 'Blancs' : 'Noirs'}"></i><span class="chip ${g.out === 'W' ? 'good' : g.out === 'L' ? 'bad' : ''}">${g.out === 'W' ? 'Victoire' : g.out === 'L' ? 'Défaite' : 'Nulle'}</span></span></td>
-      <td>${esc(g.opp)} <span class="small num">${g.or}</span></td><td>${esc(g.fam)}</td><td class="r">${Math.ceil(g.san.length / 2)}</td>
-      <td class="r">${a && a.acc != null ? a.acc.toFixed(0) + ' %' : '<span class="small">non analysée</span>'}</td><td class="r">${a && !a.bad ? a.errs.filter((e) => e.kind === 'gaffe').length : ''}</td></tr>`; }).join('')}
-    </tbody></table></div>${gs.length > S.listN ? '<div><button class="btn" data-act="more">Afficher 50 parties de plus</button></div>' : ''}</div>`;
+  const head = '<div class="gl head" aria-hidden="true"><span>Joueurs et Elo</span><span>Résultat</span><span class="gl-meta"><span>Ouverture</span><span class="gl-c">Coups</span><span class="gl-c">Précision</span><span class="gl-c">Fautes</span><span class="gl-c">Pendule</span><span class="gl-d">Date</span></span></div><p class="gl-leg small">Elo : écart de l’adversaire avec toi, puis ce que la partie t’a fait gagner ou perdre. Dessous : coups, précision, temps restant, fautes (?? gaffe, ? erreur).</p>';
+  return `${GAMES_TABS('parties')}<h1>Parties</h1>${gs.length ? `<div class="card">${partiesSummary(gs)}</div>` : ''}<div class="card gll">${head}
+    ${gs.slice(0, S.listN).map((g) => partieRow(g, fx[g.id] || {}, allTc)).join('')}
+    ${gs.length > S.listN ? '<div><button class="btn" data-act="more">Afficher 50 parties de plus</button></div>' : ''}</div>`;
 }
 
 // Symbole du coup qui mène à la position k : ?? ? ?! sur une erreur classée, ! si le joueur a trouvé le seul coup qui tenait.

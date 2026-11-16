@@ -364,6 +364,15 @@ Après (`viewEntrainer`, `entNext`, `mountEntrainer`) :
 
 Vérifié : tests, parcours, audit sans écart, captures aux 4 tailles.
 
+## 34. Liste des parties enrichie (16/11)
+
+Demande : « dans mes parties, ajoute l'elo de l'adversaire et le mien à chaque fois, et toutes les stats utiles, en gardant une ligne claire et structurée ».
+
+- `#parties` n'est plus un tableau : une ligne par partie (`partieRow`), joueurs empilés comme sur un échiquier (adversaire en haut avec son Elo et l'écart avec le tien, toi en bas avec ton Elo et la variation de la partie), résultat et manière (abandon, temps, mat…), ouverture, coups, précision (analyse du site, sinon Chess.com), fautes (?? gaffes, ? erreurs), temps restant à ta pendule, date et heure (cadence si « Toutes cadences »). Liseré vert, gris ou rouge selon le résultat.
+- Synthèse de la sélection au-dessus (`partiesSummary`) : parties et bilan V/N/D, score, Elo de fin de période et variation, Elo moyen des adversaires, performance estimée (adversaire moyen + 400 × (V − D) / n), barre victoires/nulles/défaites. Suit les filtres cadence et période.
+- Calculs purs dans `stats.js` : `gameFacts` (variation d'Elo depuis la dernière partie classée de la même cadence, écart, pendule) et `listSummary`, testés dans `tests/stats.test.mjs`.
+- Téléphone : joueurs et résultat sur la première ligne, ouverture et date, puis chiffres sans libellés (légende en tête de liste, libellés lus par les lecteurs d'écran). Ordinateur : colonnes avec en-tête.
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |

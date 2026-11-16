@@ -171,6 +171,43 @@ td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: middle;
 tr.click { cursor: pointer; } tr.click:hover td { background: var(--sunken); }
 td.r, th.r { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .scroll { overflow-x: auto; }
+/* Liste des parties (16/11) : synthèse en tuiles, puis une ligne par partie. Téléphone : joueurs et résultat, chiffres dessous. */
+.glsum { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: var(--s-2); }
+.glt { display: flex; flex-direction: column; gap: 2px; padding: var(--s-2) var(--s-3); background: var(--sunken); border-radius: var(--r-s); }
+.glt b { font-size: var(--t-l); font-weight: 600; } .glt b span { font-size: var(--t-s); font-weight: 500; }
+@media (max-width: 859px) { .glsum { grid-template-columns: repeat(3, minmax(0, 1fr)); } .glt { padding: var(--s-2); } .glt b { font-size: var(--t-m); } }
+.up { color: var(--good); } .dn { color: var(--bad-ink); }
+.gll { gap: 0; padding: var(--s-1) var(--s-4); }
+.gl { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "pl res" "meta meta"; gap: var(--s-2) var(--s-3); align-items: center; padding: var(--s-3) 0; border-bottom: 1px solid var(--line); color: var(--ink); text-decoration: none; font-size: var(--t-s); border-left: 3px solid transparent; }
+.gl:last-of-type { border-bottom: 0; }
+.gl.W { border-left-color: var(--good); } .gl.L { border-left-color: var(--bad); } .gl.D { border-left-color: var(--neutral); }
+.gl:not(.head) { padding-left: var(--s-3); }
+.gl.head { display: none; }
+.gl-pl { grid-area: pl; display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
+.gl-p { display: flex; align-items: center; gap: var(--s-2); min-width: 0; }
+.gl-p .gl-n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.gl-p.me .gl-n { color: var(--ink2); }
+.gl-p b { font-weight: 600; }
+.gl-res { grid-area: res; display: flex; flex-direction: column; align-items: flex-end; gap: var(--s-1); }
+.gl-meta { grid-area: meta; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-3); color: var(--ink2); }
+.gl-meta b { color: var(--ink); font-weight: 500; }
+.gl-op { flex: 1 1 0; min-width: 0; order: -2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.gl-f { display: inline-flex; gap: var(--s-1); }
+.gl-d { order: -1; }
+.gl-leg { margin: var(--s-2) 0; }
+.gl-f { order: 1; }
+@media (max-width: 859px) { .gl-meta::after { content: ""; order: -1; flex-basis: 100%; } }
+@media (min-width: 860px) {
+  .gl { grid-template-columns: minmax(170px, 1.3fr) 104px minmax(130px, 1.2fr) 56px 82px 92px 66px 116px; grid-template-areas: none; padding: var(--s-2) 0; }
+  .gl:not(.head) { padding-left: var(--s-3); }
+  .gl.head { display: grid; color: var(--ink3); font-size: var(--t-xs); font-weight: 500; padding: var(--s-2) 0 var(--s-2) calc(var(--s-3) + 3px); border-left: 0; }
+  .gl-pl, .gl-res, .gl-meta { grid-area: auto; }
+  .gl-meta { display: contents; }
+  .gl-op, .gl-d, .gl-f { order: 0; }
+  .gl-c, .gl-d { text-align: right; justify-content: flex-end; }
+  .gl-u, .gl-leg { display: none; }
+  .gl-res { align-items: flex-start; }
+}
 
 .board { width: 100%; max-width: 520px; aspect-ratio: 1; border-radius: var(--r-s); overflow: hidden; box-shadow: var(--board-shadow); }
 .board.mini { max-width: 300px; }
@@ -725,7 +762,7 @@ a:is([href^="#bilan"], [href^="#stats"], [href^="#plan"], [href^="#plus"]) { --s
 }
 
 /* ===== Survol (demande du 16/11) : tout élément cliquable s'éclaire sous la souris, jamais au toucher ===== */
-.btn, .seg2 button, .seg2 a, .mrow, .oprow, .opdue, .fmini, .check, .gnum, .pzprog, .lgpos, a.card, .nav a, .nav a > svg, .brand, .moves button, .gvm .mv, .gvnote {
+.btn, .seg2 button, .seg2 a, .mrow, .oprow, .gl, .opdue, .fmini, .check, .gnum, .pzprog, .lgpos, a.card, .nav a, .nav a > svg, .brand, .moves button, .gvm .mv, .gvnote {
   transition: background-color var(--m-in) var(--ease), border-color var(--m-in) var(--ease), color var(--m-in) var(--ease), filter var(--m-in) var(--ease), transform var(--m-press) var(--ease);
 }
 @media (hover: hover) and (pointer: fine) {
@@ -735,10 +772,10 @@ a:is([href^="#bilan"], [href^="#stats"], [href^="#plan"], [href^="#plus"]) { --s
   .nav a:not(.on):hover, .grp:hover .grp-h:not(.on) { background: var(--hover); color: var(--ink); }
   .nav a:hover > svg, .grp:hover .grp-h > svg { color: var(--sec); filter: brightness(1.12); } /* icône plus vive sous la souris */
   .mrow:hover, a.card:hover, .fmini:hover { background: var(--hover); border-color: var(--hover-line); }
-  .oprow:hover, .check:hover, tr.click:hover td, ol.line li:hover { background: var(--hover); }
+  .oprow:hover, .check:hover, tr.click:hover td, ol.line li:hover, .gl:not(.head):hover { background: var(--hover); }
   .opdue:hover, .gnum:hover, .pzprog:hover, .lgpos:hover, .brand:hover { filter: brightness(1.15); }
   .moves button:not(.cur):hover, .gvm .mv:not(.cur):hover, .gvnote:hover { background: var(--hover); color: var(--ink); }
-  a:not(.btn):not(.card):not(.mrow):not(.oprow):not(.opdue):not(.fmini):not(.gnum):not(.pzprog):not(.lgpos):not(.brand):hover { text-decoration-thickness: 2px; }
+  a:not(.btn):not(.card):not(.gl):not(.mrow):not(.oprow):not(.opdue):not(.fmini):not(.gnum):not(.pzprog):not(.lgpos):not(.brand):hover { text-decoration-thickness: 2px; }
 }
 /* Un menu de navigation ouvert passe devant les messages éphémères (téléphone : même zone en bas d'écran) */
 body:has(.grp.open) .toasts { opacity: 0; }

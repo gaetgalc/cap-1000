@@ -1,7 +1,7 @@
 // Statistiques de la pendule et erreurs répétées, sur des parties construites à la main. node --test tests/
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-const { clockErrors, incOf, repeatedErrors, lineText } = await import('../js/stats.js');
+const { clockErrors, incOf, repeatedErrors, lineText, gameFacts, listSummary } = await import('../js/stats.js');
 
 test('incrément : lu à l’import, sinon déduit de la pendule', () => {
   assert.equal(incOf({ inc: 5, clk: [] }), 5);
@@ -37,4 +37,41 @@ test('même position, même faute : regroupée sur plusieurs parties', () => {
   assert.equal(r.last.g.t, 3);
   assert.equal(lineText(r.line), '1.e4 e5 2.Cf3 Cc6 3.Fc4');
   assert.deepEqual(repeatedErrors([games[0]], an), [], 'une seule partie : pas une erreur qui revient');
+});
+
+test('liste des parties : variation d’Elo par cadence, écart avec l’adversaire, pendule restante', () => {
+  const all = [
+    { id: 'a', t: 1, tc: 'rapid', rated: true, r: 800, or: 820, w: true, clk: [590, 580, 500, 570] },
+    { id: 'b', t: 2, tc: 'blitz', rated: true, r: 700, or: 650, w: false, clk: [] },
+    { id: 'c', t: 3, tc: 'rapid', rated: true, r: 808, or: 790, w: false, clk: [590, 580, 500, 560, 490] },
+    { id: 'd', t: 4, tc: 'rapid', rated: false, r: 808, or: 900, w: true, clk: [] },
+    { id: 'e', t: 5, tc: 'rapid', rated: true, r: 799, or: 850, w: true, clk: [] },
+  ];
+  const f = gameFacts(all);
+  assert.equal(f.a.d, null); // première partie de la cadence : pas de variation connue
+  assert.equal(f.b.d, null);
+  assert.equal(f.c.d, 8);
+  assert.equal(f.d.d, null); // partie amicale : le classement ne bouge pas
+  assert.equal(f.e.d, -9); // comparée à la dernière partie classée de la même cadence
+  assert.equal(f.a.gap, 20);
+  assert.equal(f.c.gap, -18);
+  assert.equal(f.a.left, 500); // Blancs : derniers temps des coups pairs
+  assert.equal(f.c.left, 560); // Noirs : derniers temps des coups impairs
+  assert.equal(f.b.left, null);
+});
+
+test('synthèse de la liste : bilan, adversaire moyen, performance, Elo de début et de fin', () => {
+  const gs = [
+    { tc: 'rapid', rated: true, r: 810, or: 800, out: 'W', t: 1 },
+    { tc: 'rapid', rated: true, r: 802, or: 900, out: 'L', t: 2 },
+    { tc: 'rapid', rated: true, r: 802, or: 700, out: 'D', t: 3 },
+    { tc: 'rapid', rated: true, r: 812, or: 840, out: 'W', t: 4 },
+  ];
+  const s = listSummary(gs);
+  assert.deepEqual([s.n, s.w, s.d, s.l, s.score], [4, 2, 1, 1, 63]);
+  assert.equal(s.opp, 810);
+  assert.equal(s.perf, 910); // 810 + 400 × (2 − 1) / 4
+  assert.deepEqual([s.from, s.to], [810, 812]);
+  assert.equal(listSummary([]).n, 0);
+  assert.equal(listSummary([{ tc: 'rapid', rated: true, r: 800, or: 800, out: 'W', t: 1 }, { tc: 'blitz', rated: true, r: 600, or: 600, out: 'W', t: 2 }]).from, null); // cadences mêlées : pas d'Elo de période
 });

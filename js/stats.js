@@ -57,6 +57,31 @@ export function timeStats(games) {
   };
 }
 
+// Faits de chaque partie pour la liste : variation d'Elo (d, depuis la dernière partie classée de la même cadence ;
+// Chess.com donne le classement après la partie), écart avec l'adversaire (gap), temps restant au dernier coup (left, en s).
+export function gameFacts(all) {
+  const last = {}, out = {};
+  for (const g of [...all].sort((a, b) => a.t - b.t)) {
+    const mine = (g.clk || []).filter((_, i) => (i % 2 === 0) === g.w);
+    const prev = last[g.tc];
+    out[g.id] = { d: g.rated && g.r && prev != null ? g.r - prev : null, gap: g.r && g.or ? g.or - g.r : null, left: mine.length ? mine[mine.length - 1] : null };
+    if (g.rated && g.r) last[g.tc] = g.r;
+  }
+  return out;
+}
+
+// Synthèse d'une liste : bilan, score, adversaire moyen, performance (adversaire moyen + 400 × (V − D) / n),
+// Elo de début et de fin de période (une seule cadence classée, sinon null).
+export function listSummary(games) {
+  const s = { ...tally(games), opp: null, perf: null, from: null, to: null };
+  s.score = score(s);
+  const ors = games.filter((g) => g.or).map((g) => g.or);
+  if (ors.length) { s.opp = Math.round(ors.reduce((a, b) => a + b, 0) / ors.length); s.perf = Math.round(s.opp + (400 * (s.w - s.l)) / s.n); }
+  const rated = games.filter((g) => g.rated && g.r).sort((a, b) => a.t - b.t);
+  if (rated.length && new Set(rated.map((g) => g.tc)).size === 1) { s.from = rated[0].r; s.to = rated[rated.length - 1].r; }
+  return s;
+}
+
 // Incrément d'une partie : connu à l'import (g.inc), sinon déduit de la pendule (le plus grand gain de temps entre
 // deux coups d'un même camp, atteint quand un coup est joué sans réfléchir).
 export function incOf(g) {
