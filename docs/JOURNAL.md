@@ -423,6 +423,19 @@ Vérifié : 90 tests unitaires (nouveaux : `ideas`, `program`, `portrait`, `theo
 
 Constat à trancher : le chantier choisi automatiquement est « Mauvais coup en milieu de partie » (thème `plan`, le plus vague), avec une règle générale.
 
+## 39. Six idées reprises de la structure de Chess.com (16/11)
+
+> cherche sur la structure du site de chess.com des points qu'on pourrait ajouter au site · fais les 6
+
+Comparaison des rubriques de Chess.com (Jouer, Puzzles, Apprendre, Analyse, Insights) avec le site. Six manques, tous faits :
+
+1. **Rush** (`#rush`, `#rush/t3`, `#rush/surv`), d'après Puzzle Rush : les questions des échauffements (`sur`, `menace`, `cadeau`, tirées de tes parties) à la chaîne, en 3 minutes ou en survie (3 fautes). Record par mode, fautes relues à la fin. `progress.recordRush` (clé `rush`, journal `k: 'r'`).
+2. **Jouer d'ici** (`#jouer/<t>/<k>`, `#jouer/<t>/v` pour une variante) : bouton « Jouer » du bandeau de la relecture, la position reprise contre le moteur bridé de `#gagner`. `progress.recordPlay` (journal `k: 'j'`). La partie contre le moteur est désormais commune à `#gagner`, `#jouer` et `#finale` (`botGame` dans `app.js`).
+3. **Finales de base** (`#finales`, `#finale/<id>`), d'après Practice : 11 positions dans `js/endgames.js` (mats dame, tour, deux tours ; carré, roi devant le pion, opposition, défense, percée, mauvais fou ; Lucena, Philidor), contre Stockfish à pleine force. Buts `mat`, `promo` (dame qui ne peut pas être prise), `nulle` (tenir N coups ou nulle réglementaire). Manquée si l'avantage tombe sous +1,5 (but de gain), sous −5 (défense, sauf `noEval` : forteresse du mauvais fou), ou si la limite de coups est dépassée. Répétition espacée comme les lignes (`progress.recordEndgame`, mémoire `fin`, journal `k: 'f'`). Résultat théorique de chaque position contrôlé avec Stockfish profondeur 22 à 24 (l'opposition d'abord choisie, roi e3 pion e2, était nulle : remplacée).
+4. **Insights** (« Quand et comment tu perds », Mon jeu) : précision et fautes graves par phase, fautes par pièce jouée, score selon l'heure et selon le rang de la partie dans la session (pause de plus d'une heure = nouvelle session), phrases seulement sur les écarts nets. `js/insights.js`, `tests/insights.test.mjs`. `phase` de `classify.js` est exportée (règle inchangée, pas de nouvelle `VERSION`).
+5. **Explorateur Lichess filtré par niveau** (Ouvertures, sous l'explorateur de tes parties) : `explorer.lichess.ovh`, joueurs Lichess 1200 à 1800, blitz et rapide. Un coup touché prolonge la ligne explorée, même hors de tes parties. `js/explorer.js`, testé sur réponse simulée : `explorer.lichess.ovh` n'est pas joignable depuis l'environnement de Claude, format réel et besoin éventuel d'une connexion à confirmer au premier essai (message clair en cas de refus 401).
+6. **Elo estimé de la partie** (relecture, à côté de la précision) : repère personnel, ta précision moyenne des 30 dernières parties analysées vaut ton classement moyen, 25 points par point de précision, borné à ±400, rien sous 10 parties.
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |
@@ -446,5 +459,6 @@ Constat à trancher : le chantier choisi automatiquement est « Mauvais coup en 
 - Import et analyse sur le vrai compte `gaetcc`.
 - Qualité des cours réellement générés par Claude, et des réponses de « Demande au coach ».
 - Justesse des intentions (`plan.js`) sur de vraies parties : heuristiques testées sur des positions construites.
+- Explorateur Lichess (`explorer.js`) et finales contre le moteur jamais essayés sur le site en ligne ; Elo estimé non comparé à celui de Chess.com.
 - Rendu du site en ligne (inaccessible depuis l'environnement de Claude).
 - Rythme de l'animation des suites (environ 3 secondes par coup) et lisibilité des points de déplacement sur le téléphone de Gaëtan.

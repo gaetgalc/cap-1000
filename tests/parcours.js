@@ -259,6 +259,38 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   check(/Ta routine/.test(await bar('#view')) && await S(() => document.querySelectorAll('#view .btn.pri').length === 1 && /chess\.com/.test(document.querySelector('#view .btn.pri').href)), 'avant de jouer : règle, routine et un seul bouton vers Chess.com');
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#bilan`); await sleep(700);
   check(/Ton programme/.test(await bar('#view')) && /Semaine 1 · Comprendre/.test(await bar('#view')), 'Mon jeu : programme de 4 semaines du chantier');
+  // ---- Idées reprises de Chess.com (JOURNAL §39) ----
+  check(/Quand et comment tu perds/.test(await bar('#view')) && /Par phase/.test(await bar('#view')), 'Mon jeu : regards croisés par phase, pièce, heure et session');
+  // Rush en survie : on répond toujours la première option jusqu'à la 3e faute (ou 40 réponses)
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#rush/surv`); await sleep(700);
+  for (let i = 0; i < 40 && !(await S(() => window.__cap.rush?.done)); i++) { await page.click('#xbar [data-x="ans"]').catch(() => {}); await sleep(1800); }
+  check((await ls('hist')).some((h) => h.k === 'r' && h.m === 'surv') && /Rejouer/.test(await bar('#view')), 'Rush : série finie, notée au journal, avec son record');
+  await page.click('[data-act="rushagain"]'); await sleep(600);
+  check(await S(() => !window.__cap.rush.done && window.__cap.rush.n === 0 && !!document.querySelector('#xb')), 'Rush : « Rejouer » relance une série');
+  // Finale : un coup, le moteur répond, puis abandon noté
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#finale/escalier`); await sleep(700);
+  await tap('#xb', 'a1', true); await sleep(200); await tap('#xb', 'a4', true);
+  await page.waitForFunction(() => window.__cap.fg?.moves.length >= 2 || window.__cap.fg?.over, null, { timeout: 60000 });
+  check(true, 'finale : le moteur répond au coup joué');
+  await page.click('[data-x="resign"]'); await sleep(300);
+  check((await ls('hist')).some((h) => h.k === 'f' && h.id === 'escalier' && h.r === 0) && /Recommencer/.test(await bar('#xbar')), 'finale abandonnée : notée manquée, avec Recommencer');
+  // Jouer d'ici depuis la relecture
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#partie/${gt}/20`); await sleep(800);
+  await page.click('#xcap [data-act="playhere"]'); await sleep(900);
+  check((await page.evaluate(() => location.hash)) === `#jouer/${gt}/20`, 'relecture : « Jouer » ouvre la position contre le moteur');
+  await page.waitForFunction(() => window.__cap.jp && (window.__cap.jp.moves.length % 2 === 0 || window.__cap.jp.over), null, { timeout: 60000 });
+  { const { fen, w } = await S(() => { const s = window.__cap, g = s.data.games.find((x) => String(x.t) === String(s.jp.t)); return { fen: s.jp.fen, w: g.w }; });
+    const c = new Chess(fen); for (const u of await S(() => window.__cap.jp.moves)) c.move({ from: u.slice(0, 2), to: u.slice(2, 4), promotion: 'q' });
+    const mv = c.moves({ verbose: true })[0], n0 = await S(() => window.__cap.jp.moves.length);
+    await tap('#xb', mv.from, w); await sleep(200); await tap('#xb', mv.to, w);
+    await page.waitForFunction((n) => window.__cap.jp.moves.length >= n + 2 || window.__cap.jp.over, n0, { timeout: 60000 });
+    check(true, 'jouer d’ici : le moteur répond'); }
+  await page.click('[data-x="resign"]'); await sleep(300);
+  check((await ls('hist')).some((h) => h.k === 'j'), 'jouer d’ici : partie notée au journal');
+  // Explorateur Lichess (réponse simulée)
+  await ctx.route('https://explorer.lichess.ovh/**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ white: 60, draws: 10, black: 30, moves: [{ uci: 'e2e4', san: 'e4', white: 40, draws: 5, black: 15 }, { uci: 'd2d4', san: 'd4', white: 20, draws: 5, black: 15 }] }) }));
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#ouvertures`); await sleep(1000);
+  check(/e4/.test(await bar('#lexp')) && /60 %/.test(await bar('#lexp')), 'ouvertures : explorateur Lichess à ton niveau');
   check(errs.length === 0, 'aucune erreur JavaScript' + (errs.length ? ' : ' + errs.join(' | ') : ''));
   await browser.close(); stopServer();
   console.log(failed ? `\n${failed} échec(s)` : '\nTout passe.');

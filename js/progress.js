@@ -33,7 +33,7 @@ export function makeProgress(store = ls, now = () => Date.now()) {
 
   // ---- Journal : chaque exercice terminé est noté tout de suite ----
   // k : 'm' puzzle sur une erreur, 'l' position inédite Lichess, 'd' série d'échauffement, 'c' partie gagnante rejouée,
-  //     'o' ligne d'ouverture récitée.
+  //     'o' ligne d'ouverture récitée, 'f' finale de base, 'r' série de Rush, 'j' partie jouée depuis une position.
   // re : 1 si déjà fait ce jour-là.
   const hist = () => store.get('hist', []);
   function log(x) {
@@ -112,6 +112,29 @@ export function makeProgress(store = ls, now = () => Date.now()) {
     return p ? { due: p.due, box: p.box, ok: p.ok, acquise: p.box >= 2, aReviser: p.due <= now() } : null;
   }
   const linesDue = (ids) => { const ln = store.get('ln', {}), t = now(); return ids.filter((id) => ln[id] && ln[id].due <= t); };
+  // Finale de base jouée contre le moteur (#finale) : 2 réussie sans indice, 1 réussie avec indice, 0 manquée.
+  // Même répétition espacée que les lignes, mémoire 'fin' ; journal k 'f'.
+  function recordEndgame(id, res) {
+    const fresh = mark(id, res, 'fin');
+    if (fresh) bump('fin');
+    log({ k: 'f', id, r: res, re: fresh ? 0 : 1 });
+    return fresh;
+  }
+  function endgameState(id) {
+    const p = store.get('fin', {})[id];
+    return p ? { due: p.due, box: p.box, ok: p.ok, acquise: p.box >= 2, aReviser: p.due <= now() } : null;
+  }
+  const endgamesDue = (ids) => { const f = store.get('fin', {}), t = now(); return ids.filter((id) => f[id] && f[id].due <= t); };
+  // Rush (#rush) : mode 't3' (3 minutes) ou 'surv' (3 fautes), ok réponses justes sur n. Renvoie true si c'est un record.
+  const rushBest = () => ({ t3: 0, surv: 0, ...store.get('rush', {}) });
+  function recordRush(m, ok, n) {
+    const b = rushBest(), rec = ok > (b[m] || 0);
+    if (rec) { b[m] = ok; store.set('rush', b); }
+    bump('rush'); log({ k: 'r', m, ok, n, rec: rec ? 1 : 0 });
+    return rec;
+  }
+  // Partie jouée contre le moteur depuis une position de la relecture (#jouer) : why = fin de la partie, n = demi-coups.
+  function recordPlay(id, ply, why, n) { bump('jouer'); log({ k: 'j', id: String(id), ply, why, n }); }
   // Partie gagnante rejouée contre le moteur : r = 2 gagnée, 0 pas gagnée (nulle, défaite, abandon). n : demi-coups joués.
   function recordConversion(id, r, n) { bump('cv'); log({ k: 'c', id: String(id), r, n }); }
   const conversions = () => hist().filter((h) => h.k === 'c');
@@ -179,7 +202,7 @@ export function makeProgress(store = ls, now = () => Date.now()) {
     return { done, due, goal: Math.max(1, Math.min(GOAL, done + due)), t };
   }
 
-  return { dkey, dayStart, act, bump, streak, hist, queue, acquired, recordPuzzle, rateInfo, ratePuzzle, recordLichess, lichessStat, recordDrill, recordConversion, conversions, recordLine, lineState, linesDue, drills, lessonsRead, setLessonRead, todayPuzzles, run, failedToday, day, recordCause, causeOf, causes, recordSelf, selfOf, recordIdea };
+  return { dkey, dayStart, act, bump, streak, hist, queue, acquired, recordPuzzle, rateInfo, ratePuzzle, recordLichess, lichessStat, recordDrill, recordConversion, conversions, recordLine, lineState, linesDue, recordEndgame, endgameState, endgamesDue, rushBest, recordRush, recordPlay, drills, lessonsRead, setLessonRead, todayPuzzles, run, failedToday, day, recordCause, causeOf, causes, recordSelf, selfOf, recordIdea };
 }
 
 export const progress = makeProgress();

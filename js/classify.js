@@ -40,7 +40,7 @@ function tacticIn(fen, pv) {
   const f = freeCapture(c.fen(), pv[2]);
   return !!f && f.gain >= 2;
 }
-function phase(fen, ply) {
+export function phase(fen, ply) {
   if (ply < 20) return 'ouverture';
   let tot = 0, queens = 0;
   for (const ch of fen.split(' ')[0].toLowerCase()) { if ('nbrq'.includes(ch)) tot += VAL[ch]; if (ch === 'q') queens++; }
