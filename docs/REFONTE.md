@@ -75,3 +75,10 @@ Suite de la refonte, détail dans `docs/PLAN-AGREMENT.md`. Écarts assumés en p
 - **Coordonnées de l'échiquier en 12 px** (`--t-coord`), sous le minimum de 13 px : elles sont dans le coin des cases, comme sur Lichess et Chess.com. L'audit ne les compte pas (elles sont dans `cg-container`).
 - **Anneau du bilan de fin de séance en 700 ms** (`--m-ring`, `stroke-dashoffset`), au-delà des 240 ms : en 240 ms la fermeture ne se voit pas. Coupé par `prefers-reduced-motion`.
 - **Relecture sur téléphone** : échiquier de 273 px en 390 × 664 (et non bord à bord) pour garder visibles la bande de coups et la courbe d'avantage sans défilement ; les boutons Début et Fin sont masqués (touches du clavier, bande de coups).
+
+## Navigation et icônes (16/11, demande de Gaëtan)
+
+> apprendre et s'entraîner doivent être le même onglet -> tout doit s'ouvrir un menu déroulant. ajoute aussi de la couleur aux logos
+
+- **Navigation à 4 entrées** (Aujourd'hui, S'entraîner, Parties, Progrès), chacune avec un menu déroulant. Écart assumé avec la règle « pas de volet au survol », étendu à toutes les entrées à la demande de Gaëtan.
+- **Icônes de section colorées** : 5 teintes douces (vert, ambre, bleu, violet, corail), seule l'icône est colorée, jamais le texte ; inactive à 72 %, active en pleine couleur avec un fond teinté à 12 %. Écart assumé avec « une seule couleur d'accent », limité aux icônes.

@@ -331,6 +331,17 @@ Vérifié : 49 tests unitaires, parcours complet, audit sans écart sur 23 écra
 - Survol unifié en fin de `css/app.css`, à la souris seulement (`hover: hover` et `pointer: fine`) : fond `--hover` et bord `--hover-line` (jetons de `:root`) sur les boutons, onglets, entrées de navigation, lignes et cartes cliquables, coups de la relecture ; bouton plein éclairci ; liens soulignés plus épais. Transition de 150 ms.
 - Bug trouvé en vérifiant : la fusion du §29 avait perdu l'accolade fermante du bloc téléphone des sons. Toutes les règles suivantes (Apparence, échiquier en multiple de 8 px) ne s'appliquaient que sur téléphone. Corrigé, et nouveau test `tests/css.test.mjs` (accolades équilibrées), rouge sur l'ancienne feuille.
 
+## 31. Menus déroulants, icônes en couleur, idées de logo (16/11)
+
+> quel autre ajout de ce type pourriat être utile ? ajoute aussi de la couleur aux logos . apprendre et s'entrainer doivent être le même onlget -> tout doit s'ouvrir un menu déroulant. propose moi également des idées de logo du site très simple. fais tout ça en parrallèle
+
+- **Navigation** : Apprendre réuni dans S'entraîner, 4 entrées, chacune ouvre un menu (survol, clavier, appui sur téléphone). `PROG_MENU` supprimé. Les menus n'ont pas d'icône. Un message éphémère est masqué tant qu'un menu est ouvert.
+- **Icônes** colorées par section (détail dans `docs/REFONTE.md`).
+- **Logo** : 6 propositions (boussole, drapeau, escalier en damier, « 1000 », sommet en damier, viseur), planche envoyée à Gaëtan ; recommandé : sommet en damier, puis escalier. En attente de son choix, rien de changé sur le site.
+- **Idées d'ajouts proposées** : raccourcis clavier dans les exercices, info-bulles sur la colonne d'icônes, pastille « reste à faire » sur la navigation, pièce soulevée au glisser, état appuyé au toucher, fil d'Ariane, mémoire du défilement des listes, recherche rapide. Recommandées : raccourcis et pastille. Non faites.
+
+Vérifié : 50 tests unitaires, parcours (dont 4 contrôles de la navigation au téléphone), audit sans écart sur 23 écrans aux 4 tailles, captures avec menu ouvert relues. Non vu sur iPhone.
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |
