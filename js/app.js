@@ -1432,14 +1432,79 @@ function viewPartie(t, plyArg) {
     : `<div class="card"><p class="sub">Cette partie n’est pas encore analysée.</p><div><button class="btn pri" data-act="analyse1" ${S.job.running ? 'disabled' : ''}>${S.job.running ? 'Analyse en cours' : 'Analyser cette partie'}</button></div></div>`}
       <div class="gvm" id="gvm">${gvMoves(v)}</div>
       <div class="gvmore stack"><div class="row">${res}<span class="chip">${dfmt(g.t)}</span>${link}</div>
+      <p class="small">Joue tes propres coups sur l’échiquier pour tester une autre suite : le moteur l’évalue. Clic droit pour tracer des flèches.</p>
       ${serious.length ? `<div class="card"><h2>Moments clés</h2>${serious.map((x) => `<a class="row" href="#" data-act="goto" data-k="${x.ply}" style="justify-content:space-between;text-decoration:none"><span>Coup ${moveNo(x)} : ${fr(x.played)}, mieux ${fr(x.bestSan)}</span><span class="chip ${x.kind === 'gaffe' ? 'bad' : 'warn'}">${st.THEMES[x.theme]}</span></a>`).join('')}</div>` : ''}</div>`,
     bar: gvBar(v),
   });
 }
+// Variante jouée par l'élève depuis la position k0 de la partie : { k0, mv, fens, i, ev }.
+// L'échiquier de la relecture se joue librement (les deux camps) ; un coup différent de la partie ouvre une variante.
+const gvFen = (v) => (v.var ? v.var.fens[v.var.i] : v.fens[v.k]);
+function gvMov(v) {
+  const ch = new Chess(gvFen(v));
+  return { free: false, color: ch.turn() === 'w' ? 'white' : 'black', dests: destsOf(ch), showDests: true, events: { after: gvMove } };
+}
+function gvMove(from, to) {
+  const v = S.gv; if (!v) return;
+  const ch = new Chess(gvFen(v)), p = ch.get(from), promo = p?.type === 'p' && (to[1] === '8' || to[1] === '1') ? 'q' : undefined;
+  const m = ch.move({ from, to, promotion: promo });
+  if (!m) { gvSync(); return; }
+  const real = v.mv[v.k];
+  if (!v.var && real && real.from === from && real.to === to) { gvGo(v.k + 1); return; } // même coup qu'en partie : on avance
+  if (!v.var) v.var = { k0: v.k, mv: [], fens: [v.fens[v.k]], i: 0, ev: {} };
+  const w = v.var;
+  w.mv.length = w.i; w.fens.length = w.i + 1; // un nouveau coup au milieu de la variante la remplace
+  w.mv.push(m); w.fens.push(ch.fen()); w.i++;
+  gvSync();
+}
+function gvVarGo(i) {
+  const w = S.gv?.var; if (!w) return;
+  w.i = Math.max(0, Math.min(w.mv.length, i));
+  gvSync();
+}
+// Éval de la variante, calculée à la demande (Stockfish, prioritaire) et gardée par position.
+async function gvVarEval(v) {
+  const w = v.var, i = w.i, fen = w.fens[i];
+  if (w.ev[i] !== undefined) return;
+  w.ev[i] = null;
+  try {
+    S.play ||= new Engine();
+    const r = await S.play.evalFen(fen, DEPTH, true);
+    const white = fen.split(' ')[1] === 'w';
+    w.ev[i] = { cp: white ? r.cp : -r.cp, best: r.best };
+  } catch { S.play = null; delete w.ev[i]; return; }
+  if (S.gv === v && v.var === w && w.i === i && v.x?.alive()) gvSync();
+}
+function gvVarCap(v) {
+  const w = v.var, me = v.g.w ? 'w' : 'b', i = w.i, e = w.ev[i];
+  const base = w.k0, no = (j) => base + j; // demi-coups joués avant le coup j de la variante
+  const line = w.mv.map((m, j) => `${no(j) % 2 === 0 || j === 0 ? `<span class="n">${Math.floor(no(j) / 2) + 1}${no(j) % 2 ? '…' : '.'}</span>` : ''}<button data-act="vgo" data-i="${j + 1}" class="${j + 1 === i ? 'cur' : ''}">${fr(m.san)}</button>`).join('');
+  const last = i > 0 ? w.mv[i - 1] : null;
+  const txtK = last ? describeAt(w.fens[i - 1], last.san, me) : 'Point de départ de ta variante. Joue un coup sur l’échiquier.';
+  const ch = new Chess(w.fens[i]), over = ch.in_checkmate() ? 'Échec et mat.' : ch.in_stalemate() ? 'Pat.' : ch.in_draw() ? 'Nulle.' : '';
+  let evalP = '<span class="small">éval…</span>';
+  if (over) evalP = `<span class="chip">${over}</span>`;
+  else if (e) { const b = e.best ? uciMove(new Chess(w.fens[i]), e.best) : null; evalP = `<span class="small">éval ${fmtEval(v.g.w ? e.cp : -e.cp)}</span>${b ? `<span class="capbest">Meilleur <b>${fr(b.san)}</b></span>` : ''}`; }
+  return { cls: 'var', html: `<div class="capm"><span class="capn">Variante</span>${evalP}</div><div class="moves vline">${line || '<span class="small">Aucun coup encore</span>'}</div><p>${esc(txtK)}</p>` };
+}
+function gvVarBar(v) {
+  const w = v.var, i = w.i, n = w.mv.length;
+  return `<button class="btn ico" data-act="vgo" data-i="${i - 1}" aria-label="Coup précédent" ${i === 0 ? 'disabled' : ''}>${ico('prev')}</button><button class="btn ico" data-act="vgo" data-i="${i + 1}" aria-label="Coup suivant" ${i === n ? 'disabled' : ''}>${ico('next')}</button><button class="btn pri" data-act="vexit">Revenir à la partie</button>`;
+}
 // Met à jour l'écran de relecture sans le reconstruire : les pièces s'animent d'un coup à l'autre.
 function gvSync() {
-  const v = S.gv, k = v.k, cap = gvCap(v);
-  v.cg.set({ fen: v.fens[k], lastMove: k > 0 ? [v.mv[k - 1].from, v.mv[k - 1].to] : undefined, drawable: { autoShapes: gvAuto(v) } });
+  const v = S.gv, k = v.k, w = v.var;
+  if (w) {
+    const e = w.ev[w.i], last = w.i > 0 ? w.mv[w.i - 1] : (k > 0 ? v.mv[k - 1] : null), cap = gvVarCap(v);
+    v.cg.set({ fen: gvFen(v), turnColor: gvFen(v).split(' ')[1] === 'w' ? 'white' : 'black', lastMove: last ? [last.from, last.to] : undefined, movable: gvMov(v), drawable: { autoShapes: e?.best ? [arrow(e.best, 'green')] : [] } });
+    v.x.say(cap.cls, cap.html);
+    v.x.setBar(gvVarBar(v));
+    document.querySelectorAll('#gvm .mv').forEach((b) => b.classList.toggle('cur', +b.dataset.k === w.k0));
+    gvVarEval(v);
+    return;
+  }
+  const cap = gvCap(v);
+  v.cg.set({ fen: v.fens[k], turnColor: v.fens[k].split(' ')[1] === 'w' ? 'white' : 'black', lastMove: k > 0 ? [v.mv[k - 1].from, v.mv[k - 1].to] : undefined, movable: gvMov(v), drawable: { autoShapes: gvAuto(v) } });
   v.x.say(cap.cls, cap.html);
   v.x.setBar(gvBar(v));
   const box = $('#gvm');
@@ -1454,13 +1519,14 @@ function gvSync() {
 }
 function gvGo(k) {
   const v = S.gv; if (!v) return;
+  v.var = null; // aller à un coup de la partie quitte la variante
   v.k = Math.max(0, Math.min(v.mv.length, k));
   if (v.x?.alive() && v.cg) gvSync(); else render(true);
 }
 function mountPartie() {
   const v = S.gv, X = exo.current(); if (!X || !v) return;
   v.x = X;
-  v.cg = X.board({ fen: v.fens[v.k], orientation: v.g.w ? 'white' : 'black', viewOnly: true });
+  v.cg = X.board({ fen: gvFen(v), orientation: v.g.w ? 'white' : 'black', movable: gvMov(v), drawable: { enabled: true } }); // clic droit : flèches et cases, comme sur Chess.com
   v.chart = null;
   const c = $('#evc');
   if (c && v.a) { // courbe dessinée une fois ; seul le curseur suit le coup affiché
@@ -1470,7 +1536,7 @@ function mountPartie() {
     v.chart = lineChart(c, pts, matchMedia('(min-width: 860px)').matches ? { ...o, h: 140, step: 25, yfmt: (y) => y + ' %', x0: 'Début', x1: 'Fin' } : { ...o, h: 48, compact: true, mid: 50 });
   }
   X.on({ first: () => gvGo(0), prev: () => gvGo(v.k - 1), next: () => gvGo(v.k + 1), last: () => gvGo(v.mv.length) });
-  X.keys = { ArrowLeft: 'prev', ArrowRight: 'next', Home: 'first', End: 'last' };
+  // Clavier : géré par l'écouteur global (variante comprise), voir keydown plus bas
   gvSync();
 }
 
@@ -1765,6 +1831,8 @@ document.addEventListener('click', (ev) => {
   else if (act === 'open') location.hash = '#partie/' + el.dataset.t;
   else if (act === 'more') { S.listN += 50; render(true); }
   else if (act === 'goto') gvGo(+el.dataset.k);
+  else if (act === 'vgo') gvVarGo(+el.dataset.i);
+  else if (act === 'vexit') { const k0 = S.gv?.var?.k0; if (k0 != null) gvGo(k0); }
   else if (act === 'bakexp') { const m = $('#bakmsg'); backup.exportFile(S.user).then((n) => { if (m) m.textContent = `Fichier ${n} téléchargé. Range-le dans tes fichiers ou envoie-le sur ton autre appareil.`; toast('Sauvegarde téléchargée'); }).catch((e) => { if (m) m.textContent = 'Sauvegarde impossible : ' + (e.message || e); }); }
   else if (act === 'opgrp') { S.opGrp = el.dataset.g; render(true); }
   else if (act === 'optab') { S.opTab = el.dataset.tab; render(true); }
@@ -1804,7 +1872,10 @@ document.addEventListener('keydown', (ev) => {
   if (/INPUT|SELECT|TEXTAREA/.test(ev.target.tagName)) return;
   if (exo.key(ev)) return; // lecture d'une suite : flèches pour avancer, espace pour lire ou mettre en pause
   if (route()[0] !== 'partie' || !S.gv) return;
+  const w = S.gv.var;
+  if (w) { if (ev.key === 'ArrowLeft') gvVarGo(w.i - 1); else if (ev.key === 'ArrowRight') gvVarGo(w.i + 1); else if (ev.key === 'Escape') gvGo(w.k0); return; }
   if (ev.key === 'ArrowLeft') gvGo(S.gv.k - 1); else if (ev.key === 'ArrowRight') gvGo(S.gv.k + 1);
+  else if (ev.key === 'Home') gvGo(0); else if (ev.key === 'End') gvGo(S.gv.mv.length);
 });
 // Changement de vue : fondu de 150 ms (View Transitions API, rien si elle manque). Jamais en quittant un exercice,
 // ni si l'appareil demande moins de mouvement ; les rendus d'arrière-plan (bgRender) ne passent pas par ici.

@@ -307,6 +307,13 @@ textarea { font: var(--t-xs)/1.4 ui-monospace, Menlo, monospace; color: var(--in
 @keyframes markin { from { transform: scale(.4); opacity: 0; } 70% { transform: scale(1.12); opacity: 1; } to { transform: scale(1); } }
 .cap p { margin: 0; } .cap .dot { display: inline-block; margin-right: 6px; vertical-align: -1px; }
 .cap b.ok { color: var(--good); } .cap b.ko { color: var(--bad); }
+.cap.var { border-top-color: var(--accent); }
+.cap .vline { flex: none; max-height: 64px; }
+.moves { position: relative; display: flex; flex-wrap: wrap; gap: 2px 4px; font-size: var(--t-s); overflow-y: auto; }
+.moves .n { color: var(--ink3); font-size: var(--t-xs); padding: 3px 0 3px 4px; }
+.moves button { font: inherit; font-family: var(--mono); border: 0; background: none; color: var(--ink); padding: 3px 5px; border-radius: var(--r-s); cursor: pointer; }
+@media (hover: hover) and (pointer: fine) { .moves button:hover { background: var(--sunken); } }
+.moves button.cur { background: var(--btn); color: var(--on-btn); }
 .capm { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .capn { font: 600 var(--t-m) var(--display); display: inline-flex; align-items: center; gap: 6px; }
 .verdict { font-size: var(--t-s); color: var(--ink2); }
@@ -458,7 +465,8 @@ details.gd summary { cursor: pointer; font-size: var(--t-s); color: var(--accent
 .cap.ko .ask { color: var(--ink); }
 @media (max-width: 859px) { .actbar .btn.opt { font-size: var(--t-m); font-weight: 600; } }
 
-.cg-wrap .cg-shapes { opacity: .85; filter: drop-shadow(0 1px 2px var(--shape-shadow)); }
+.cg-wrap .cg-shapes, .cg-wrap .cg-custom-svgs { opacity: .85; filter: drop-shadow(0 1px 2px var(--shape-shadow)); }
+.cg-wrap .cg-custom-svgs svg { overflow: visible; } /* flèches en L du cavalier : elles sortent de la case de départ */
 .capbest { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: var(--r-s); background: var(--good-soft); color: var(--good); font-size: var(--t-xs); font-weight: 600; white-space: nowrap; }
 .capbest b { color: var(--accent-ink); }
 .capbest.ko { background: var(--bad-soft); color: var(--bad); } .capbest.ko b { color: var(--bad-ink); }

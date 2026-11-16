@@ -79,7 +79,7 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   // ---- Relecture d'une partie : meilleur coup affiché par défaut ----
   const g0 = await S(() => { const s = window.__cap, g = s.data.games.find((x) => s.an[x.id] && !s.an[x.id].bad); return { t: g.t, id: g.id }; });
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#partie/${g0.t}`); await sleep(700);
-  const shapes = () => S(() => { const v = window.__cap.gv; return { k: v.k, best: v.a.best[v.k], err: !!v.errAt[v.k], next: v.mv[v.k] && v.mv[v.k].from + v.mv[v.k].to, sh: v.cg.state.drawable.autoShapes.map((x) => x.orig + (x.dest || '') + ':' + x.brush) }; });
+  const shapes = () => S(() => { const v = window.__cap.gv; return { k: v.k, best: v.a.best[v.k], err: !!v.errAt[v.k], next: v.mv[v.k] && v.mv[v.k].from + v.mv[v.k].to, sh: v.cg.state.drawable.autoShapes.map((x) => x.orig + (x.dest || x.ldest || '') + ':' + (x.brush || x.lbrush)) }; });
   let okAll = true, okRed = true;
   for (let i = 0; i < 8; i++) {
     const s = await shapes();
@@ -103,6 +103,27 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   }
   await page.locator('#evc rect').click({ position: { x: 1, y: 20 } }); await sleep(300);
   check((await gvState()).k === 0, 'relecture : clic sur la courbe, retour au début');
+  // Saut de cavalier : flèche en L dessinée à la main, pas de diagonale.
+  await S(() => window.__cap.gv.cg.setAutoShapes([{ orig: 'b1', dest: 'c3', brush: 'green' }, { orig: 'e2', dest: 'e4', brush: 'red' }])); await sleep(200);
+  check(await S(() => { const a = window.__cap.gv.cg.state.drawable.autoShapes; return !!a[0].customSvg && !a[0].dest && a[0].ldest === 'c3' && !a[1].customSvg; }) && await page.locator('#xb .cg-custom-svgs polyline').count() === 1, 'cavalier : flèche en L, les autres pièces gardent la flèche droite');
+
+  // ---- Relecture : l'échiquier se joue, un autre coup ouvre une variante évaluée ----
+  await page.click('#xbar [aria-label="Début"]'); await sleep(300);
+  const gw = await S(() => window.__cap.gv.g.w);
+  const alt0 = await S(() => { const v = window.__cap.gv, real = v.mv[0]; return new Chess(v.fens[0]).moves({ verbose: true }).find((x) => x.from + x.to !== real.from + real.to); });
+  const real0 = await S(() => window.__cap.gv.mv[0]);
+  await tap('#xb', real0.from, gw); await sleep(150); await tap('#xb', real0.to, gw); await sleep(400);
+  check(await S(() => window.__cap.gv.k === 1 && !window.__cap.gv.var), 'relecture : jouer le coup de la partie avance d’un coup');
+  await page.click('#xbar [aria-label="Coup précédent"]'); await sleep(300);
+  await tap('#xb', alt0.from, gw); await sleep(150); await tap('#xb', alt0.to, gw); await sleep(400);
+  check(await S(() => window.__cap.gv.var?.mv.length === 1) && /Variante/.test(await bar('#xcap')) && /Revenir à la partie/.test(await bar('#xbar')), 'relecture : un autre coup ouvre une variante');
+  await page.waitForFunction(() => /éval [-+0-9M]/.test(document.querySelector('#xcap')?.textContent || ''), null, { timeout: 15000 }).catch(() => {});
+  check(/éval [-+0-9M]/.test(await bar('#xcap')), 'relecture : la variante est évaluée par le moteur');
+  const rep = await S(() => new Chess(window.__cap.gv.var.fens[1]).moves({ verbose: true })[0]);
+  await tap('#xb', rep.from, gw); await sleep(150); await tap('#xb', rep.to, gw); await sleep(400);
+  check(await S(() => window.__cap.gv.var?.mv.length === 2), 'relecture : l’autre camp se joue aussi dans la variante');
+  await page.click('#xbar [data-act="vexit"]'); await sleep(300);
+  check(await S(() => !window.__cap.gv.var && window.__cap.gv.k === 0), 'relecture : retour à la partie au coup de départ');
 
   // ---- Gagner les parties gagnées ----
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#gagner`); await sleep(500);

@@ -21,15 +21,40 @@ const BRUSHES = {
   yellow: { key: 'y', color: '#ffad1f', opacity: 1, lineWidth: 11 },
   paleBlue: { key: 'pb', color: '#3b8cff', opacity: 0.4, lineWidth: 15 },
 };
+// Flèche d'un saut de cavalier : en L (grande branche puis petite), comme sur Chess.com, au lieu d'une diagonale.
+// Dessinée dans le calque libre de chessground : unité = 1/100 de case, origine au coin haut gauche de la case de départ
+// (les points sont calculés depuis le centre puis décalés de 50).
+export function lPath(orig, dest, white) {
+  const sg = white ? 1 : -1, dx = (dest.charCodeAt(0) - orig.charCodeAt(0)) * sg, dy = -(dest[1] - orig[1]) * sg;
+  if (!((Math.abs(dx) === 1 && Math.abs(dy) === 2) || (Math.abs(dx) === 2 && Math.abs(dy) === 1))) return null;
+  const corner = Math.abs(dx) === 2 ? [dx * 100, 0] : [0, dy * 100]; // la grande branche d'abord
+  const ux = Math.sign(dx * 100 - corner[0]), uy = Math.sign(dy * 100 - corner[1]); // sens de la petite branche
+  const tip = [dx * 100 - ux * 12, dy * 100 - uy * 12], base = [tip[0] - ux * 38, tip[1] - uy * 38];
+  return { corner, tip, base, ux, uy };
+}
+function lShape(sh, white) {
+  if (!sh.orig || !sh.dest || sh.customSvg) return sh;
+  const L = lPath(sh.orig, sh.dest, white); if (!L) return sh;
+  const b = BRUSHES[sh.brush] || BRUSHES.green, w = (b.lineWidth / 64) * 100, hw = w * 1.45; // mêmes épaisseurs que les flèches droites
+  const { corner: c, tip: t, base: q, ux, uy } = L, px = -uy, py = ux; // perpendiculaire à la petite branche
+  const head = `${t[0]},${t[1]} ${q[0] + px * hw},${q[1] + py * hw} ${q[0] - px * hw},${q[1] - py * hw}`;
+  // Pas de brush sur la forme : chessground dessinerait un cercle sur la case de départ.
+  return { orig: sh.orig, ldest: sh.dest, lbrush: sh.brush, customSvg: { html: `<g transform="translate(50,50)" opacity="${b.opacity}"><polyline points="0,0 ${c[0]},${c[1]} ${q[0]},${q[1]}" fill="none" stroke="${b.color}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"/><polygon points="${head}" fill="${b.color}"/></g>` } };
+}
 export function board(el, cfg) {
-  const drawable = { enabled: false, visible: true, autoShapes: cfg.shapes || [], ...cfg.drawable, brushes: BRUSHES };
+  let cg;
+  const white = () => (cg?.state.orientation || cfg.orientation || 'white') === 'white';
+  const conv = (list) => (list || []).map((x) => lShape(x, white()));
+  const drawable = { enabled: false, visible: true, ...cfg.drawable, autoShapes: conv(cfg.drawable?.autoShapes || cfg.shapes), brushes: BRUSHES };
   // Son d'un coup : la position affichée est suivie ; seul un coup légal d'une position à la suivante fait un son
   // (coup joué à la main, lecture d'une suite, relecture), jamais l'affichage initial ni un retour en arrière.
   let at = cfg.fen;
   const userMove = (orig, dest, ...r) => { const u = moveAt(at, orig, dest); if (u) { at = u.fen; play(soundFor(u.move)); } cfg.events?.move?.(orig, dest, ...r); };
-  const cg = Chessground(el, { coordinates: true, animation: { duration: REDUCED ? 0 : 220 }, ...(cfg.fen ? { check: chkOf(cfg.fen) } : {}), ...cfg, drawable, events: { ...cfg.events, move: userMove } });
-  const set0 = cg.set; // le roi en échec est signalé à chaque changement de position
+  cg = Chessground(el, { coordinates: true, animation: { duration: REDUCED ? 0 : 220 }, ...(cfg.fen ? { check: chkOf(cfg.fen) } : {}), ...cfg, drawable, events: { ...cfg.events, move: userMove } });
+  const set0 = cg.set, auto0 = cg.setAutoShapes; // le roi en échec est signalé à chaque changement de position
+  cg.setAutoShapes = (l) => auto0(conv(l));
   cg.set = (c) => {
+    if (c.drawable?.autoShapes) c = { ...c, drawable: { ...c.drawable, autoShapes: conv(c.drawable.autoShapes) } };
     if (c.fen) { if (enabled()) play(soundFor(moveBetween(at, c.fen))); at = c.fen; }
     return set0(c.fen ? { check: chkOf(c.fen), ...c } : c);
   };
