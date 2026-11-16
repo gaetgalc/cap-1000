@@ -45,12 +45,42 @@ export function act(name, el) {
   f(el?.dataset.v, el);
   return true;
 }
-// Clavier pendant une lecture : flèches pour avancer, espace pour lire ou mettre en pause.
+// Raccourcis clavier de tout exercice (comme sur Lichess) : une lettre déclenche le bouton visible de cette action,
+// Entrée le bouton plein (l'étape suivante), ? l'aide. Les touches d'une lecture (X.keys : flèches, espace) passent avant.
+const LETTERS = { h: 'hint', m: 'real', s: 'show' };
+export const SHORTCUTS = [['H', 'Indice'], ['M', 'Mon coup (ce que j’ai joué)'], ['S', 'Solution, voir la suite'], ['Entrée', 'Bouton vert : continuer'], ['← →', 'Coup précédent, coup suivant'], ['Espace', 'Lecture ou pause d’une suite'], ['?', 'Cette aide']];
+const usable = (b) => b && !b.disabled && b.offsetParent !== null;
 export function key(ev) {
-  const a = current()?.keys?.[ev.key];
-  if (!a) return false;
-  if (ev.key === ' ') { if (ev.target.tagName === 'BUTTON') return true; ev.preventDefault(); }
-  return act(a);
+  if (ev.ctrlKey || ev.metaKey || ev.altKey) return false;
+  const X = current(); if (!X) return false;
+  const a = X.keys?.[ev.key];
+  if (a) {
+    if (ev.key === ' ') { if (ev.target.tagName === 'BUTTON') return true; ev.preventDefault(); }
+    return act(a);
+  }
+  if (ev.key === '?') { ev.preventDefault(); keysHelp(); return true; }
+  const name = LETTERS[ev.key.toLowerCase()];
+  if (name) { const b = document.querySelector(`#xbar [data-x="${name}"], #xpanel [data-x="${name}"]`); if (usable(b)) { b.click(); return true; } return false; }
+  if (ev.key === 'Enter' && !/BUTTON|A/.test(ev.target.tagName)) {
+    const b = document.querySelector('#xbar .btn.pri, #xcap .btn.pri, #xpanel .btn.pri');
+    if (usable(b)) { ev.preventDefault(); b.click(); return true; }
+  }
+  return false;
+}
+// Fenêtre d'aide des raccourcis (dialog natif : Échap la ferme, le focus revient où il était)
+function keysHelp() {
+  let d = document.getElementById('keyshelp');
+  if (!d) {
+    d = document.createElement('dialog'); d.id = 'keyshelp'; d.className = 'keys';
+    d.innerHTML = `<h2>Raccourcis clavier</h2><dl>${SHORTCUTS.map(([k, t]) => `<dt><kbd>${esc(k)}</kbd></dt><dd>${esc(t)}</dd>`).join('')}</dl><form method="dialog"><button class="btn">Fermer</button></form>`;
+    d.addEventListener('click', (e) => { if (e.target === d) d.close(); });
+    document.body.appendChild(d);
+  }
+  if (!d.open) d.showModal();
+}
+// Info-bulle et attribut d'accessibilité des boutons qui ont un raccourci
+function keyHints(root) {
+  for (const [k, n] of Object.entries(LETTERS)) root?.querySelectorAll(`[data-x="${n}"]`).forEach((b) => { b.setAttribute('aria-keyshortcuts', k); if (!b.title) b.title = `${b.textContent.trim()} (${k.toUpperCase()})`; });
 }
 
 function handle(el, spec) {
@@ -60,11 +90,12 @@ function handle(el, spec) {
   X.mark = (sq, ok, keep) => mark(X, sq, ok, keep);
   X.unmark = () => unmark(X);
   X.say = (cls, html) => { X.cap.className = 'cap ' + cls; X.cap.innerHTML = html; };
-  X.setBar = (html) => setHtml(X.bar, html); // ne remplace pas un bouton sous le doigt si rien ne change
+  X.setBar = (html) => { setHtml(X.bar, html); keyHints(X.bar); }; // ne remplace pas un bouton sous le doigt si rien ne change
   X.btn = (name) => X.bar.querySelector(`[data-x="${name}"]`);
   X.on = (actions) => Object.assign(X.actions, actions);
   X.solved = () => document.body.classList.add('solved');
   X.player = (o) => player(X, o);
+  keyHints(X.bar); keyHints(X.panel);
   return X;
 }
 

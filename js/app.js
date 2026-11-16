@@ -901,6 +901,7 @@ function header() {
   // Sur téléphone, pendant un exercice, la barre du haut montre l'avancée (puzzles du jour, position de la série).
   const top = exo.top();
   t.innerHTML = `${top ? `<span class="m-only row chips">${top}</span>` : `<span class="m-only row chips">${tr ? `<span class="chip">${tr.cur} Elo</span>` : ''}<span class="chip ${stk ? 'warn' : ''}">Série ${stk} j</span></span>`}${exo.current() ? sndBtn() : ''}<span class="d-only filters">${filtersHtml()}</span>`;
+  navBadges();
 }
 // Bouton son / muet d'un écran d'exercice : barre du haut sur téléphone, bas de la colonne d'icônes sur ordinateur.
 const sndAttrs = (b) => { const on = sound.enabled(); b.setAttribute('aria-pressed', on); b.title = on ? 'Couper les sons' : 'Activer les sons'; b.innerHTML = ico(on ? 'snd' : 'mute'); };
@@ -1769,6 +1770,24 @@ function navOpen(g, on) {
   g.querySelector('.grp-h').setAttribute('aria-expanded', on);
 }
 function navClose() { navGroups().forEach((g) => navOpen(g, false)); }
+// Pastilles « reste à faire » (16/11) : étapes de la séance du jour sur Aujourd'hui, lignes d'ouverture à réviser sur S'entraîner ;
+// dans les volets, le nombre restant à côté de « Puzzles du jour » et des lignes. Mises à jour à chaque header().
+function navBadges() {
+  const put = (menu, n, label) => {
+    const h = document.querySelector(`#nav .grp[data-menu="${menu}"] .grp-h`); if (!h) return;
+    let b = h.querySelector('.nbadge');
+    if (!n) { b?.remove(); h.removeAttribute('aria-description'); return; }
+    if (!b) { b = document.createElement('span'); b.className = 'nbadge'; b.setAttribute('aria-hidden', 'true'); h.appendChild(b); }
+    b.textContent = n; h.setAttribute('aria-description', label);
+  };
+  const count = (sel, n) => { const a = document.querySelector(sel); if (!a) return; let c = a.querySelector('.fcount'); if (!n) { c?.remove(); return; } if (!c) { c = document.createElement('span'); c.className = 'fcount'; a.appendChild(c); } c.textContent = n; };
+  if (!S.data) { put('acc', 0); put('ent', 0); return; }
+  const left = session().steps.filter((x) => !x.done).length, lines = progress.linesDue(allLineKeys()).length, d = pzDay(), pz = d.due ? Math.max(0, d.goal - d.done) : 0;
+  put('acc', left, `${pl(left, 'étape')} de la séance à faire`);
+  put('ent', lines, `${pl(lines, 'ligne')} d’ouverture à réviser`);
+  count('#fly-acc [data-act="pzfocus"]', pz);
+  count('#fly-ent [data-fill="lignes"]', lines);
+}
 // Liens qui dépendent du jour : étapes de la séance (échauffement et cours du chantier), première ligne d'ouverture à réviser
 function navFill(g) {
   if (!S.data) return;

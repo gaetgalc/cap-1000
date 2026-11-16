@@ -342,6 +342,16 @@ Vérifié : 49 tests unitaires, parcours complet, audit sans écart sur 23 écra
 
 Vérifié : 50 tests unitaires, parcours (dont 4 contrôles de la navigation au téléphone), audit sans écart sur 23 écrans aux 4 tailles, captures avec menu ouvert relues. Non vu sur iPhone.
 
+## 32. Logo « le cap », raccourcis clavier, pastilles de navigation (16/11)
+
+> le cap. ok pour les deux ajouts
+
+- **Logo** : proposition 1, aiguille de boussole dans un anneau vert (« garder le cap »), dans la barre (`.brand-mark`, SVG en ligne, jetons `--logo-a` / `--logo-b`) et en icône d'onglet (`index.html`).
+- **Raccourcis clavier** dans tout exercice (`exercise.js`, `key`) : H indice, M mon coup, S solution ou voir la suite, Entrée le bouton plein, ? l'aide (fenêtre `dialog.keys`). Les touches d'une lecture (flèches, espace) passent avant. Les boutons concernés portent `aria-keyshortcuts` et une info-bulle « Indice (H) ».
+- **Pastilles** (`navBadges`, appelée par `header()`) : nombre d'étapes de la séance restantes sur Aujourd'hui, lignes d'ouverture à réviser sur S'entraîner, couleur de la section ; dans les volets, puzzles restants pour l'objectif et lignes dues.
+
+Vérifié : tests unitaires, parcours, audit sans écart, essai des touches et captures (ordinateur et téléphone).
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |

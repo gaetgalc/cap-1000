@@ -13,6 +13,7 @@
   --good: #8fdd5e; --good-soft: #2c4524; --warn: #ffb534; --warn-soft: #4a3a17; --bad: #ff7a6e; --bad-ink: #ff9a90; --bad-soft: #522522;
   --hover: #3b3934; --hover-line: #6b665d; /* survol à la souris : fond et bord */
   --menu-shadow: 0 12px 32px rgba(0, 0, 0, .5); /* volets de la navigation */
+  --logo-a: var(--accent); --logo-b: var(--sq-light); /* logo : anneau et pointe verte, pointe claire */
   --neutral: #8a877f;
   /* Couleur des icônes par section (demande du 16/11) : teintes douces, au moins 6.8:1 sur --surface et --bg */
   --c-jour: #8fd16a; /* Aujourd'hui : vert, parent de l'échiquier */
@@ -75,7 +76,9 @@ p { margin: 0; } a { color: var(--accent-ink); }
 
 .top { display: flex; align-items: center; gap: 16px; padding: 12px 16px; background: var(--surface); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
 .brand { font: 600 var(--t-l) var(--display); color: var(--ink); text-decoration: none; display: flex; align-items: center; gap: 8px; }
-.brand-mark { width: 18px; height: 18px; border-radius: var(--r-s); background: repeating-conic-gradient(var(--sq-dark) 0 25%, var(--sq-light) 0 50%) 0 0 / 100% 100%; border: 1px solid var(--line); }
+/* Logo « le cap » (16/11) : aiguille de boussole dans un anneau, garder le cap vers 1000 */
+.brand-mark { width: 22px; height: 22px; flex: none; display: block; } .brand-mark svg { display: block; width: 100%; height: 100%; }
+body.fit .brand-mark { width: 26px; height: 26px; }
 .tools { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex; background: var(--surface); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
 .nav a { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 1px 9px; font-size: var(--t-xs); letter-spacing: -.1px; font-weight: 500; color: var(--ink2); text-decoration: none; border-top: 2px solid transparent; }
@@ -739,3 +742,21 @@ a:is([href^="#bilan"], [href^="#stats"], [href^="#plan"], [href^="#plus"]) { --s
 }
 /* Un menu de navigation ouvert passe devant les messages éphémères (téléphone : même zone en bas d'écran) */
 body:has(.grp.open) .toasts { opacity: 0; }
+
+/* Pastille « reste à faire » sur une entrée de navigation (navBadges dans app.js) : couleur de la section */
+.grp-h { position: relative; }
+.nbadge { position: absolute; top: 2px; left: calc(50% + 6px); min-width: 20px; height: 20px; padding: 0 5px; border-radius: var(--r-s); display: inline-grid; place-items: center; background: var(--sec, var(--accent)); color: var(--bg); font: 600 var(--t-xs)/1 var(--body); font-variant-numeric: tabular-nums; pointer-events: none; }
+@media (min-width: 860px) {
+  .nbadge { position: static; margin-left: auto; }
+  body.fit .nbadge { position: absolute; top: 2px; right: 0; left: auto; margin: 0; }
+}
+.fly a .fcount { margin-left: auto; padding-left: var(--s-3); color: var(--ink3); font-size: var(--t-xs); font-variant-numeric: tabular-nums; }
+.fly a:has(.fcount) { display: flex; align-items: center; }
+/* Aide des raccourcis clavier des exercices (touche ?) */
+dialog.keys { background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: var(--r); padding: var(--s-5); max-width: 420px; width: calc(100% - 32px); box-shadow: var(--menu-shadow); }
+dialog.keys::backdrop { background: color-mix(in srgb, var(--black) 55%, transparent); }
+dialog.keys h2 { margin-bottom: var(--s-3); }
+dialog.keys dl { display: grid; grid-template-columns: auto 1fr; gap: var(--s-2) var(--s-4); margin: 0 0 var(--s-4); }
+dialog.keys dt { font: 500 var(--t-s) var(--mono); }
+dialog.keys dt kbd { display: inline-block; min-width: 28px; padding: 2px 8px; text-align: center; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: var(--r-s); background: var(--sunken); font: inherit; }
+dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-self: center; }
