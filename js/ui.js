@@ -10,11 +10,21 @@ export const pl = (n, w) => `${n} ${w}${n > 1 ? 's' : ''}`;
 export const f1 = (x) => x.toFixed(1).replace('.', ',');
 // Icônes dessinées : les flèches Unicode deviennent des émojis sur iPhone.
 const LN = 'fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"';
+const LT = 'fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"';
 const IC = {
   prev: `<path d="M15 5l-7 7 7 7" ${LN}/>`, next: `<path d="M9 5l7 7-7 7" ${LN}/>`,
   first: `<path d="M18 5l-7 7 7 7M7 5v14" ${LN}/>`, last: `<path d="M6 5l7 7-7 7M17 5v14" ${LN}/>`,
   play: '<path d="M8 5v14l11-7z" fill="currentColor"/>', pause: '<path d="M7 5h3.500v14H7zM13.500 5H17v14h-3.500z" fill="currentColor"/>',
   replay: '<path d="M12 6V2.500L7 6.500l5 4V8a4.500 4.500 0 1 1-4.500 4.500h-2A6.500 6.500 0 1 0 12 6z" fill="currentColor"/>',
+  // Exercices de la page S'entraîner (16/11) : un dessin par activité, trait fin
+  tgt: `<circle cx="12" cy="12" r="8" ${LT}/><circle cx="12" cy="12" r="3.5" ${LT}/><path d="M12 2v4M12 18v4M2 12h4M18 12h4" ${LT}/>`,
+  clock: `<circle cx="12" cy="13" r="8" ${LT}/><path d="M12 9v4l2.500 2.500M10 2h4" ${LT}/>`,
+  lines: `<path d="M5 5h3M5 12h3M5 19h3M11 5h8M11 12h8M11 19h5" ${LT}/>`,
+  flag: `<path d="M6 21V4M6 4h11l-2.500 4L17 12H6" ${LT}/>`,
+  spark: `<path d="M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z" ${LT}/>`,
+  book: `<path d="M4 5.500C6.500 4.500 9.500 4.500 12 6c2.500-1.500 5.500-1.500 8-.5V19c-2.500-1-5.500-1-8 .5-2.500-1.500-5.500-1.500-8-.5z M12 6v13.500" ${LT}/>`,
+  tree: `<circle cx="6" cy="5" r="2" ${LT}/><circle cx="6" cy="19" r="2" ${LT}/><circle cx="18" cy="12" r="2" ${LT}/><path d="M6 7v10M6 12h3a4 4 0 0 0 4-4V7.500M13 12h3" ${LT}/>`,
+  log: `<path d="M7 3h10v18H7zM10 8h4M10 12h4M10 16h2" ${LT}/>`,
   // Haut-parleur (sons activés) et haut-parleur barré (sons coupés)
   snd: `<path d="M4 9.5h3.500L12 5.500v13L7.500 14.500H4z" fill="currentColor"/><path d="M15.500 9a4 4 0 0 1 0 6M18 6.500a7.500 7.500 0 0 1 0 11" ${LN}/>`,
   mute: `<path d="M4 9.5h3.500L12 5.500v13L7.500 14.500H4z" fill="currentColor"/><path d="M16 9.500l5 5M21 9.500l-5 5" ${LN}/>`,

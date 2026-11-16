@@ -1603,22 +1603,52 @@ function mountDrill() {
   }
   X.on({ ans: answer });
 }
-// S'entraîner (section fusionnée avec Apprendre le 16/11) : tout ce qui se pratique, puis les cours et les ouvertures.
+// S'entraîner (section fusionnée avec Apprendre le 16/11, refaite le 16/11) : en tête, la chose à faire maintenant,
+// avec l'échiquier de ton prochain puzzle (mountEntrainer) ; puis les exercices en tuiles, chacun avec son dessin et son état ;
+// l'historique en simple lien. Un seul bouton plein : celui de la tête.
+function entNext() {
+  const d = pzDay(), fc = ls.get('focus', null), q = d.due ? (pzQueue(fc?.id || '', false)[0] || pzQueue('', false)[0]) : null;
+  if (q && d.done < d.goal) return { kind: 'pz', p: q, d };
+  const due = progress.linesDue(allLineKeys());
+  if (due.length) return { kind: 'ln', n: due.length, href: lineHref(due[0]) };
+  return { kind: 'dr' };
+}
 function viewEntrainer() {
-  const d = pzDay(), due = progress.linesDue(allLineKeys()), cv = cvList().length, nh = progress.hist().length;
-  const row = (href, t, desc, n) => `<a class="mrow" href="${href}"><span class="mico num">${n || ico('play')}</span><span class="stepc"><b>${t}</b><span>${desc}</span></span><span class="chev" aria-hidden="true">${ico('next')}</span></a>`;
-  return `<h1>S’entraîner</h1><div class="menu">
-    ${row('#puzzles', 'Puzzles sur mes erreurs', `${d.done} sur ${d.goal} aujourd’hui · ${pl(d.due, 'puzzle')} en attente`, d.due)}
-    ${row('#exos', 'Échauffements', '4 exercices de vérification sur tes positions, 2 minutes', 0)}
-    ${row(due.length ? lineHref(due[0]) : '#ouvertures/apprendre', 'Réciter mes lignes d’ouverture', due.length ? `${pl(due.length, 'ligne')} à réviser aujourd’hui` : 'Les lignes des fiches, de mémoire, en révision espacée', due.length)}
-    ${row('#gagner', 'Gagner les parties gagnées', `${pl(cv, 'partie')} où tu avais l’avantage, à finir contre le moteur`, 0)}
-    ${row('#inedits', 'Positions inédites', 'Puzzles Lichess sur les thèmes de ton chantier', 0)}
-    ${row('#historique', 'Historique', `${pl(nh, 'exercice')} noté${nh > 1 ? 's' : ''} dans ton journal`, 0)}
+  const n = entNext(), d = pzDay(), due = progress.linesDue(allLineKeys()), cv = cvList().length, nh = progress.hist().length;
+  const les = session().steps.find((x) => x.k === 'les');
+  let hero;
+  if (n.kind === 'pz') {
+    const { g, e } = n.p, left = d.goal - d.done;
+    hero = `<section class="ent-now"><div class="ent-b"><div class="board" id="entb" data-id="${esc(n.p.id)}" aria-label="Position de ton prochain puzzle"></div></div>
+      <div class="ent-t"><span class="ent-k">À faire maintenant</span><h2>${left === d.goal ? 'Tes puzzles du jour' : `Encore ${pl(left, 'puzzle')} aujourd’hui`}</h2>
+      <p>Coup ${moveNo(e)} contre ${esc(g.opp)} : ton coup t’a coûté ${e.drop} points de chances de gain. ${st.THEMES[e.theme] ? `Thème : ${esc(st.THEMES[e.theme].toLowerCase())}.` : ''}</p>
+      ${pzProg(d)}<button class="btn pri lg" data-act="pzfocus">${d.done ? 'Continuer mes puzzles' : 'Résoudre mes puzzles'}</button></div></section>`;
+  } else if (n.kind === 'ln') {
+    hero = `<section class="ent-now noboard"><div class="ent-t"><span class="ent-k">À faire maintenant</span><h2>${pl(n.n, 'ligne')} d’ouverture à réviser</h2><p>Puzzles du jour faits. Récite tes lignes de mémoire : la répétition espacée les fixe.</p><a class="btn pri lg" href="${n.href}">Réciter mes lignes</a></div></section>`;
+  } else {
+    hero = `<section class="ent-now noboard"><div class="ent-t"><span class="ent-k">À faire maintenant</span><h2>${d.done >= d.goal ? 'Objectif du jour atteint' : 'Échauffe ton regard'}</h2><p>${d.done >= d.goal ? 'Tes puzzles sont faits. Deux minutes de vérification gardent le réflexe.' : 'Dix positions tirées de tes parties, deux minutes, pour vérifier avant de jouer.'}</p><a class="btn pri lg" href="#exos">Lancer un échauffement</a></div></section>`;
+  }
+  const tile = (href, icon, t, desc, tag, sec) => `<a class="ent-tile" href="${href}" style="--sec:var(${sec})"><span class="ent-i">${ico(icon)}</span><b>${t}</b><span class="ent-d">${desc}</span>${tag ? `<span class="ent-tag">${tag}</span>` : ''}</a>`;
+  return `<h1>S’entraîner</h1>${hero}
+  <h2 class="ent-h">Pratiquer</h2><div class="ent-grid">
+    ${n.kind === 'pz' ? '' : tile('#puzzles', 'tgt', 'Puzzles sur mes erreurs', 'Tes propres fautes, à corriger', d.due ? `${d.due} en attente` : '', '--c-train')}
+    ${tile('#exos', 'clock', 'Échauffements', 'Vérifier avant de jouer, 2 minutes', '', '--c-train')}
+    ${tile(due.length ? lineHref(due[0]) : '#ouvertures/apprendre', 'lines', 'Réciter mes lignes', 'Tes ouvertures, de mémoire', due.length ? `${due.length} à réviser` : '', '--c-learn')}
+    ${tile('#gagner', 'flag', 'Finir les parties gagnées', 'Convertir l’avantage contre le moteur', cv ? pl(cv, 'partie') : '', '--c-train')}
+    ${tile('#inedits', 'spark', 'Positions inédites', 'Puzzles neufs sur ton chantier', '', '--c-train')}
   </div>
-  <h2>Apprendre</h2><div class="menu">
-    ${row('#cours', 'Cours', 'Les leçons sur tes erreurs, illustrées par tes positions', 0)}
-    ${row('#ouvertures/apprendre', 'Ouvertures à apprendre', `${OPENINGS.length} fiches : idées, pièges et lignes principales`, 0)}
-  </div>`;
+  <h2 class="ent-h">Apprendre</h2><div class="ent-grid two">
+    ${tile('#cours', 'book', 'Cours', les?.d ? esc(les.d) : 'Leçons illustrées par tes positions', '', '--c-learn')}
+    ${tile('#ouvertures/apprendre', 'tree', 'Ouvertures', `${OPENINGS.length} fiches : idées, pièges, lignes`, '', '--c-learn')}
+  </div>
+  <a class="ent-log" href="#historique">${ico('log')}<span>Historique</span><span class="small">${nh ? `${pl(nh, 'exercice')} noté${nh > 1 ? 's' : ''}` : 'Rien encore'}</span>${ico('next')}</a>`;
+}
+// Échiquier de la tête de S'entraîner : position du prochain puzzle, côté du joueur, sans flèche (rien n'est dévoilé)
+function mountEntrainer() {
+  const el = $('#entb');
+  if (!el || !el.offsetWidth || el.firstChild) return;
+  const p = allPuzzles().find((x) => x.id === el.dataset.id);
+  if (p) board(el, { fen: p.e.fen, orientation: p.g.w ? 'white' : 'black', viewOnly: true, coordinates: false });
 }
 // Sauvegarde : rien n'est synchronisé entre appareils, le fichier sert de copie de sécurité et de transfert.
 function backupCard() {
@@ -1755,6 +1785,7 @@ function render(keepScroll) {
     document.querySelectorAll('[data-plan]').forEach((c) => { c.onchange = () => { const k = 'plan:' + weekKey(), d = ls.get(k, {}); d[c.dataset.plan] = c.checked; ls.set(k, d); c.closest('.check').classList.toggle('done', c.checked); }; });
   } else if (r === 'bilan') mountBilan();
   else if (r === 'accueil') mountAccueil();
+  else if (r === 'entrainer') mountEntrainer();
   header();
   keepUi();
   if (keepScroll) scrollTo(0, y); else scrollTo(0, 0);
@@ -1964,7 +1995,7 @@ document.addEventListener('pointerover', (ev) => {
   tip.style.left = Math.max(4, Math.min(innerWidth - tw - 4, r.left + r.width / 2 - tw / 2)) + 'px'; tip.style.top = Math.max(4, r.top - 34) + 'px';
 });
 document.addEventListener('pointerout', (ev) => { if (ev.target.closest?.('[data-tip]')) $('#tip').hidden = true; });
-let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { const r = route()[0]; if (r === 'bilan') mountBilan(); else if (r === 'accueil' && S.data) mountAccueil(); else if (r === 'stats') mountStats(S); else if (r === 'partie' && S.gv?.cg) gvSync(); }, 200); });
+let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { const r = route()[0]; if (r === 'bilan') mountBilan(); else if (r === 'accueil' && S.data) mountAccueil(); else if (r === 'entrainer' && S.data) mountEntrainer(); else if (r === 'stats') mountStats(S); else if (r === 'partie' && S.gv?.cg) gvSync(); }, 200); });
 
 if (new URLSearchParams(location.search).has('debug')) window.__cap = S; // accès à l'état pour les tests
 (async function init() {

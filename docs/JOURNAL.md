@@ -352,6 +352,18 @@ Vérifié : 50 tests unitaires, parcours (dont 4 contrôles de la navigation au 
 
 Vérifié : tests unitaires, parcours, audit sans écart, essai des touches et captures (ordinateur et téléphone).
 
+## 33. Page S'entraîner refaite (16/11)
+
+> reprends la partie vu d'ensmeble de la partie s'entainer - elle est moche et donne pas envie
+
+Avant : 8 lignes identiques avec la même icône « lecture », sans hiérarchie ni échiquier.
+Après (`viewEntrainer`, `entNext`, `mountEntrainer`) :
+- **En tête, « À faire maintenant »** : la position de ton prochain puzzle (échiquier, sans flèche), la faute d'origine (adversaire, coût, thème), les 8 ronds de l'objectif et le seul bouton plein. Si les puzzles du jour sont faits : lignes d'ouverture à réviser, sinon échauffement.
+- **Pratiquer** et **Apprendre** en tuiles : un dessin par activité (nouvelles icônes `tgt`, `clock`, `lines`, `flag`, `spark`, `book`, `tree`, `log` dans `ui.js`), couleur de la section, étiquette d'état quand il y a un nombre utile (« 3 parties », « 2 à réviser »). La tuile Puzzles disparaît quand la tête de page la porte déjà.
+- **Historique** en simple lien en bas.
+
+Vérifié : tests, parcours, audit sans écart, captures aux 4 tailles.
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |

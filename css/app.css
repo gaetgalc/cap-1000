@@ -760,3 +760,46 @@ dialog.keys dl { display: grid; grid-template-columns: auto 1fr; gap: var(--s-2)
 dialog.keys dt { font: 500 var(--t-s) var(--mono); }
 dialog.keys dt kbd { display: inline-block; min-width: 28px; padding: 2px 8px; text-align: center; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: var(--r-s); background: var(--sunken); font: inherit; }
 dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-self: center; }
+
+/* ===== S'entraîner, vue d'ensemble (refaite le 16/11) : la chose à faire maintenant, puis les exercices en tuiles ===== */
+.ent-now { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: var(--s-5); align-items: center; padding: var(--s-5); margin-bottom: var(--s-6); border-radius: var(--r); background: var(--surface); border: 1px solid var(--line); box-shadow: inset 3px 0 0 var(--c-train); }
+.ent-now.noboard { grid-template-columns: 1fr; }
+.ent-b .board { width: 220px; height: 220px; border-radius: var(--r-s); overflow: hidden; }
+.ent-t { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s-3); max-width: 560px; }
+.ent-k { font-size: var(--t-s); font-weight: 600; color: var(--c-train); }
+.ent-t h2 { font-size: var(--t-xl); letter-spacing: -.03em; }
+.ent-t p { color: var(--ink2); }
+.ent-t .btn.pri { margin-top: var(--s-2); }
+.ent-h { margin: 0 0 var(--s-3); font-size: var(--t-l); }
+.ent-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--s-3); margin-bottom: var(--s-6); }
+.ent-grid.two { grid-template-columns: 1fr 1fr; }
+.ent-tile { position: relative; display: flex; flex-direction: column; gap: var(--s-1); min-height: 132px; padding: var(--s-4); border-radius: var(--r); background: var(--surface); border: 1px solid var(--line); color: var(--ink); text-decoration: none; }
+.ent-tile b { font-size: var(--t-m); font-weight: 600; margin-top: var(--s-2); }
+.ent-d { color: var(--ink2); font-size: var(--t-s); }
+.ent-i { width: 44px; height: 44px; border-radius: var(--r); display: grid; place-items: center; color: var(--sec); background: color-mix(in srgb, var(--sec) 14%, var(--surface)); }
+.ent-i .ic { width: 24px; height: 24px; }
+.ent-tag { position: absolute; top: var(--s-4); right: var(--s-4); padding: 2px 8px; border-radius: var(--r-s); font-size: var(--t-xs); font-weight: 600; color: var(--bg); background: var(--sec); font-variant-numeric: tabular-nums; }
+.ent-log { display: flex; align-items: center; gap: var(--s-3); min-height: var(--hit); padding: var(--s-2) var(--s-4); border-radius: var(--r); color: var(--ink2); text-decoration: none; border: 1px dashed var(--line); }
+.ent-log span:first-of-type { color: var(--ink); font-weight: 500; }
+.ent-log .small { margin-left: auto; }
+@media (hover: hover) and (pointer: fine) {
+  .ent-tile, .ent-log { transition: background-color var(--m-in) var(--ease), border-color var(--m-in) var(--ease); }
+  .ent-tile:hover { background: var(--hover); border-color: color-mix(in srgb, var(--sec) 55%, var(--line)); }
+  .ent-log:hover { background: var(--hover); color: var(--ink); }
+}
+@media (max-width: 859px) {
+  .ent-now { grid-template-columns: 112px minmax(0, 1fr); gap: var(--s-4); padding: var(--s-4); margin-bottom: var(--s-5); }
+  .ent-b .board { width: 112px; height: 112px; }
+  .ent-t h2 { font-size: var(--t-l); }
+  .ent-t p { font-size: var(--t-s); }
+  .ent-t .pzprog, .ent-t .btn.pri { grid-column: 1 / -1; }
+  .ent-t .pzprog { min-height: var(--hit); }
+  .ent-now .btn.pri { width: 100%; }
+  .ent-now:not(.noboard) .ent-t { display: contents; }
+  .ent-now:not(.noboard) .ent-k, .ent-now:not(.noboard) .ent-t h2, .ent-now:not(.noboard) .ent-t p { grid-column: 2; }
+  .ent-now:not(.noboard) .ent-b { grid-row: 1 / span 3; }
+  .ent-grid, .ent-grid.two { grid-template-columns: 1fr 1fr; gap: var(--s-2); margin-bottom: var(--s-5); }
+  .ent-tile { min-height: 120px; padding: var(--s-3); }
+  .ent-grid > .ent-tile:last-child:nth-child(odd) { grid-column: 1 / -1; } /* nombre impair : la dernière tuile prend la ligne */
+  .ent-tag { top: var(--s-3); right: var(--s-3); }
+}
