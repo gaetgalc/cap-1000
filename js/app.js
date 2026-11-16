@@ -17,6 +17,7 @@ import { DRILLS, DRILL_FOR, makeRound } from './drills.js';
 import { OPENINGS, GROUPS, byId, lineKey, movesOf, matchGame } from './openings.js';
 import { MODELS, coachKey, coachModel, facts, genLesson, askCoach, buildPrompt, parseLesson } from './coach.js';
 import * as backup from './backup.js';
+import * as look from './look.js';
 
 const DEPTH = 12; // même profondeur sur tous les appareils : une erreur est classée pareil partout
 
@@ -1165,8 +1166,8 @@ function viewCoachLesson(id, L) {
     const me = x.g.w ? 'w' : 'b', lm = lastMoveText(x.g, x.e.ply, me);
     return exo.screen({
       live: true, exit: '<button class="btn" data-act="clnext">Continuer ›</button>',
-      head: head + coach(`<b>Position ${i + 1} sur ${L.positions.length}.</b> Coup ${moveNo(x.e)} de ta ${gameRef(x.g)}. ${lm ? esc(lm) + ' ' : ''}<br>${txt(pos.question)}`),
-      cap: `<p><i class="dot ${x.g.w ? 'w' : 'b'}"></i> Trait aux ${x.g.w ? 'Blancs' : 'Noirs'}. Joue le coup que tu aurais dû jouer.</p>`,
+      head: `<i class="xwide" hidden></i>${head}` + coach(`<b>Position ${i + 1} sur ${L.positions.length}.</b> Coup ${moveNo(x.e)} de ta ${gameRef(x.g)}. ${lm ? esc(lm) + ' ' : ''}<br>${txt(pos.question)}`),
+      cap: `<p><i class="dot ${x.g.w ? 'w' : 'b'}"></i> <span class="m-txt"><b>Position ${i + 1} sur ${L.positions.length}.</b> ${txt(pos.question)} </span>Trait aux ${x.g.w ? 'Blancs' : 'Noirs'}.<span class="d-txt"> Joue le coup que tu aurais dû jouer.</span></p>`,
       panel: `<div id="clx" hidden>${coach(`${txt(pos.explication)}<br><b>À retenir :</b> ${txt(pos.retenir)}`)}</div>
         <div id="clp"></div>
         ${coachKey() ? `<form data-form="ask" class="row"><input type="text" id="askq" placeholder="Une question sur cette position ?" style="flex:1;min-width:180px" aria-label="Question au coach"><button class="btn">Demander au coach</button></form><div id="aska"></div>` : ''}`,
@@ -1327,7 +1328,7 @@ function viewPartie(t, plyArg) {
   const serious = a ? a.errs.filter((x) => x.theme) : [];
   const res = `<span class="chip ${g.out === 'W' ? 'good' : g.out === 'L' ? 'bad' : ''}">${g.out === 'W' ? 'Victoire' : g.out === 'L' ? 'Défaite' : 'Nulle'}${HOW[g.how] ? ' (' + HOW[g.how] + ')' : ''}</span>`;
   return exo.screen({
-    head: `<div class="pzhead"><h1>${g.w ? 'Blancs' : 'Noirs'} contre ${esc(g.opp)} <span class="small num">${g.or}</span></h1>
+    head: `<div class="pzhead xwide"><h1>${g.w ? 'Blancs' : 'Noirs'} contre ${esc(g.opp)} <span class="small num">${g.or}</span></h1>
       <div class="row">${res}<span class="chip">${dfmt(g.t)}</span><span class="chip">${esc(g.fam)}</span><a class="btn sm" href="${esc(g.id)}" target="_blank" rel="noopener">Chess.com</a></div></div>`,
     cap: cap.html, capClass: cap.cls,
     panel: `${a ? `<div class="row"><span class="chip bad">${pl(a.errs.filter((x) => x.kind === 'gaffe').length, 'gaffe')} ??</span><span class="chip warn">${pl(a.errs.filter((x) => x.kind === 'erreur').length, 'erreur')} ?</span><span class="chip">${pl(a.errs.filter((x) => x.kind === 'imprecision').length, 'imprécision')} ?!</span><span class="chip good">Précision ${a.acc?.toFixed(0)} %</span></div>
@@ -1452,6 +1453,18 @@ function backupCard() {
     <div class="row"><button class="btn ${!at || ago >= 14 ? 'pri' : ''}" data-act="bakexp">Télécharger ma sauvegarde</button><button class="btn" data-act="bakimp">Restaurer un fichier</button><input type="file" id="bakfile" accept="application/json,.json" hidden></div>
     <p class="small" id="bakmsg" role="status"></p></div>`;
 }
+// Apparence de l'échiquier (lot 8 du 16/11) : palette, pièces, coordonnées, vitesse des suites ; js/look.js.
+const LOOK_FEN = 'r1bqkb1r/pppp1Qpp/2n2n2/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 4'; // mat du berger : dernier coup, échec, coordonnées
+function lookCard() {
+  const l = look.look();
+  const seg = (k, label, opts) => `<div class="stack lookrow"><span class="small" id="lk-${k}">${label}</span><div class="seg2" role="group" aria-labelledby="lk-${k}">${opts.map(([v, t]) => {
+    const on = String(l[k]) === String(v);
+    return `<button type="button" class="${on ? 'on' : ''}" aria-pressed="${on}" data-act="look" data-k="${k}" data-v="${v}">${t}</button>`;
+  }).join('')}</div></div>`;
+  return `<div class="card look"><h2>Apparence</h2><div class="lookgrid"><div class="board mini lookb" id="lookb" aria-label="Aperçu de l’échiquier"></div><div class="stack">
+    ${seg('pal', 'Échiquier', look.PALETTES)}${seg('pc', 'Pièces', look.PIECES)}${seg('coords', 'Coordonnées', [[true, 'Oui'], [false, 'Non']])}${seg('speed', 'Lecture des suites', look.SPEEDS)}
+    <p class="small">Sur ordinateur, glisse le coin bas droit de l’échiquier d’un exercice pour le redimensionner.${l.size ? ` Taille choisie : ${l.size} px. <a href="#" data-act="look" data-k="size" data-v="">Revenir à la taille automatique</a>` : ''}</p></div></div></div>`;
+}
 function weekKey() { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return dkey(d); }
 function viewPlan() {
   const hours = ls.get('hours', 6), wk = weekKey(), done = ls.get('plan:' + wk, {});
@@ -1486,6 +1499,7 @@ function viewPlan() {
     <div class="card"><h2>Ton objectif</h2><div class="row"><label for="gelo" class="sub">Elo visé</label><input type="number" id="gelo" value="${g.elo}" min="100" max="3000" step="50" style="width:100px"></div>
       <div class="row"><label for="gdate" class="sub">Échéance</label><input type="date" id="gdate" value="${g.date}"></div>
       <div><button class="btn sm" data-act="reset">Changer de pseudo ou effacer les données</button></div></div>
+    ${lookCard()}
     ${backupCard()}
     <div class="card"><h2>Coach Claude</h2>${coachKey() ? `<p class="sub">Coach activé. Clé enregistrée sur cet appareil (…${esc(coachKey().slice(-4))}).</p>
       <div class="row"><label for="cmodel" class="sub">Modèle</label><select id="cmodel">${MODELS.map(([v, l]) => `<option value="${v}" ${coachModel() === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
@@ -1519,7 +1533,7 @@ async function restoreFrom(file) {
     S.job.stop = true;
     await backup.restore(b);
     S.user = b.user; S.f = ls.get('filter', S.f); S.pz = null; S.cl = null; S.dr = null; S.cv = null; S.li = null; S.liKeep = null; S.gen = null; LINES.clear();
-    await load(); restoreUi();
+    await load(); restoreUi(); look.apply();
     location.hash = '#accueil'; render();
     reclassify(); autoAnalyse();
   } catch (e) { if (m) m.textContent = e.message || String(e); }
@@ -1558,6 +1572,7 @@ function render(keepScroll) {
     const save = () => { const elo = +$('#gelo').value, date = $('#gdate').value; if (elo >= 100 && date) { ls.set('goal', { elo, date }); render(true); } };
     $('#gelo').onchange = save; $('#gdate').onchange = save;
     const cm = $('#cmodel'); if (cm) cm.onchange = () => ls.set('model', cm.value);
+    board($('#lookb'), { fen: LOOK_FEN, viewOnly: true, lastMove: ['h5', 'f7'] });
     document.querySelectorAll('[data-plan]').forEach((c) => { c.onchange = () => { const k = 'plan:' + weekKey(), d = ls.get(k, {}); d[c.dataset.plan] = c.checked; ls.set(k, d); c.closest('.check').classList.toggle('done', c.checked); }; });
   } else if (r === 'bilan') mountBilan();
   header();
@@ -1644,8 +1659,9 @@ document.addEventListener('click', (ev) => {
   else if (act === 'opgrp') { S.opGrp = el.dataset.g; render(true); }
   else if (act === 'optab') { S.opTab = el.dataset.tab; render(true); }
   else if (act === 'bakimp') $('#bakfile')?.click();
+  else if (act === 'look') { const k = el.dataset.k, v = el.dataset.v; look.setLook({ [k]: k === 'coords' ? v === 'true' : k === 'size' ? null : v }); render(true); }
   else if (act === 'reset') {
-    if (el.dataset.sure) { const u = S.user; ls.clear(['key', 'model', 'goal', 'hours']); dbDel('data:' + u); dbDel('an:' + u); dbDel('ai:' + u); S.ai = {}; S.li = null; S.liKeep = null; S.dr = null; S.cv = null; S.gen = null; S.cl = null; LINES.clear(); S.job.stop = true; S.user = null; S.data = null; S.an = {}; S.pz = null; location.hash = '#accueil'; render(); }
+    if (el.dataset.sure) { const u = S.user; ls.clear(['key', 'model', 'goal', 'hours', 'look']); dbDel('data:' + u); dbDel('an:' + u); dbDel('ai:' + u); S.ai = {}; S.li = null; S.liKeep = null; S.dr = null; S.cv = null; S.gen = null; S.cl = null; LINES.clear(); S.job.stop = true; S.user = null; S.data = null; S.an = {}; S.pz = null; location.hash = '#accueil'; render(); }
     else { el.dataset.sure = '1'; el.textContent = 'Confirmer : effacer parties, analyses et progression (réglages et clé du coach conservés)'; }
   }
 });
@@ -1692,6 +1708,7 @@ let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() 
 
 if (new URLSearchParams(location.search).has('debug')) window.__cap = S; // accès à l'état pour les tests
 (async function init() {
+  look.apply(); // palette, pièces, coordonnées et taille de l'échiquier avant le premier rendu
   await load();
   restoreUi();
   navigator.storage?.persist?.().catch(() => {}); // demande au navigateur de ne pas effacer les données de l'app

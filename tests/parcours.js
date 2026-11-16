@@ -4,7 +4,7 @@
 const { chromium } = require('playwright');
 const fs = require('fs');
 const { USER, Chess, GAMES, startServer, stopServer, routeChessCom } = require('./fixture');
-const PORT = 8765;
+const PORT = +process.env.PORT || 8765;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 let failed = 0;

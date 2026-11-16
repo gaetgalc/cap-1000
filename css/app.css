@@ -11,8 +11,20 @@
   --ink: #f2f1ed; --ink2: #c9c6be; --ink3: #a19e96; --on-btn: #fff; --black: #000;
   --accent: #7fc44f; --accent-ink: #a6e07a; --accent-soft: #2d4022; --btn: #3a8020; --btn-edge: #265713;
   --good: #8fdd5e; --good-soft: #2c4524; --warn: #ffb534; --warn-soft: #4a3a17; --bad: #ff7a6e; --bad-ink: #ff9a90; --bad-soft: #522522;
-  --neutral: #8a877f; --coord: #2c2b28;
-  --sq-light: #eef1d3; --sq-dark: #6fa451;
+  --neutral: #8a877f;
+  /* Échiquier (lot 1 du 16/11) : vert du site adouci, propre au site (ni celui de Chess.com ni celui de Lichess).
+     Palettes au choix dans Plan et réglages > Apparence (js/look.js pose pal-bois / pal-bleu sur <html>). */
+  --pal-vert-l: #e7ead5; --pal-vert-d: #7b9c63;
+  --pal-bois-l: #ecd9b9; --pal-bois-d: #ad8460;
+  --pal-bleu-l: #e1e6ea; --pal-bleu-d: #7d91a3;
+  --sq-light: var(--pal-vert-l); --sq-dark: var(--pal-vert-d);
+  --sq-last: rgba(247, 214, 72, .42); --sq-sel: rgba(247, 214, 72, .58); /* dernier coup, pièce choisie : jaune translucide */
+  --sq-dot: rgba(22, 30, 18, .26); --sq-hover: rgba(22, 30, 18, .14); /* cases jouables */
+  --sq-check: rgba(232, 56, 44, .95); --sq-check-mid: rgba(232, 56, 44, .45); --sq-check-0: rgba(232, 56, 44, 0);
+  --board-shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 18px rgba(0, 0, 0, .32);
+  --shape-shadow: rgba(0, 0, 0, .35); --grip: rgba(255, 255, 255, .55);
+  /* Coordonnées : 12 px semi-gras, seule exception assumée à « rien sous 13 px » (dans les coins des cases) */
+  --t-coord: 12px;
   --display: "Geist", "Segoe UI", system-ui, sans-serif;
   --body: "Geist", "Segoe UI", system-ui, sans-serif;
   --mono: "Geist Mono", ui-monospace, Menlo, monospace;
@@ -27,6 +39,8 @@
   --ease: cubic-bezier(.2, .8, .2, 1); --m-in: 150ms; --m-press: 90ms; --m-panel: 200ms;
   color-scheme: dark;
 }
+:root.pal-bois { --sq-light: var(--pal-bois-l); --sq-dark: var(--pal-bois-d); }
+:root.pal-bleu { --sq-light: var(--pal-bleu-l); --sq-dark: var(--pal-bleu-d); }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 .grp { display: contents; } .fly { display: none; } /* téléphone : Progrès mène à Mon jeu, qui propose Stats et Plan */
@@ -138,10 +152,27 @@ tr.click { cursor: pointer; } tr.click:hover td { background: var(--sunken); }
 td.r, th.r { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .scroll { overflow-x: auto; }
 
-.board { width: 100%; max-width: 520px; aspect-ratio: 1; border-radius: var(--r-s); overflow: hidden; }
+.board { width: 100%; max-width: 520px; aspect-ratio: 1; border-radius: var(--r-s); overflow: hidden; box-shadow: var(--board-shadow); }
 .board.mini { max-width: 300px; }
 cg-board { background-color: var(--sq-light); background-image: repeating-conic-gradient(var(--sq-dark) 0 25%, var(--sq-light) 0 50%); background-size: 25% 25%; }
-.cg-wrap coords, .cg-wrap coords coord { font-size: var(--t-xs); font-weight: 600; color: var(--coord) !important; opacity: .8; }
+/* Coordonnées dans les coins : chiffres en haut à gauche de la colonne de bord, lettres en bas à droite de la rangée du bas,
+   chacune de la couleur de l'autre case. Ordre du DOM : 1 à 8 et a à h ; .black = échiquier retourné. */
+.cg-wrap coords { position: absolute; display: flex; pointer-events: none; opacity: 1; font: 600 var(--t-coord)/1 var(--body); text-transform: none; z-index: 3; } /* au-dessus des pièces, lisible dans le coin */
+.cg-wrap coords.ranks { left: 0; top: 0; width: 12.5%; height: 100%; flex-flow: column-reverse; align-items: stretch; }
+.cg-wrap coords.ranks.black { flex-flow: column; }
+.cg-wrap coords.files { left: 0; top: auto; bottom: 0; width: 100%; height: 12.5%; flex-flow: row; text-align: right; text-transform: none; }
+.cg-wrap coords.files.black { flex-flow: row-reverse; }
+.cg-wrap coords coord { flex: 1 1 0; min-width: 0; transform: none; }
+.cg-wrap coords.ranks coord { padding: 3px 0 0 4px; transform: none; }
+.cg-wrap coords.files coord { display: flex; align-items: flex-end; justify-content: flex-end; padding: 0 4px 3px 0; }
+.cg-wrap coords coord:nth-child(odd), .cg-wrap coords.black coord:nth-child(even) { color: var(--sq-light); }
+.cg-wrap coords coord:nth-child(even), .cg-wrap coords.black coord:nth-child(odd) { color: var(--sq-dark); }
+.nocoords .cg-wrap coords { display: none; }
+/* Jeux de pièces (Apparence) : SVG servis depuis vendor/pieces, licences dans vendor/pieces/LICENSES.txt */
+.pc-merida .cg-wrap piece.pawn.white { background-image: url("../vendor/pieces/merida/wP.svg"); } .pc-merida .cg-wrap piece.knight.white { background-image: url("../vendor/pieces/merida/wN.svg"); } .pc-merida .cg-wrap piece.bishop.white { background-image: url("../vendor/pieces/merida/wB.svg"); } .pc-merida .cg-wrap piece.rook.white { background-image: url("../vendor/pieces/merida/wR.svg"); } .pc-merida .cg-wrap piece.queen.white { background-image: url("../vendor/pieces/merida/wQ.svg"); } .pc-merida .cg-wrap piece.king.white { background-image: url("../vendor/pieces/merida/wK.svg"); }
+.pc-merida .cg-wrap piece.pawn.black { background-image: url("../vendor/pieces/merida/bP.svg"); } .pc-merida .cg-wrap piece.knight.black { background-image: url("../vendor/pieces/merida/bN.svg"); } .pc-merida .cg-wrap piece.bishop.black { background-image: url("../vendor/pieces/merida/bB.svg"); } .pc-merida .cg-wrap piece.rook.black { background-image: url("../vendor/pieces/merida/bR.svg"); } .pc-merida .cg-wrap piece.queen.black { background-image: url("../vendor/pieces/merida/bQ.svg"); } .pc-merida .cg-wrap piece.king.black { background-image: url("../vendor/pieces/merida/bK.svg"); }
+.pc-chessnut .cg-wrap piece.pawn.white { background-image: url("../vendor/pieces/chessnut/wP.svg"); } .pc-chessnut .cg-wrap piece.knight.white { background-image: url("../vendor/pieces/chessnut/wN.svg"); } .pc-chessnut .cg-wrap piece.bishop.white { background-image: url("../vendor/pieces/chessnut/wB.svg"); } .pc-chessnut .cg-wrap piece.rook.white { background-image: url("../vendor/pieces/chessnut/wR.svg"); } .pc-chessnut .cg-wrap piece.queen.white { background-image: url("../vendor/pieces/chessnut/wQ.svg"); } .pc-chessnut .cg-wrap piece.king.white { background-image: url("../vendor/pieces/chessnut/wK.svg"); }
+.pc-chessnut .cg-wrap piece.pawn.black { background-image: url("../vendor/pieces/chessnut/bP.svg"); } .pc-chessnut .cg-wrap piece.knight.black { background-image: url("../vendor/pieces/chessnut/bN.svg"); } .pc-chessnut .cg-wrap piece.bishop.black { background-image: url("../vendor/pieces/chessnut/bB.svg"); } .pc-chessnut .cg-wrap piece.rook.black { background-image: url("../vendor/pieces/chessnut/bR.svg"); } .pc-chessnut .cg-wrap piece.queen.black { background-image: url("../vendor/pieces/chessnut/bQ.svg"); } .pc-chessnut .cg-wrap piece.king.black { background-image: url("../vendor/pieces/chessnut/bK.svg"); }
 .moves { position: relative; display: flex; flex-wrap: wrap; gap: 2px 4px; font-size: var(--t-s); max-height: 220px; overflow-y: auto; }
 .moves .n { color: var(--ink3); font-size: var(--t-xs); padding: 3px 0 3px 4px; }
 .moves button { font: inherit; border: 0; background: none; color: var(--ink); padding: 3px 5px; border-radius: var(--r-s); cursor: pointer; }
@@ -213,9 +244,8 @@ textarea { font: var(--t-xs)/1.4 ui-monospace, Menlo, monospace; color: var(--in
 @media (min-width: 860px) { span.chip.d-only { display: inline-flex; } }
 .back, .ttl { display: none; }
 .pzhead { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
-.bwrap { display: flex; flex-direction: column; min-width: 0; }
-.bwrap .board { border-radius: var(--r-s) var(--r-s) 0 0; }
-.cap { background: var(--surface); border-top: 4px solid var(--line); padding: 12px 14px; font-size: var(--t-m); line-height: 1.45; min-height: 76px; border-radius: 0 0 var(--r-s) var(--r-s); display: flex; flex-direction: column; gap: 6px; max-width: 520px; }
+.bwrap { display: flex; flex-direction: column; gap: var(--s-2); min-width: 0; position: relative; }
+.cap { background: var(--surface); border-top: 4px solid var(--line); padding: 12px 14px; font-size: var(--t-m); line-height: 1.45; min-height: 76px; border-radius: var(--r-s); display: flex; flex-direction: column; gap: 6px; max-width: 520px; }
 .cap.ok { border-top-color: var(--accent); background: var(--good-soft); }
 .cap.ko { border-top-color: var(--bad); background: var(--bad-soft); }
 .cap p { margin: 0; } .cap .dot { display: inline-block; margin-right: 6px; vertical-align: -1px; }
@@ -343,9 +373,9 @@ details.gd summary { cursor: pointer; font-size: var(--t-s); color: var(--accent
   /* Écran de travail plein cadre */
   body.imm .pzhead h1 { display: none; }
   .pzhead .row { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; } .pzhead select { min-height: 34px; font-size: var(--t-s); padding: 4px 8px; }
-  .bwrap { margin: 0 -14px; }
-  .bwrap .board { max-width: none; border-radius: 0; }
-  .cap { max-width: none; border-radius: 0; padding: 12px 16px; min-height: 84px; }
+  /* Échiquier quasi bord à bord (4 px de chaque côté), bandeau collé dessous : chaque pixel va à l’échiquier */
+  .bwrap { margin: 0 -10px; gap: 0; } .bwrap .board { max-width: none; border-radius: var(--r-s) var(--r-s) 0 0; }
+  .cap { max-width: none; padding: 12px 16px; min-height: 84px; border-radius: 0 0 var(--r-s) var(--r-s); }
   .actbar { position: fixed; left: 0; right: 0; bottom: 0; border-radius: 0; border: 0; border-top: 1px solid var(--line); padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); flex-wrap: nowrap; box-shadow: none; z-index: 25; }
   .actbar .btn { flex: 1; min-height: 50px; padding: 8px 6px; font-size: var(--t-s); white-space: nowrap; } .actbar .btn.ico { flex: 0 0 50px; }
   ol.line li { grid-template-columns: 64px 1fr; }
@@ -366,12 +396,12 @@ details.gd summary { cursor: pointer; font-size: var(--t-s); color: var(--accent
 .cap.ko .ask { color: var(--ink); }
 @media (max-width: 859px) { .actbar .btn.opt { font-size: var(--t-m); font-weight: 600; } }
 
-.cg-wrap .cg-shapes { opacity: .85; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .35)); }
+.cg-wrap .cg-shapes { opacity: .85; filter: drop-shadow(0 1px 2px var(--shape-shadow)); }
 .capbest { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: var(--r-s); background: var(--good-soft); color: var(--good); font-size: var(--t-xs); font-weight: 600; white-space: nowrap; }
 .capbest b { color: var(--accent-ink); }
 .capbest.ko { background: var(--bad-soft); color: var(--bad); } .capbest.ko b { color: var(--bad-ink); }
-cg-board square.last-move { background-color: rgba(255, 214, 10, .45) !important; }
-cg-board square.selected { background-color: rgba(255, 214, 10, .6) !important; }
+cg-board square.last-move { background-color: var(--sq-last) !important; }
+cg-board square.selected { background-color: var(--sq-sel) !important; }
 @media (max-width: 859px) { body.solved .pzhead { display: none; } }
 
 .seg2 a { flex: 1; text-align: center; font: 600 var(--t-s) var(--body); color: var(--ink2); text-decoration: none; border-radius: var(--r-s); padding: 9px 8px; }
@@ -379,10 +409,11 @@ cg-board square.selected { background-color: rgba(255, 214, 10, .6) !important; 
 @media (max-width: 859px) { body.solved .pztabs { display: none; } }
 
 /* Cases où la pièce choisie peut aller : point sur une case libre, anneau sur une pièce à prendre */
-cg-board square.move-dest { background: radial-gradient(rgba(24, 34, 16, .4) 21%, rgba(24, 34, 16, 0) 23%); }
-cg-board square.move-dest.oc { background: radial-gradient(rgba(24, 34, 16, 0) 71%, rgba(24, 34, 16, .38) 73%); }
-@media (hover: hover) { cg-board square.move-dest:hover { background: rgba(60, 110, 40, .5); } }
-cg-board square.check { background: radial-gradient(circle, rgba(235, 64, 52, .95) 0, rgba(235, 64, 52, .6) 42%, rgba(235, 64, 52, 0) 76%); }
+cg-board square.move-dest { background: radial-gradient(var(--sq-dot) 17%, transparent 18.5%); }
+cg-board square.move-dest.oc { background: radial-gradient(transparent 76%, var(--sq-dot) 78%); }
+@media (hover: hover) and (pointer: fine) { cg-board square.move-dest:hover { background: var(--sq-hover); } }
+/* Roi en échec (posé par board()) : halo rouge radial sous la pièce */
+cg-board square.check { background: radial-gradient(circle, var(--sq-check) 0, var(--sq-check-mid) 40%, var(--sq-check-0) 72%); }
 
 /* Lecture animée des suites */
 .ic { flex: none; }
@@ -434,10 +465,10 @@ body.fit .view { flex: 1; min-height: 0; width: 100%; }
 body.fit .bwrap .board { max-width: none; flex: none; }
 body.fit .cap { max-width: none; overflow-y: auto; }
 @media (min-width: 860px) {
-  body.fit { --capmin: 118px; --bs: min(calc(100dvh - 40px - var(--capmin)), calc((100vw - var(--side) - 72px) * .6), 820px); }
+  body.fit { --capmin: 118px; --bs: min(var(--bsz, 820px), calc(100dvh - 48px - var(--capmin)), calc((100vw - var(--side) - 72px) * .6)); } /* --bsz : taille choisie à la poignée (js/look.js) */
   body.fit .view { max-width: 1440px; display: grid; grid-template-columns: var(--bs) minmax(0, 1fr); grid-template-rows: 100%; gap: 24px; padding: 20px 24px; }
   body.fit .bwrap { min-height: 0; }
-  body.fit .bwrap .board { width: var(--bs); height: var(--bs); }
+  body.fit .bwrap .board { width: var(--bsr, var(--bs)); height: var(--bsr, var(--bs)); }
   body.fit .cap { flex: 1; min-height: 0; }
   body.fit .fitpanel { flex: 1; }
   body.fit .actbar { position: static; flex: none; box-shadow: none; }
@@ -449,7 +480,7 @@ body.fit .cap { max-width: none; overflow-y: auto; }
   body.fit .fithead > * { order: -1; flex: none; }
   body.fit .coach.intro, body.fit .fithead > h1, body.fit .fithead > p.small { display: none; }
   body.fit .m-txt { display: inline; }
-  body.fit .bwrap { order: 0; flex: 1 1 0; min-height: 0; container-type: size; margin: 0 -14px; }
+  body.fit .bwrap { order: 0; flex: 1 1 0; min-height: 0; container-type: size; margin: 0 -10px; }
   body.fit .bwrap .board { width: min(100cqw, 100cqh - 84px); height: min(100cqw, 100cqh - 84px); margin: 0 auto; }
   body.fit .cap { flex: 1; min-height: 84px; }
   body.fit .fitpanel { order: 1; flex: 0 1 auto; max-height: 24%; }
@@ -474,6 +505,21 @@ body.fit .cap { max-width: none; overflow-y: auto; }
   /* Chaque ligne retirée ici rend l'échiquier plus grand : le choix du thème reste sur l'écran de bilan */
   body.fit .fitpanel .pzfilter, body.fit .d-txt { display: none; }
   body.fit .cap { font-size: var(--t-m); line-height: 1.4; padding: 10px 16px; } /* trois lignes tiennent dans le bandeau minimal */
+  /* Relecture de partie et position de cours (.xwide dans l'en-tête) : l'échiquier prend toute la largeur
+     (écran moins 8 px), le panneau garde le reste et défile seul. */
+  body.fit:has(.xwide) .bwrap { flex: 0 1 calc(100vw - 8px + 84px); }
+  body.fit:has(.xwide) .fitpanel { flex: 1 1 0; max-height: none; }
+  body.fit:has(.xwide) .fithead > .coach { display: none; } /* la question du cours passe dans le bandeau (.m-txt) */
+}
+@media (max-width: 859px) and (max-height: 719px) {
+  body.fit:has(.xwide) .fithead .pzhead { display: none; } /* iPhone avec les barres de Safari : l'échiquier d'abord */
+}
+/* Poignée de redimensionnement de l'échiquier (ordinateur, souris) : taille gardée dans cap1000:look */
+.bgrip { display: none; }
+@media (min-width: 860px) and (hover: hover) and (pointer: fine) {
+  body.fit .bgrip { display: block; position: absolute; left: calc(var(--bsr, var(--bs)) - 20px); top: calc(var(--bsr, var(--bs)) - 20px); width: 20px; height: 20px; padding: 0; border: 0; border-radius: 0 0 var(--r-s) 0; cursor: nwse-resize; z-index: 3; opacity: .55; transition: opacity var(--m-in) var(--ease);
+    background: linear-gradient(135deg, transparent 0 50%, var(--grip) 50% 58%, transparent 58% 70%, var(--grip) 70% 78%, transparent 78%); }
+  body.fit .bgrip:hover, body.fit .bgrip:focus-visible, body.fit .bgrip.on { opacity: 1; }
 }
 /* Avis sur un puzzle réussi : facile, normal, difficile */
 .rate { display: flex; flex-direction: column; gap: 4px; }
@@ -504,3 +550,19 @@ body.fit .cap { max-width: none; overflow-y: auto; }
 .lnmv { font-size: var(--t-xs); color: var(--ink3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .lna { display: flex; gap: 6px; }
 @media (min-width: 860px) { .ophero { grid-template-columns: 170px minmax(0, 1fr); } #opb { width: 170px; height: 170px; } .ophero h1 { font-size: var(--t-xl); } }
+/* Apparence (Plan et réglages) : aperçu de l'échiquier et choix en segments */
+.grid > .card.look { grid-column: 1 / -1; }
+.lookgrid { display: grid; grid-template-columns: 200px minmax(0, 520px); gap: var(--s-5); align-items: start; }
+.board.lookb { max-width: 200px; }
+.lookrow { gap: var(--s-1); }
+.lookrow .seg2 button { padding: 8px 6px; }
+@media (max-width: 859px) { .lookgrid { grid-template-columns: 1fr; } .board.lookb { max-width: 240px; margin: 0 auto; width: 100%; } }
+/* chessground arrondit ses cases au multiple de 8 px : l'échiquier d'un exercice prend une taille multiple de 8,
+   sinon une bande vide apparaît à droite et en bas du cadre arrondi. */
+@supports (width: round(down, 10px, 8px)) {
+  @media (min-width: 860px) { body.fit { --bsr: round(down, var(--bs), 8px); } }
+  @media (max-width: 859px) {
+    body.fit .bwrap .board { width: round(down, min(100cqw, 100cqh - 84px), 8px); height: round(down, min(100cqw, 100cqh - 84px), 8px); }
+    body.fit.solved .bwrap .board { width: round(down, min(100cqw, 100cqh - 150px), 8px); height: round(down, min(100cqw, 100cqh - 150px), 8px); }
+  }
+}
