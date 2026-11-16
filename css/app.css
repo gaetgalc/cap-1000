@@ -12,6 +12,7 @@
   --accent: #7fc44f; --accent-ink: #a6e07a; --accent-soft: #2d4022; --btn: #3a8020; --btn-edge: #265713;
   --good: #8fdd5e; --good-soft: #2c4524; --warn: #ffb534; --warn-soft: #4a3a17; --bad: #ff7a6e; --bad-ink: #ff9a90; --bad-soft: #522522;
   --hover: #3b3934; --hover-line: #6b665d; /* survol à la souris : fond et bord */
+  --menu-shadow: 0 12px 32px rgba(0, 0, 0, .5); /* volets de la navigation */
   --neutral: #8a877f;
   /* Échiquier (lot 1 du 16/11) : vert du site adouci, propre au site (ni celui de Chess.com ni celui de Lichess).
      Palettes au choix dans Plan et réglages > Apparence (js/look.js pose pal-bois / pal-bleu sur <html>). */
@@ -46,7 +47,16 @@
 :root.pal-bleu { --sq-light: var(--pal-bleu-l); --sq-dark: var(--pal-bleu-d); }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-.grp { display: contents; } .fly { display: none; } /* téléphone : Progrès mène à Mon jeu, qui propose Stats et Plan */
+.grp { display: contents; } /* téléphone : l'entrée reste un élément de la barre du bas */
+/* Volets de la navigation (16/11) : chaque entrée ouvre la liste de ses pages ; ouverture et fermeture par js/app.js (classe open) */
+.fly { display: none; flex-direction: column; gap: 2px; padding: 8px; background: var(--bg); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--menu-shadow); z-index: 45; }
+.grp.open .fly { display: flex; }
+.nav .fly a { flex: none; flex-direction: row; align-items: center; justify-content: flex-start; min-height: var(--hit); padding: 0 12px; border: 0; border-radius: var(--r-s); font-size: var(--t-m); font-weight: 500; color: var(--ink2); text-align: left; }
+.nav .fly a.on { background: var(--sunken); color: var(--ink); box-shadow: none; }
+.fly-t { padding: 8px 12px 2px; font-size: var(--t-xs); font-weight: 600; color: var(--ink3); }
+.fly-t:not(:first-child) { margin-top: 4px; border-top: 1px solid var(--line); padding-top: 10px; }
+@media (prefers-reduced-motion: no-preference) { .grp.open .fly { animation: fly-in var(--m-in) var(--ease); } }
+@keyframes fly-in { from { opacity: 0; transform: translateY(4px); } }
 html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: var(--t-m)/1.5 var(--body); padding-bottom: 76px; }
 h1, h2, h3 { font-family: var(--display); font-weight: 600; line-height: 1.2; margin: 0; text-wrap: balance; letter-spacing: -.02em; }
@@ -67,13 +77,9 @@ p { margin: 0; } a { color: var(--accent-ink); }
 @media (min-width: 860px) {
   .top { z-index: 40; }
   .grp { display: block; position: relative; }
-  .fly { display: none; position: absolute; left: calc(100% + 13px); top: -8px; min-width: 240px; padding: 8px; background: var(--bg); border: 1px solid var(--line); border-radius: var(--r); box-shadow: 0 12px 32px rgba(0, 0, 0, .5); flex-direction: column; gap: 2px; z-index: 45; }
+  .fly { position: absolute; left: calc(100% + 13px); top: -8px; min-width: 260px; }
   .fly::before { content: ''; position: absolute; left: -14px; top: 0; bottom: 0; width: 14px; } /* pont : la souris passe de l'entrée au volet sans le fermer */
-  .grp:hover .fly, .grp:focus-within .fly { display: flex; }
-  .grp.shut .fly { display: none; }
-  .grp:hover .grp-h, .grp:focus-within .grp-h { background: var(--sunken); }
-  .fly a.on { box-shadow: none; }
-  body.fit .fly { left: calc(100% + 13px); }
+  .grp.open .grp-h { background: var(--sunken); color: var(--ink); }
   body { --side: 208px; padding: 0 0 0 var(--side); }
   /* Pendant un exercice, la colonne se réduit aux icônes : l'échiquier prend la place */
   body.fit { --side: 72px; }
@@ -81,6 +87,8 @@ p { margin: 0; } a { color: var(--accent-ink); }
   body.fit .brand-t, body.fit .nav a span, body.fit .tools { display: none; }
   body.fit .brand { padding: 0; min-height: 44px; }
   body.fit .nav a { width: 48px; height: 48px; padding: 0; justify-content: center; }
+  body.fit .nav .fly a { width: auto; height: auto; padding: 0 12px; justify-content: flex-start; }
+  body.fit .nav .fly a span { display: inline; }
   .top { position: fixed; left: 0; top: 0; bottom: 0; width: var(--side); flex-direction: column; align-items: stretch; flex-wrap: nowrap; gap: 20px; padding: 20px 12px; border-bottom: 0; border-right: 1px solid var(--line); }
   .brand { padding: 0 8px; font-size: var(--t-l); }
   .nav { position: static; flex-direction: column; border: 0; background: none; gap: 2px; padding: 0; }
@@ -422,6 +430,9 @@ details.gd summary { cursor: pointer; font-size: var(--t-s); color: var(--accent
   .nav { padding-bottom: env(safe-area-inset-bottom); }
   .nav a { padding: 8px 2px 8px; font-size: var(--t-xs); font-weight: 600; gap: 3px; }
   .nav a svg { width: 23px; height: 23px; }
+  /* Volet au-dessus de la barre du bas, sur toute la largeur ; l'entrée ouverte est marquée comme active */
+  .nav .fly { position: absolute; left: 8px; right: 8px; bottom: calc(100% + 8px); max-height: calc(100dvh - 140px); overflow-y: auto; }
+  .nav .grp.open .grp-h { color: var(--ink); border-top-color: var(--ink3); }
   .view { padding: 14px 14px 24px; gap: 14px; }
   h1 { font-size: var(--t-l); } h2 { font-size: var(--t-m); }
   .card { border-radius: var(--r); padding: 16px; }

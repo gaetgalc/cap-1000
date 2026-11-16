@@ -578,11 +578,8 @@ function mountPuzzle() {
 
 // ---------- Apprendre les ouvertures ----------
 // Fiches (histoire, idées, pièges, lignes) et lignes récitées de mémoire, en révision espacée comme les puzzles.
-// Onglets internes des 5 sections (refonte du 16/11) : Progrès (Mon jeu, Stats, Plan), Apprendre (Cours, Ouvertures), Parties (Parties, Mes ouvertures).
+// Onglets internes (refonte du 16/11) : Cours / Ouvertures, Parties / Mes ouvertures. Ils doublent le volet de la navigation, utile sur téléphone.
 const tabs = (on, items) => `<div class="seg2 pztabs">${items.map(([k, href, t]) => `<a class="${on === k ? 'on' : ''}" href="${href}">${t}</a>`).join('')}</div>`;
-// Progrès : sur ordinateur, Mon jeu, Stats et Plan sont dans le volet de la colonne de gauche (demande du 16/11 : pas d'onglets en haut) ; sur téléphone, Mon jeu les propose en tête.
-const PROG_MENU = () => { const sv = (d) => `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
-  return `<div class="menu m-only">${[['#stats', 'Stats', 'Toutes tes données depuis ta première partie', '<path d="M4 19h16M7 15l3-4 3 2 4-6"/>'], ['#plan', 'Plan et réglages', 'Semaine, objectif, sauvegarde, coach Claude', '<rect x="4" y="5" width="16" height="15" rx="2.5"/><path d="M4 10h16M8 3v4M16 3v4"/>']].map(([h, t, d, ic]) => `<a class="mrow" href="${h}"><span class="mico">${sv(ic)}</span><span class="stepc"><b>${t}</b><span>${d}</span></span><span class="chev" aria-hidden="true">${ico('next')}</span></a>`).join('')}</div>`; };
 const LEARN_TABS = (on) => tabs(on, [['cours', '#cours', 'Cours'], ['ouv', '#ouvertures/apprendre', 'Ouvertures']]);
 const GAMES_TABS = (on) => tabs(on, [['parties', '#parties', 'Parties'], ['ouv', '#ouvertures', 'Mes ouvertures']]);
 const allLineKeys = () => OPENINGS.flatMap((o) => o.lines.map((_, k) => lineKey(o, k)));
@@ -1090,7 +1087,7 @@ function viewBilan() {
   const { es, sig, fc } = session();
   const sigHtml = (arr, c, empty) => (arr.length ? arr.slice(0, 4).map((x) => `<div class="sig" style="--c:var(--${c})"><b>${esc(x.t)}</b><span>${esc(x.d)}</span>${x.lesson ? `<a href="#${x.lesson === 'ouvertures' ? 'ouvertures' : 'cours/' + x.lesson}">${x.lesson === 'ouvertures' ? 'Voir tes ouvertures' : 'Ouvrir le cours'}</a>` : ''}</div>`).join('') : `<p class="sub">${empty}</p>`);
   const all = st.tally(gs);
-  return `${PROG_MENU()}<h1>Mon jeu</h1>
+  return `<h1>Mon jeu</h1>
   <div class="hero">${gb.html}
     <div class="card"><h2>Ton classement ${S.f.tc === 'all' ? 'Rapide' : TC[S.f.tc]}</h2><div class="chart" id="rc"></div></div></div>
   ${focusCard(fc, es)}
@@ -1605,7 +1602,7 @@ function mountDrill() {
   }
   X.on({ ans: answer });
 }
-// S'entraîner : tout ce qui se pratique, avec ce qui attend aujourd'hui.
+// S'entraîner (section fusionnée avec Apprendre le 16/11) : tout ce qui se pratique, puis les cours et les ouvertures.
 function viewEntrainer() {
   const d = pzDay(), due = progress.linesDue(allLineKeys()), cv = cvList().length, nh = progress.hist().length;
   const row = (href, t, desc, n) => `<a class="mrow" href="${href}"><span class="mico num">${n || ico('play')}</span><span class="stepc"><b>${t}</b><span>${desc}</span></span><span class="chev" aria-hidden="true">${ico('next')}</span></a>`;
@@ -1616,6 +1613,10 @@ function viewEntrainer() {
     ${row('#gagner', 'Gagner les parties gagnées', `${pl(cv, 'partie')} où tu avais l’avantage, à finir contre le moteur`, 0)}
     ${row('#inedits', 'Positions inédites', 'Puzzles Lichess sur les thèmes de ton chantier', 0)}
     ${row('#historique', 'Historique', `${pl(nh, 'exercice')} noté${nh > 1 ? 's' : ''} dans ton journal`, 0)}
+  </div>
+  <h2>Apprendre</h2><div class="menu">
+    ${row('#cours', 'Cours', 'Les leçons sur tes erreurs, illustrées par tes positions', 0)}
+    ${row('#ouvertures/apprendre', 'Ouvertures à apprendre', `${OPENINGS.length} fiches : idées, pièges et lignes principales`, 0)}
   </div>`;
 }
 // Sauvegarde : rien n'est synchronisé entre appareils, le fichier sert de copie de sécurité et de transfert.
@@ -1724,8 +1725,10 @@ function render(keepScroll) {
   const v = $('#view'), [r, a, b, c] = route();
   paintJob();
   $('#nav').hidden = !S.data;
-  const navKey = r === 'ouvertures' ? (a ? 'apprendre' : 'mesouvertures') : r; // les 5 sections : data-grp de index.html
-  document.querySelectorAll('#nav a').forEach((x) => x.classList.toggle('on', x.dataset.grp ? x.dataset.grp.split(' ').includes(navKey) : x.getAttribute('href') === '#' + r));
+  const navKey = r === 'ouvertures' ? (a ? 'apprendre' : 'mesouvertures') : r; // les 4 sections : data-grp de index.html
+  const here = '#' + route().join('/');
+  // Entrée de section : d'après data-grp ; page d'un volet : son adresse exacte, ou sa route pour une page à une seule partie (#cours/x allume « Cours »)
+  document.querySelectorAll('#nav a').forEach((x) => { const h = x.getAttribute('href'); x.classList.toggle('on', x.dataset.grp ? x.dataset.grp.split(' ').includes(navKey) : h === here || (h === '#' + r && r !== 'ouvertures' && !x.dataset.fill)); });
   if (!S.data) { v.innerHTML = viewWelcome(); exo.attach(); header(); const f = $('#wf'); f.onsubmit = (ev) => { ev.preventDefault(); const u = $('#wu').value.trim(); if (u) doImport(u); }; return; }
   if (r !== 'partie') S.gv = null;
   if (r !== 'drill' && S.dr && S.dr.i >= S.dr.items.length) S.dr = null; // une série en cours se reprend, une série finie repart de zéro
@@ -1755,11 +1758,60 @@ function render(keepScroll) {
   keepUi();
   if (keepScroll) scrollTo(0, y); else scrollTo(0, 0);
 }
-// Volet « Progrès » de la barre latérale : se referme après un choix, se rouvre au prochain survol
-document.querySelectorAll('#nav .grp').forEach((g) => {
-  g.addEventListener('click', (ev) => { if (ev.target.closest('.fly a')) { g.classList.add('shut'); document.activeElement?.blur(); } });
-  g.addEventListener('mouseleave', () => g.classList.remove('shut'));
+// Volets de la navigation (16/11) : chaque entrée ouvre la liste de ses pages.
+// Ordinateur (souris) : survol, focus clavier ou flèche bas ; le clic sur l'entrée mène à la page principale de la section.
+// Téléphone : le premier appui ouvre le volet au-dessus de la barre du bas, un second appui ou un appui ailleurs le ferme.
+const phoneNav = matchMedia('(max-width: 859px)');
+const navGroups = () => [...document.querySelectorAll('#nav .grp')];
+function navOpen(g, on) {
+  if (on) { navFill(g); navGroups().forEach((o) => o !== g && navOpen(o, false)); }
+  g.classList.toggle('open', on);
+  g.querySelector('.grp-h').setAttribute('aria-expanded', on);
+}
+function navClose() { navGroups().forEach((g) => navOpen(g, false)); }
+// Liens qui dépendent du jour : étapes de la séance (échauffement et cours du chantier), première ligne d'ouverture à réviser
+function navFill(g) {
+  if (!S.data) return;
+  const set = (k, h) => { const el = g.querySelector(`[data-fill="${k}"]`); if (el && h) el.setAttribute('href', h); };
+  if (g.dataset.menu === 'acc') { const { steps } = session(); for (const x of steps) { if (x.k === 'dr') set('drill', x.cta[1]); if (x.k === 'les') set('cours', x.cta[1]); } }
+  if (g.dataset.menu === 'ent') { const due = progress.linesDue(allLineKeys()); set('lignes', due.length ? lineHref(due[0]) : '#ouvertures/apprendre'); }
+}
+const navItems = (g) => [...g.querySelectorAll('.fly a')];
+navGroups().forEach((g) => {
+  const h = g.querySelector('.grp-h');
+  g.addEventListener('pointerenter', (ev) => { if (ev.pointerType === 'mouse' && !phoneNav.matches) navOpen(g, true); });
+  g.addEventListener('pointerleave', (ev) => { if (ev.pointerType === 'mouse' && !phoneNav.matches) navOpen(g, false); });
+  // Focus au clavier (Tab) : le volet s'ouvre, sauf juste après Échap (g.shut, levé quand le focus sort de l'entrée)
+  g.addEventListener('focusin', () => { if (!phoneNav.matches && !g.shut && !g.classList.contains('open') && h.matches(':focus-visible')) navOpen(g, true); });
+  g.addEventListener('focusout', (ev) => { if (g.contains(ev.relatedTarget)) return; g.shut = false; if (!phoneNav.matches) navOpen(g, false); });
+  // Appui au doigt (téléphone, ou tablette en grand) : l'entrée ouvre et ferme le volet ; souris et Entrée mènent à la page principale
+  let pt = 'mouse';
+  h.addEventListener('pointerdown', (ev) => { pt = ev.pointerType; });
+  h.addEventListener('click', (ev) => { if (phoneNav.matches || (ev.detail > 0 && pt !== 'mouse')) { ev.preventDefault(); navOpen(g, !g.classList.contains('open')); } });
+  g.addEventListener('click', (ev) => { if (ev.target.closest('.fly a')) { navOpen(g, false); document.activeElement?.blur(); } });
+  g.addEventListener('keydown', (ev) => {
+    const items = navItems(g), i = items.indexOf(document.activeElement);
+    if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+      ev.preventDefault(); ev.stopPropagation(); navOpen(g, true);
+      const n = ev.key === 'ArrowDown' ? (i < 0 ? 0 : (i + 1) % items.length) : (i <= 0 ? items.length - 1 : i - 1);
+      items[n].focus();
+    } else if ((ev.key === 'Home' || ev.key === 'End') && i >= 0) { ev.preventDefault(); ev.stopPropagation(); items[ev.key === 'Home' ? 0 : items.length - 1].focus(); }
+  });
 });
+// Échap ferme le volet ouvert (au survol comme au clavier) et rend le focus à son entrée
+document.addEventListener('keydown', (ev) => {
+  const g = document.querySelector('#nav .grp.open');
+  if (ev.key !== 'Escape' || !g) return;
+  ev.preventDefault(); ev.stopPropagation(); navOpen(g, false);
+  if (g.contains(document.activeElement)) { g.shut = true; g.querySelector('.grp-h').focus(); }
+}, true);
+// Appui ailleurs : ferme le volet ouvert, sans déclencher ce qui est dessous (téléphone)
+document.addEventListener('click', (ev) => {
+  const g = document.querySelector('#nav .grp.open');
+  if (!g || g.contains(ev.target)) return;
+  navOpen(g, false);
+  if (phoneNav.matches) { ev.preventDefault(); ev.stopPropagation(); }
+}, true);
 document.addEventListener('click', (ev) => {
   const x = ev.target.closest('[data-x]'); // action de l'exercice en cours : indice, solution, lecture d'une suite…
   if (x) { exo.act(x.dataset.x, x); return; }
@@ -1881,6 +1933,7 @@ document.addEventListener('keydown', (ev) => {
 // ni si l'appareil demande moins de mouvement ; les rendus d'arrière-plan (bgRender) ne passent pas par ici.
 const calm = matchMedia('(prefers-reduced-motion: reduce)');
 addEventListener('hashchange', () => {
+  navClose(); // un rendu d'arrière-plan laisse le volet ouvert, un changement de page le ferme
   if (!document.startViewTransition || calm.matches || exo.current() || document.hidden) render();
   else document.startViewTransition(() => render());
 });

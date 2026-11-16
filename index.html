@@ -15,16 +15,46 @@
   <span class="ttl" id="ttl"></span>
   <a class="brand" href="#accueil"><span class="brand-mark" aria-hidden="true"></span><span class="brand-t">Cap 1000</span></a>
   <nav class="nav" id="nav" aria-label="Sections">
-    <a href="#accueil" data-grp="accueil" title="Aujourd’hui"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4M9 15l2 2 4-4"/></svg><span>Aujourd’hui</span></a>
-    <a href="#entrainer" data-grp="entrainer puzzles erreur inedits historique exos drill gagner" title="S’entraîner"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg><span>S’entraîner</span></a>
-    <a href="#cours" data-grp="cours apprendre ligne" title="Apprendre"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 5.5c3-1 5.5-.8 8.5 1 3-1.8 5.5-2 8.5-1V19c-3-1-5.5-.8-8.5 1-3-1.8-5.5-2-8.5-1z"/><path d="M12 6.5V20"/></svg><span>Apprendre</span></a>
-    <a href="#parties" data-grp="parties partie mesouvertures" title="Parties"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 6h14M5 12h14M5 18h9"/></svg><span>Parties</span></a>
-    <div class="grp">
-    <a href="#bilan" class="grp-h" aria-haspopup="true" data-grp="bilan stats plan plus" title="Progrès"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19l5-6 4 3 7-9"/><path d="M15 7h5v5"/></svg><span>Progrès</span></a>
-      <div class="fly" role="menu">
-        <a href="#bilan"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7"/></svg><span>Mon jeu</span></a>
-        <a href="#stats"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19h16M7 15l3-4 3 2 4-6"/></svg><span>Stats</span></a>
-        <a href="#plan"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2.5"/><path d="M4 10h16M8 3v4M16 3v4"/></svg><span>Plan et réglages</span></a>
+    <!-- 4 sections (16/11) : chaque entrée ouvre un volet de ses pages (survol, clic ou clavier sur ordinateur ; appui sur téléphone). Liens « data-fill » complétés à l’ouverture (séance du jour, lignes dues). -->
+    <div class="grp" data-menu="acc">
+      <a href="#accueil" class="grp-h" id="nh-acc" data-grp="accueil" aria-haspopup="true" aria-expanded="false" aria-controls="fly-acc" title="Aujourd’hui"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4M9 15l2 2 4-4"/></svg><span>Aujourd’hui</span></a>
+      <div class="fly" id="fly-acc" role="menu" aria-labelledby="nh-acc">
+        <a role="menuitem" href="#accueil">Séance du jour</a>
+        <a role="menuitem" href="#exos" data-fill="drill">Échauffement</a>
+        <a role="menuitem" href="#puzzles" data-act="pzfocus">Puzzles du jour</a>
+        <a role="menuitem" href="#cours" data-fill="cours">Cours du jour</a>
+        <a role="menuitem" href="https://www.chess.com/play/online/new" target="_blank" rel="noopener">Jouer 2 parties sur Chess.com</a>
+      </div>
+    </div>
+    <div class="grp" data-menu="ent">
+      <a href="#entrainer" class="grp-h" id="nh-ent" data-grp="entrainer puzzles erreur inedits historique exos drill gagner cours apprendre ligne" aria-haspopup="true" aria-expanded="false" aria-controls="fly-ent" title="S’entraîner"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg><span>S’entraîner</span></a>
+      <div class="fly" id="fly-ent" role="menu" aria-labelledby="nh-ent">
+        <a role="menuitem" href="#entrainer">Vue d’ensemble</a>
+        <span class="fly-t" role="presentation">Pratiquer</span>
+        <a role="menuitem" href="#puzzles">Puzzles sur mes erreurs</a>
+        <a role="menuitem" href="#exos">Échauffements</a>
+        <a role="menuitem" href="#inedits">Positions inédites</a>
+        <a role="menuitem" href="#ouvertures/apprendre" data-fill="lignes">Lignes d’ouverture à réviser</a>
+        <a role="menuitem" href="#gagner">Parties gagnées à convertir</a>
+        <span class="fly-t" role="presentation">Apprendre</span>
+        <a role="menuitem" href="#cours">Cours</a>
+        <a role="menuitem" href="#ouvertures/apprendre">Ouvertures à apprendre</a>
+        <a role="menuitem" href="#historique">Historique</a>
+      </div>
+    </div>
+    <div class="grp" data-menu="par">
+      <a href="#parties" class="grp-h" id="nh-par" data-grp="parties partie mesouvertures" aria-haspopup="true" aria-expanded="false" aria-controls="fly-par" title="Parties"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 6h14M5 12h14M5 18h9"/></svg><span>Parties</span></a>
+      <div class="fly" id="fly-par" role="menu" aria-labelledby="nh-par">
+        <a role="menuitem" href="#parties">Mes parties</a>
+        <a role="menuitem" href="#ouvertures">Mes ouvertures</a>
+      </div>
+    </div>
+    <div class="grp" data-menu="pro">
+      <a href="#bilan" class="grp-h" id="nh-pro" data-grp="bilan stats plan plus" aria-haspopup="true" aria-expanded="false" aria-controls="fly-pro" title="Progrès"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19l5-6 4 3 7-9"/><path d="M15 7h5v5"/></svg><span>Progrès</span></a>
+      <div class="fly" id="fly-pro" role="menu" aria-labelledby="nh-pro">
+        <a role="menuitem" href="#bilan">Mon jeu</a>
+        <a role="menuitem" href="#stats">Stats</a>
+        <a role="menuitem" href="#plan">Plan et réglages</a>
       </div>
     </div>
   </nav>

@@ -29,6 +29,14 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#accueil`); await sleep(600);
   check(await S(() => document.querySelectorAll('.home .stepper li').length === 4 && document.querySelectorAll('.home .btn.pri').length === 1 && !!document.querySelector('.gstrip') && !!document.querySelector('.lgame a[href^="#erreur/"]')), 'accueil : objectif, séance à un seul bouton, dernière partie avec son erreur');
   check(await S(() => document.documentElement.scrollHeight <= innerHeight && document.querySelector('.lgame').getBoundingClientRect().bottom <= document.querySelector('#nav').getBoundingClientRect().top), 'accueil : rien ne défile, tout est au-dessus de la barre du bas');
+  // Navigation à 4 entrées (16/11) : chaque entrée ouvre un volet de ses pages ; sur téléphone, le premier appui ouvre, le second ferme
+  check(await S(() => document.querySelectorAll('#nav .grp-h').length === 4 && document.querySelector('#nh-ent').dataset.grp.split(' ').includes('cours')), 'navigation : 4 entrées, S’entraîner couvre aussi les cours');
+  await page.tap('#nh-ent'); await sleep(250);
+  check(await S(() => location.hash === '#accueil' && document.querySelector('#nh-ent').getAttribute('aria-expanded') === 'true' && [...document.querySelectorAll('#fly-ent a')].every((a) => a.getBoundingClientRect().height >= 44) && document.querySelector('#fly-ent').getBoundingClientRect().bottom <= document.querySelector('#nh-ent').getBoundingClientRect().top), 'navigation : un appui ouvre le volet au-dessus de la barre, cibles de 44 px, sans changer de page');
+  await page.tap('#nh-ent'); await sleep(200);
+  check(await S(() => document.querySelector('#nh-ent').getAttribute('aria-expanded') === 'false' && !document.querySelector('#fly-ent a').offsetParent), 'navigation : un second appui ferme le volet');
+  await page.tap('#nh-pro'); await sleep(250); await page.tap('#fly-pro a[href="#stats"]'); await sleep(600);
+  check(await S(() => location.hash === '#stats' && document.querySelector('#nh-pro').classList.contains('on') && document.querySelector('#nh-pro').getAttribute('aria-expanded') === 'false'), 'navigation : un lien du volet mène à sa page et referme le volet');
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#bilan`); await sleep(600);
   check(await S(() => !!document.querySelector('#rc svg') && !!document.querySelector('.focus') && !!document.querySelector('.sig')), 'Mon jeu : classement, chantier détaillé, points forts et faibles');
 
