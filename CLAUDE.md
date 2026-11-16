@@ -121,7 +121,7 @@ Idées non faites : import des parties Lichess, comptes et synchronisation (la s
 ## Contraintes à connaître
 
 - Un artefact Claude ne peut pas appeler l'API Chess.com (requêtes externes bloquées) : d'où le site hébergé.
-- L'environnement cloud de Claude ne peut pas joindre `api.chess.com` ni `*.github.io` : impossible d'y tester sur les vraies parties ou de vérifier le site en ligne. Les tests se font avec des parties simulées.
+- Depuis le 16/11, l'environnement cloud de Claude joint `api.chess.com` (pas `*.github.io`) : télécharger les archives de `gaetcc` avec curl, les servir au site par `ctx.route` dans Playwright et relire les textes du coach sur les vraies parties (JOURNAL §38). Les tests automatiques restent sur parties simulées.
 - Claude peut pousser sur ce dépôt (app GitHub installée) mais pas modifier ses réglages (Pages).
 - L'abonnement Claude Pro n'inclut pas l'API : les cours passent soit par copier-coller dans une conversation Claude, soit par une clé API saisie dans le site (stockée en localStorage, jamais dans le dépôt).
 - Pas de synchronisation entre appareils : analyses, cours et progression sont locaux. Transfert possible par fichier (Progrès > Plan et réglages > Sauvegarde).

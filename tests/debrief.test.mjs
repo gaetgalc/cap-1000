@@ -53,3 +53,10 @@ test('sortie de l’ouverture : le plan typique de l’ouverture jouée est rapp
   const m = moments(g, a, { plan: 'Le fou en c4 vise f7.', name: 'Partie italienne' });
   assert.match(m[0].text, /Partie italienne, le plan pour ton camp : Le fou en c4 vise f7\.$/);
 });
+
+test('faute plus petite que celle racontée au tournant : ce n’est pas « la faute décisive »', () => {
+  const { g, a } = setup((i) => (i <= 23 ? 0 : i <= 30 ? 400 : -500), [err(24, 'en_prise_ignore', 60, 'Nxd5', 'Rxe7'), err(36, 'plan', 20, 'c5', 'dxe5')]);
+  const m = moments(g, a);
+  const f = m.find((x) => x.k === 'faute');
+  assert.equal(f.title, 'Une autre faute');
+});

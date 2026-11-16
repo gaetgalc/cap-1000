@@ -37,7 +37,7 @@ export function moments(g, a, o = {}) {
   const faute = serious.filter((e) => e !== told).sort((x, y) => y.drop - x.drop)[0];
   const rate = serious.filter((e) => MISSED.has(e.theme) && e !== faute && e !== told).sort((x, y) => y.drop - x.drop)[0];
   if (rate) out.push({ k: 'rate', ply: rate.ply, title: 'L’occasion manquée', text: `Coup ${no(rate.ply)} : ${fr(rate.bestSan)} gagnait (${THEMES[rate.theme]}). Tu as joué ${fr(rate.played)}.` });
-  if (faute) out.push({ k: 'faute', ply: faute.ply, title: 'La faute décisive', text: `Coup ${no(faute.ply)} : ${fr(faute.played)} au lieu de ${fr(faute.bestSan)} (${THEMES[faute.theme]}). Tes chances de gain passent de ${pct(faute.ply)} % à ${pct(faute.ply + 1)} %.` });
+  if (faute) out.push({ k: 'faute', ply: faute.ply, title: told && told.drop > faute.drop ? 'Une autre faute' : 'La faute décisive', text: `Coup ${no(faute.ply)} : ${fr(faute.played)} au lieu de ${fr(faute.bestSan)} (${THEMES[faute.theme]}). Tes chances de gain passent de ${pct(faute.ply)} % à ${pct(faute.ply + 1)} %.` });
   // Fin : résultat, et ce qu'elle dit de la partie.
   let best = 0; for (let i = 0; i <= n; i++) if (a.ev[i] != null) best = Math.max(best, pct(i));
   const res = g.out === 'W' ? 'Victoire' : g.out === 'L' ? 'Défaite' : 'Nulle', how = HOW[g.how] ? ` (${HOW[g.how]})` : '';

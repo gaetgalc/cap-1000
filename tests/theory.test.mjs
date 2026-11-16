@@ -18,3 +18,13 @@ test('plan de l’ouverture jouée, pour ton camp', () => {
   assert.equal(planOf(g('e4 e5 Nf3 Nc6 Bc4 Bc5', false), OPS).text, 'Plan noir.');
   assert.equal(planOf(g('d4 d5'), OPS), null);
 });
+
+test('avec les analyses : seuls les écarts que le moteur juge moins bons comptent', () => {
+  const games = [g('e4 e5 Nf3 Nc6 Bc4 Bc5 d3 Nf6', true, 1), g('e4 e5 Nf3 Nc6 Bc4 Bc5 Nc3 d6', true, 2), g('e4 e5 Nf3 Nc6 Bc4 Bc5 d3 d6', true, 3)];
+  const ev = (after) => [0, 0, 0, 0, 0, 0, 30, after, after]; // demi-coup 6 : ton coup, 30 → after (point de vue des Blancs)
+  const an = { [games[0].id]: { ev: ev(20) }, [games[1].id]: { ev: ev(-150) } }; // d3 tient, Cc3 perd ; partie 3 non analysée
+  const x = theoryExits(games, OPS, an);
+  assert.equal(x.length, 1);
+  assert.deepEqual(x[0].played, [['Nc3', 1]]);
+  assert.equal(x[0].of, 2, 'seules les parties analysées comptent');
+});

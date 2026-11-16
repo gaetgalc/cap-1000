@@ -1053,11 +1053,11 @@ function programCard(fc) {
 }
 // Où tu sors de la théorie dans les ouvertures du catalogue (theory.js) : une ligne précise à revoir.
 function theoryCard() {
-  const x = theoryExits(S.data.games.filter((g) => g.tc === targetTc()), OPENINGS).slice(0, 3);
+  const x = theoryExits(S.data.games.filter((g) => g.tc === targetTc()), OPENINGS, S.an).slice(0, 3);
   if (!x.length) return '';
   const mv = (r, s) => `${Math.floor(r.ply / 2) + 1}${r.ply % 2 ? '…' : '.'}${fr(s)}`;
-  return `<div class="card"><h2>Où tu sors de la théorie</h2>${x.map((r) => `<a class="mrow" href="${lineHref(lineKey(r.o, r.k), true)}"><span class="mico">${ico('lines')}</span><span class="stepc"><b>${esc(r.o.nom)} · ${esc(r.o.lines[r.k].n)}</b><span>${r.n} fois sur ${r.of}, tu joues ${r.played.map(([s, n]) => mv(r, s) + (n > 1 ? ` (${n} fois)` : '')).join(', ')} au lieu de ${mv(r, r.book)}.</span></span><span class="chev" aria-hidden="true">›</span></a>`).join('')}
-    <p class="small">Une seule ligne bien sue vaut mieux que quinze fiches : ouvre-la pour la revoir commentée, puis récite-la.</p></div>`;
+  return `<div class="card"><h2>Où tu sors de la théorie</h2>${x.map((r) => `<a class="mrow" href="${lineHref(lineKey(r.o, r.k), true)}"><span class="mico">${ico('lines')}</span><span class="stepc"><b>${esc(r.o.nom)} · ${esc(r.o.lines[r.k].n)}</b><span>${r.n} fois sur ${r.of}, tu joues ${r.played.map(([s, n]) => mv(r, s) + (n > 1 ? ` (${n} fois)` : '')).join(', ')} au lieu de ${mv(r, r.book)} : le moteur juge ton coup moins bon.</span></span><span class="chev" aria-hidden="true">›</span></a>`).join('')}
+    <p class="small">Seuls comptent tes écarts que le moteur juge coûteux, sur tes parties analysées : jouer une autre ligne correcte n’est pas une faute. Ouvre la ligne pour la revoir commentée, puis récite-la.</p></div>`;
 }
 // Pourquoi tu te trompes : les réponses données après les puzzles tirés de tes parties (progress.causes).
 function causesCard() {

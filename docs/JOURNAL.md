@@ -410,6 +410,19 @@ Vérifié : 75 tests unitaires (nouveaux : `plan`, `brief`, `debrief`, `coach`, 
 
 Vérifié : 90 tests unitaires (nouveaux : `ideas`, `program`, `portrait`, `theory`, auto-évaluation et idées dans `progress`, `selfVerdict`, plan dans `debrief`), parcours de bout en bout (étapes du tier 2 en fin de parcours), audit sans écart sur 27 écrans (nouveaux : `idees`, `avantpartie`), captures en 390 × 664.
 
+## 38. Premier essai sur les vraies parties de gaetcc (16/11)
+
+> comment testé sur des vraies parties ? pourquoi tu ne le fais pas ?
+
+`api.chess.com` répond désormais depuis l'environnement de Claude (bloqué jusqu'ici). 6 112 parties téléchargées (4 564 en rapide), servies au vrai site dans Chromium ; 40 dernières parties rapides analysées par le site lui-même (Stockfish du navigateur, environ 40 s par lot de 20), aucune erreur JavaScript. Textes du coach relus un à un. Défauts trouvés et corrigés, chacun avec un test tiré de la vraie partie :
+
+- **Sortie de théorie** : reprochait des coups de théorie corrects (« 161 fois sur 163, 4.Cg5 au lieu de 4.d3 » dans l'Italienne, « 2…Cc6 au lieu de 2…d6 » dans la Sicilienne) parce qu'ils ne suivaient pas la ligne du catalogue. Désormais seules les parties analysées comptent, et un écart n'est retenu que s'il coûte au moins 5 points de chances de gain (`EXIT_DROP`). Sur les 40 parties analysées : aucun écart coûteux, la carte reste masquée.
+- **Idées de plan** : deux idées au texte identique (Db7 et Dc7 « préparent Tg4 ») ; roque décrit « Jouer ton roi en g1 » ; prises et échecs (Fxd7+, Th8+, De7+) proposés comme plans. Le meilleur coup doit être calme, le coup joué est décrit simplement si son idée est la même, le roque se dit « Roquer côté roi ».
+- **Enfermement** : « Fe3 enferme sa tour en a8 » pour une tour jamais sortie. Une pièce sur sa rangée de départ n'est plus dite enfermée.
+- **Débrief** : « La faute décisive » donnée à une erreur de 61 % → 38 % alors que le tournant racontait une faute de 79 % → 10 %. Elle s'appelle alors « Une autre faute ».
+
+Constat à trancher : le chantier choisi automatiquement est « Mauvais coup en milieu de partie » (thème `plan`, le plus vague), avec une règle générale.
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |

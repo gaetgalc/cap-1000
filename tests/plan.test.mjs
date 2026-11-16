@@ -21,9 +21,9 @@ test('prépare : la cible du coup préparé est nommée, du point de vue du joue
 });
 
 test('enferme : une pièce adverse n’a plus qu’une case sûre', () => {
-  const r = intent('n7/7k/8/8/1B6/8/8/7K w - - 0 1', ['b4d6'], 'w');
+  const r = intent('4k3/8/n7/8/8/B7/8/4K3 w - - 0 1', ['a3d6'], 'w'); // Fd6 couvre b8, c7, c5 et b4
   assert.equal(r.k, 'trap');
-  assert.match(r.text, /enferme son cavalier en a8 : il n’a plus qu’une case sûre/);
+  assert.match(r.text, /enferme son cavalier en a6 : il n’a plus aucune case sûre/);
 });
 
 test('bloque : la pièce se pose devant un pion passé adverse', () => {
@@ -72,4 +72,10 @@ test('features : pions passés, colonnes ouvertes et pièces sans case, en phras
   const g = features('n7/7k/3B4/P7/8/8/8/7K w - - 0 30', 'w'); // milieu de partie : le fou d6 couvre c7, le pion a5 couvre b6 : le cavalier a8 n'a aucune case
   assert.ok(g.some((s) => /^Son cavalier en a8.*aucune case/.test(s)), g.join(' | '));
   assert.ok(!features(START, 'w').some((s) => /case sûre/.test(s)), 'au début, les pièces non sorties ne comptent pas');
+});
+
+test('enferme : une pièce encore sur sa rangée de départ n’est pas « enfermée »', () => {
+  // Partie réelle du 16/11 : après Fe3, la tour a8 (jamais sortie) perd des cases ; ce n'est pas une idée de plan.
+  const r = intent('r1b2rk1/1pp2ppp/p1pb4/4nqB1/2P5/1PN2N1P/P3BPP1/R2Q1RK1 w - - 1 14', ['g5e3'], 'w');
+  assert.notEqual(r?.k, 'trap');
 });

@@ -63,6 +63,7 @@ export function intent(fen, moves, me) {
   // 2. Enferme : une pièce adverse perd ses cases sûres.
   for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
     const q = B1[r][f]; if (!q || q.color !== opp || !'nbrq'.includes(q.type) || B0[r][f]?.type !== q.type || B0[r][f]?.color !== opp) continue;
+    if (r === (opp === 'w' ? 7 : 0)) continue; // pièce pas encore sortie : elle n'est pas enfermée, juste pas développée
     const before = safeMoves(B0, r, f), now = safeMoves(B1, r, f);
     if (before >= 2 && now <= 1 && now < before) return { k: 'trap', text: `Ce coup enferme ${poss(q.type, opp, me)} en ${sqOf(r, f)} : ${il(q.type)} n’a plus ${now ? 'qu’une case sûre' : 'aucune case sûre'}.` };
   }
