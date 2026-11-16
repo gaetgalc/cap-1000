@@ -280,6 +280,7 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   check((await ls('hist')).some((h) => h.k === 'f' && h.id === 'escalier' && h.r === 0) && /Recommencer/.test(await bar('#xbar')), 'finale abandonnée : notée manquée, avec Recommencer');
   // Jouer d'ici depuis la relecture
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#partie/${gt}/20`); await sleep(800);
+  check(/Jouée comme un \d+/.test(await bar('#tools')), 'relecture sur téléphone : Elo estimé dans la barre du haut');
   await page.click('#xcap [data-act="playhere"]'); await sleep(900);
   check((await page.evaluate(() => location.hash)) === `#jouer/${gt}/20`, 'relecture : « Jouer » ouvre la position contre le moteur');
   await page.waitForFunction(() => window.__cap.jp && (window.__cap.jp.moves.length % 2 === 0 || window.__cap.jp.over), null, { timeout: 60000 });

@@ -1966,7 +1966,10 @@ function viewPartie(t, plyArg) {
   const cap = gvCap(v);
   const res = `<span class="chip ${g.out === 'W' ? 'good' : g.out === 'L' ? 'bad' : ''}">${g.out === 'W' ? 'Victoire' : g.out === 'L' ? 'Défaite' : 'Nulle'}${HOW[g.how] ? ' (' + HOW[g.how] + ')' : ''}</span>`;
   const link = `<a class="btn sm" href="${esc(g.id)}" target="_blank" rel="noopener">Chess.com</a>`;
+  // Téléphone : l'Elo estimé de la partie prend la place du classement et de la série dans la barre du haut (demande du 16/11).
+  const perf = a ? perfChip(g, a) : '';
   return exo.screen({
+    top: perf ? () => perf : undefined,
     head: `<div class="pzhead gvhead"><h1>${g.w ? 'Blancs' : 'Noirs'} contre ${esc(g.opp)} <span class="small num">${g.or}</span></h1>
       <div class="row">${res}<span class="chip">${dfmt(g.t)}</span><span class="chip">${esc(g.fam)}</span>${link}</div></div>`,
     wrap: 'gv',
