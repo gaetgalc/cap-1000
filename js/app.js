@@ -1156,7 +1156,7 @@ function lastGameCard() {
     : `<a class="btn wide" href="#partie/${g.t}">Revoir la partie</a>`;
   return `<section class="card lgame"><span class="hlab d-flex">${k ? `Partie du ${dfmt(g.t)}` : 'Ta dernière partie'}<span class="small">${k + 1} / ${trail.length}${!k ? ` · ${dfmt(g.t)}` : ''}${a && !a.bad ? ` · <a href="#partie/${g.t}/d">Débrief</a>` : ''}</span></span>
     ${e ? `<div class="lgrow">${pos}<div class="lgtxt">${head}${body}</div></div>` : head + body}
-    <div class="lgbtn">${nav(1, 'Gaffe plus ancienne', 'prev')}${mid}${nav(-1, 'Gaffe plus récente', 'next')}</div></section>`;
+    <div class="lgbtn">${nav(-1, 'Gaffe plus récente', 'prev')}${mid}${nav(1, 'Gaffe plus ancienne', 'next')}</div></section>`;
 }
 // Mini-échiquier de la dernière partie : non interactif, créé seulement s'il est affiché (ordinateur).
 function mountAccueil() {
