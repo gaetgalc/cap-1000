@@ -52,7 +52,7 @@ Les captures « avant » ne sont pas versionnées (poids). Pour les refaire : `g
 ## Étapes suivantes
 
 2. Jetons et nettoyage du CSS : Geist et Geist Mono dans `vendor/fonts/`, variables de couleur, d'espacement, de rayon, de durée dans `:root`, aucune couleur en dur ailleurs, échelle de texte réduite à 6 tailles, contraste du bouton principal, hauteurs de 44 px. L'audit doit tomber à 6 tailles de texte, 3 arrondis, aucun contraste faible.
-3. Navigation à 5 entrées et redirections ; `tests/parcours.js` mis à jour.
+3. Navigation à 5 entrées et redirections ; `tests/parcours.js` mis à jour. À concilier avec la demande du 16/11 (JOURNAL §25) : Séance du jour, Mon jeu et Plan et réglages dans un volet déroulant sous « Coach », accueil sans défilement.
 4. Aujourd'hui.
 5. S'entraîner et Apprendre (un bouton plein par fiche, onglets qui tiennent en 390 px).
 6. Parties et Progrès.
