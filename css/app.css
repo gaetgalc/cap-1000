@@ -14,6 +14,12 @@
   --hover: #3b3934; --hover-line: #6b665d; /* survol à la souris : fond et bord */
   --menu-shadow: 0 12px 32px rgba(0, 0, 0, .5); /* volets de la navigation */
   --neutral: #8a877f;
+  /* Couleur des icônes par section (demande du 16/11) : teintes douces, au moins 6.8:1 sur --surface et --bg */
+  --c-jour: #8fd16a; /* Aujourd'hui : vert, parent de l'échiquier */
+  --c-train: #f2b65c; /* S'entraîner : ambre */
+  --c-learn: #7fb4f2; /* Apprendre : bleu */
+  --c-games: #c79cf0; /* Parties : violet */
+  --c-prog: #f39a80; /* Progrès : corail */
   /* Échiquier (lot 1 du 16/11) : vert du site adouci, propre au site (ni celui de Chess.com ni celui de Lichess).
      Palettes au choix dans Plan et réglages > Apparence (js/look.js pose pal-bois / pal-bleu sur <html>). */
   --pal-vert-l: #e7ead5; --pal-vert-d: #7b9c63;
@@ -696,8 +702,27 @@ body.imm .toasts { bottom: calc(84px + var(--s-3) + env(safe-area-inset-bottom))
   }
 }
 
+/* ===== Couleur des icônes par section (demande du 16/11) =====
+   La section se lit dans l'adresse du lien (--sec), pas dans sa place dans la barre : la couleur suit la page
+   où qu'apparaisse son lien (navigation, volet, menus, cartes .mrow). Seule l'icône change, jamais le texte. */
+a { --sec: var(--ink3); }
+a[href^="#accueil"] { --sec: var(--c-jour); }
+a:is([href^="#entrainer"], [href^="#puzzles"], [href^="#erreur"], [href^="#inedits"], [href^="#historique"], [href^="#exos"], [href^="#drill"], [href^="#gagner"]) { --sec: var(--c-train); }
+a:is([href^="#partie"], [href^="#mesouvertures"], [href="#ouvertures"]) { --sec: var(--c-games); }
+a:is([href^="#cours"], [href^="#apprendre"], [href^="#ligne"], [href^="#ouvertures/"]) { --sec: var(--c-learn); }
+a:is([href^="#bilan"], [href^="#stats"], [href^="#plan"], [href^="#plus"]) { --sec: var(--c-prog); }
+/* Entrée inactive : teinte atténuée mais reconnaissable ; entrée active : pleine couleur et fond légèrement teinté */
+.nav a > svg { color: color-mix(in srgb, var(--sec) 72%, transparent); }
+.nav a.on > svg { color: var(--sec); }
+.nav a.on { border-top-color: var(--sec); }
+.mrow .mico { background: color-mix(in srgb, var(--sec) 16%, var(--surface)); color: var(--sec); }
+@media (min-width: 860px) {
+  .nav a.on { background: color-mix(in srgb, var(--sec) 12%, var(--sunken)); box-shadow: inset 3px 0 0 var(--sec); }
+  .fly a.on { box-shadow: none; }
+}
+
 /* ===== Survol (demande du 16/11) : tout élément cliquable s'éclaire sous la souris, jamais au toucher ===== */
-.btn, .seg2 button, .seg2 a, .mrow, .oprow, .opdue, .fmini, .check, .gnum, .pzprog, .lgpos, a.card, .nav a, .brand, .moves button, .gvm .mv, .gvnote {
+.btn, .seg2 button, .seg2 a, .mrow, .oprow, .opdue, .fmini, .check, .gnum, .pzprog, .lgpos, a.card, .nav a, .nav a > svg, .brand, .moves button, .gvm .mv, .gvnote {
   transition: background-color var(--m-in) var(--ease), border-color var(--m-in) var(--ease), color var(--m-in) var(--ease), filter var(--m-in) var(--ease), transform var(--m-press) var(--ease);
 }
 @media (hover: hover) and (pointer: fine) {
@@ -705,6 +730,7 @@ body.imm .toasts { bottom: calc(84px + var(--s-3) + env(safe-area-inset-bottom))
   .btn.pri:not([disabled]):hover { filter: brightness(1.15); }
   .seg2 button:not(.on):hover, .seg2 a:not(.on):hover { background: var(--hover); color: var(--ink); }
   .nav a:not(.on):hover, .grp:hover .grp-h:not(.on) { background: var(--hover); color: var(--ink); }
+  .nav a:hover > svg, .grp:hover .grp-h > svg { color: var(--sec); filter: brightness(1.12); } /* icône plus vive sous la souris */
   .mrow:hover, a.card:hover, .fmini:hover { background: var(--hover); border-color: var(--hover-line); }
   .oprow:hover, .check:hover, tr.click:hover td, ol.line li:hover { background: var(--hover); }
   .opdue:hover, .gnum:hover, .pzprog:hover, .lgpos:hover, .brand:hover { filter: brightness(1.15); }
