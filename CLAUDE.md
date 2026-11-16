@@ -108,7 +108,20 @@ Idées non faites : import des parties Lichess, comptes et synchronisation (la s
 
 ## Skills et plugins Claude Code
 
-Déclarés dans `.claude/settings.json` (chargés à chaque session sur ce dépôt) : `superpowers` (TDD, débogage méthodique, plans, vérification avant de terminer), `mattpocock-skills` (pratiques d'ingénierie), `frontend-design` (Anthropic) et `hallmark` (design d'interface soigné). Les règles de ce fichier et de `docs/REFONTE.md` priment sur celles des skills. Commandes intégrées utiles avant publication : `/code-review`, `/simplify`.
+Déclarés dans `.claude/settings.json` : `superpowers` (TDD, débogage méthodique, plans, vérification avant de terminer), `mattpocock-skills` (pratiques d'ingénierie), `frontend-design` (Anthropic) et `hallmark` (design d'interface soigné). En session cloud, seuls les plugins officiels s'installent d'eux-mêmes : le script d'installation de l'environnement `cap-1000` installe les trois autres. S'ils manquent dans la liste des skills, les installer (`claude plugin marketplace add obra/superpowers-marketplace`, `mattpocock/skills`, `Nutlope/hallmark`, puis `claude plugin install <nom>@<marketplace>`) et lire leurs `SKILL.md` dans `~/.claude/plugins/cache/` pour la session en cours.
+
+**Les utiliser par défaut, sans attendre que Gaëtan le demande** (demande du 16/11) :
+
+| Situation | Skill |
+|---|---|
+| Nouvelle fonctionnalité ou changement de comportement | `superpowers:brainstorming` si la demande est floue, puis `superpowers:writing-plans` si plus de quelques fichiers |
+| Écrire ou modifier du code testable (`progress`, `classify`, `stats`, `explain`, `backup`…) | `superpowers:test-driven-development` (test rouge d'abord) |
+| Bug ou comportement inattendu | `superpowers:systematic-debugging` (cause avant correctif) |
+| Toute retouche visuelle, nouvel écran | `frontend-design` et `hallmark`, dans les règles de `docs/REFONTE.md` |
+| Revue d'architecture, découpage de modules | `mattpocock-skills:improve-codebase-architecture`, `codebase-design` |
+| Avant d'annoncer « terminé » ou de fusionner dans `main` | `superpowers:verification-before-completion` (tests lancés, captures vérifiées), puis `/code-review` et `/simplify` |
+
+Les règles de ce fichier et de `docs/REFONTE.md` priment sur celles des skills (notamment : fusion directe dans `main` sans pull request, pas de worktree imposé, réponses en français).
 
 ## Tester
 
