@@ -541,8 +541,11 @@ function mountPuzzle() {
 
 // ---------- Apprendre les ouvertures ----------
 // Fiches (histoire, idées, pièges, lignes) et lignes récitées de mémoire, en révision espacée comme les puzzles.
-const COACH_TABS = (on) => `<div class="seg2 pztabs"><a class="${on === 'day' ? 'on' : ''}" href="#accueil">Séance du jour</a><a class="${on === 'bilan' ? 'on' : ''}" href="#bilan">Mon jeu</a><a class="${on === 'plan' ? 'on' : ''}" href="#plan">Plan et réglages</a></div>`;
-const OP_TABS = (on) => `<div class="seg2 pztabs"><a class="${on === 'mine' ? 'on' : ''}" href="#ouvertures">Mes ouvertures</a><a class="${on === 'learn' ? 'on' : ''}" href="#ouvertures/apprendre">Apprendre</a></div>`;
+// Onglets internes des 5 sections (refonte du 16/11) : Progrès (Mon jeu, Stats, Plan), Apprendre (Cours, Ouvertures), Parties (Parties, Mes ouvertures).
+const tabs = (on, items) => `<div class="seg2 pztabs">${items.map(([k, href, t]) => `<a class="${on === k ? 'on' : ''}" href="${href}">${t}</a>`).join('')}</div>`;
+const PROG_TABS = (on) => tabs(on, [['bilan', '#bilan', 'Mon jeu'], ['stats', '#stats', 'Stats'], ['plan', '#plan', 'Plan et réglages']]);
+const LEARN_TABS = (on) => tabs(on, [['cours', '#cours', 'Cours'], ['ouv', '#ouvertures/apprendre', 'Ouvertures']]);
+const GAMES_TABS = (on) => tabs(on, [['parties', '#parties', 'Parties'], ['ouv', '#ouvertures', 'Mes ouvertures']]);
 const allLineKeys = () => OPENINGS.flatMap((o) => o.lines.map((_, k) => lineKey(o, k)));
 const lineHref = (key, voir) => '#ligne/' + key.replace(':', '/') + (voir ? '/voir' : '');
 const opGames = (o) => (S.data ? S.data.games.filter((g) => matchGame(o, g)) : []);
@@ -566,7 +569,7 @@ function viewApprendre() {
   const info = (o) => { const keys = o.lines.map((_, k) => lineKey(o, k)); return { o, n: opGames(o).length, learned: keys.filter((k) => progress.lineState(k)).length, total: keys.length }; };
   const rows = OPENINGS.filter((o) => o.group === grp).map(info).sort((a, b) => (b.o.rep ? 1 : 0) - (a.o.rep ? 1 : 0) || b.n - a.n);
   const tab = ([g, t]) => `<button class="${g === grp ? 'on' : ''}" data-act="opgrp" data-g="${g}">${t.replace('Avec les ', '').replace('contre', 'c.')}</button>`;
-  return OP_TABS('learn') + `<h1>Apprendre les ouvertures</h1>
+  return LEARN_TABS('ouv') + `<h1>Apprendre les ouvertures</h1>
     <p class="sub">Une fiche par ouverture. Ses lignes se rejouent de mémoire et reviennent en révision, comme tes puzzles.</p>
     ${due.length ? `<a class="opdue" href="${lineHref(due[0])}"><b>${pl(due.length, 'ligne')} à réviser aujourd’hui</b><span>Réviser ›</span></a>` : ''}
     <div class="seg2 mini opgrp">${GROUPS.map(tab).join('')}</div>
@@ -1023,7 +1026,7 @@ function viewAccueil() {
   const { steps, fc, nDone } = session();
   const due = pzQueue('', false).length, lines = progress.linesDue(allLineKeys()).length;
   const ql = (href, t, n) => `<a href="${href}">${t}${n ? ` <span class="chip">${n}</span>` : ''}</a>`;
-  return `${COACH_TABS('day')}<div class="home">${goalStrip()}${sessionCard(steps, nDone)}${focusMini(fc)}${lastGameCard()}
+  return `<div class="home">${goalStrip()}${sessionCard(steps, nDone)}${focusMini(fc)}${lastGameCard()}
     <nav class="qlinks" aria-label="Accès rapides">${ql('#puzzles', 'Puzzles', due)}${lines ? ql('#ouvertures/apprendre', 'Lignes à réviser', lines) : ql('#ouvertures', 'Ouvertures', 0)}${ql('#parties', 'Parties', 0)}${ql('#exos', 'Échauffements', 0)}${ql('#bilan', 'Mon jeu', 0)}</nav></div>`;
 }
 
@@ -1033,7 +1036,7 @@ function viewBilan() {
   const { es, sig, fc } = session();
   const sigHtml = (arr, c, empty) => (arr.length ? arr.slice(0, 4).map((x) => `<div class="sig" style="--c:var(--${c})"><b>${esc(x.t)}</b><span>${esc(x.d)}</span>${x.lesson ? `<a href="#${x.lesson === 'ouvertures' ? 'ouvertures' : 'cours/' + x.lesson}">${x.lesson === 'ouvertures' ? 'Voir tes ouvertures' : 'Ouvrir le cours'}</a>` : ''}</div>`).join('') : `<p class="sub">${empty}</p>`);
   const all = st.tally(gs);
-  return `${COACH_TABS('bilan')}<h1>Mon jeu</h1>
+  return `${PROG_TABS('bilan')}<h1>Mon jeu</h1>
   <div class="hero">${gb.html}
     <div class="card"><h2>Ton classement ${S.f.tc === 'all' ? 'Rapide' : TC[S.f.tc]}</h2><div class="chart" id="rc"></div></div></div>
   ${focusCard(fc, es)}
@@ -1082,7 +1085,7 @@ function viewCours() {
     <h2>${esc(S.ai[id]?.titre || LESSONS[id].titre)}</h2>
     <p class="sub">${cnt[id] ? `${cnt[id]} exemple${cnt[id] > 1 ? 's' : ''} dans tes parties. ` : ''}${LESSONS[id].principe.split('. ')[0]}.</p></a>`;
   const others = Object.keys(LESSONS).filter((id) => !ids.includes(id));
-  return `<h1>Cours</h1>
+  return `${LEARN_TABS('cours')}<h1>Cours</h1>
     ${coachKey() ? coach('Je prépare chaque cours à partir de tes propres positions : une idée, tes erreurs à rejouer, une règle à emporter. Ouvre un cours et demande-moi de le préparer.')
     : `<div class="card"><h2>Ton coach privé</h2><p class="prose">Chaque cours peut devenir une leçon particulière : Claude étudie tes positions, te pose les bonnes questions avant de te laisser jouer, puis t’explique pourquoi ton coup échouait. Deux façons de faire : avec ton abonnement Claude (un copier-coller, proposé dans chaque cours), ou en un clic avec une clé API facturée à l’usage.</p><details class="manual"><summary>Activer la génération en un clic (clé API)</summary>${keyForm()}</details></div>`}
     ${ids.length ? `<h2>Tes priorités</h2><div class="grid">${ids.map((id, i) => card(id, i < 3 ? i + 1 : 0)).join('')}</div>` : `<div class="card"><p class="sub">${S.job.running ? 'Analyse en cours : le classement des cours arrive.' : 'Lance l’analyse de tes parties pour classer les cours selon tes erreurs.'}</p></div>`}
@@ -1249,7 +1252,7 @@ function viewOuvertures() {
   const reps = st.repeatedErrors(gs, S.an).slice(0, 6);
   const repCard = reps.length ? `<div class="card"><h2>Tes erreurs qui reviennent</h2><p class="small">Même position, même faute, dans plusieurs parties. Une position travaillée ici, c’est une erreur de moins dans toutes les parties qui y passent.</p>
     ${reps.map((r) => `<div class="hrow"><i class="dot ${r.w ? 'w' : 'b'}"></i><span class="stepc"><b>${esc(st.lineText(r.line, Math.max(0, r.line.length - 6)))}</b><span>${r.games} parties : ${esc(st.repText(r))}</span></span><a class="btn sm pri" href="#erreur/${r.last.g.t}/${r.last.e.ply}">Travailler</a></div>`).join('')}</div>` : '';
-  return `${OP_TABS('mine')}<div class="row" style="justify-content:space-between"><h1>Ouvertures</h1><div class="row" role="group" aria-label="Couleur">
+  return `${GAMES_TABS('ouv')}<div class="row" style="justify-content:space-between"><h1>Ouvertures</h1><div class="row" role="group" aria-label="Couleur">
     <button class="btn ${S.white ? 'pri' : ''}" data-act="color" data-w="1"><i class="dot w"></i>Blancs</button><button class="btn ${S.white ? '' : 'pri'}" data-act="color" data-w="0"><i class="dot b"></i>Noirs</button></div></div>
   ${repCard}
   <div class="card"><h2>Tes ouvertures avec les ${S.white ? 'Blancs' : 'Noirs'} <span class="small">${side.n} parties, ${st.score(side)} % de score</span></h2>
@@ -1274,7 +1277,7 @@ function viewOuvertures() {
 function viewParties() {
   const gs = games().slice().reverse();
   S.listN ||= 50;
-  return `<h1>Parties</h1><div class="card"><div class="scroll"><table><thead><tr><th>Date</th><th>Résultat</th><th>Adversaire</th><th>Ouverture</th><th class="r">Coups</th><th class="r">Précision</th><th class="r">Gaffes</th></tr></thead><tbody>
+  return `${GAMES_TABS('parties')}<h1>Parties</h1><div class="card"><div class="scroll"><table><thead><tr><th>Date</th><th>Résultat</th><th>Adversaire</th><th>Ouverture</th><th class="r">Coups</th><th class="r">Précision</th><th class="r">Gaffes</th></tr></thead><tbody>
     ${gs.slice(0, S.listN).map((g) => { const a = S.an[g.id]; return `<tr class="click" data-act="open" data-t="${g.t}"><td class="num">${dfmt(g.t)}</td>
       <td><span class="row" style="gap:6px;flex-wrap:nowrap"><i class="dot ${g.w ? 'w' : 'b'}" title="${g.w ? 'Blancs' : 'Noirs'}"></i><span class="chip ${g.out === 'W' ? 'good' : g.out === 'L' ? 'bad' : ''}">${g.out === 'W' ? 'Victoire' : g.out === 'L' ? 'Défaite' : 'Nulle'}</span></span></td>
       <td>${esc(g.opp)} <span class="small num">${g.or}</span></td><td>${esc(g.fam)}</td><td class="r">${Math.ceil(g.san.length / 2)}</td>
@@ -1425,18 +1428,18 @@ function mountDrill() {
   }
   X.on({ ans: answer });
 }
-function viewPlus() {
-  const row = (href, t, d, ic) => `<a class="mrow" href="${href}"><span class="mico">${ic}</span><span class="stepc"><b>${t}</b><span>${d}</span></span><span class="chev" aria-hidden="true">›</span></a>`;
-  const svg = (d) => `<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">${d}</svg>`;
-  return `<h1>Plus</h1><div class="menu">
-    ${row('#exos', 'Échauffements', '4 exercices rapides pour automatiser la vérification', svg('<path d="M13 2L4 14h6l-1 8 9-12h-6z"/>'))}
-    ${row('#ouvertures', 'Ouvertures', 'Tes résultats, ton répertoire, apprendre les grandes ouvertures', svg('<path d="M11 3h2v5h5v4h-2v-2h-3v3h3v8H8v-8h3v-3H8v2H6V8h5z"/>'))}
-    ${row('#stats', 'Stats', 'Toutes tes données depuis ta première partie', svg('<path d="M4 20V10h4v10zm6 0V4h4v16zm6 0v-7h4v7z"/>'))}
-    ${row('#gagner', 'Gagner les parties gagnées', 'Rejoue tes avantages gâchés contre le moteur', svg('<path d="M5 3h14v3a5 5 0 0 1-4 4.900V14h2v3H7v-3h2v-3.100A5 5 0 0 1 5 6zm2 18h10v-2H7z"/>'))}
-</div>
-  <div class="card"><h2>Tes données</h2><p class="sub">Compte ${esc(S.user)}. Dernière mise à jour le ${new Date(S.data.fetchedAt).toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}.</p>
-    <div class="stack filters">${filtersHtml()}</div></div>
-  ${backupCard()}`;
+// S'entraîner : tout ce qui se pratique, avec ce qui attend aujourd'hui.
+function viewEntrainer() {
+  const d = pzDay(), due = progress.linesDue(allLineKeys()), cv = cvList().length, nh = progress.hist().length;
+  const row = (href, t, desc, n) => `<a class="mrow" href="${href}"><span class="mico num">${n || ico('play')}</span><span class="stepc"><b>${t}</b><span>${desc}</span></span><span class="chev" aria-hidden="true">${ico('next')}</span></a>`;
+  return `<h1>S’entraîner</h1><div class="menu">
+    ${row('#puzzles', 'Puzzles sur mes erreurs', `${d.done} sur ${d.goal} aujourd’hui · ${pl(d.due, 'puzzle')} en attente`, d.due)}
+    ${row('#exos', 'Échauffements', '4 exercices de vérification sur tes positions, 2 minutes', 0)}
+    ${row(due.length ? lineHref(due[0]) : '#ouvertures/apprendre', 'Réciter mes lignes d’ouverture', due.length ? `${pl(due.length, 'ligne')} à réviser aujourd’hui` : 'Les lignes des fiches, de mémoire, en révision espacée', due.length)}
+    ${row('#gagner', 'Gagner les parties gagnées', `${pl(cv, 'partie')} où tu avais l’avantage, à finir contre le moteur`, 0)}
+    ${row('#inedits', 'Positions inédites', 'Puzzles Lichess sur les thèmes de ton chantier', 0)}
+    ${row('#historique', 'Historique', `${pl(nh, 'exercice')} noté${nh > 1 ? 's' : ''} dans ton journal`, 0)}
+  </div>`;
 }
 // Sauvegarde : rien n'est synchronisé entre appareils, le fichier sert de copie de sécurité et de transfert.
 function backupCard() {
@@ -1465,7 +1468,8 @@ function viewPlan() {
     weakOp ? ['op', `Explorer ton ouverture la plus fragile : ${weakOp}`, '#ouvertures'] : null,
   ].filter(Boolean);
   const g = goal();
-  return `${COACH_TABS('plan')}<h1>Plan de la semaine</h1>
+  return `${PROG_TABS('plan')}<h1>Plan de la semaine</h1>
+  <div class="card m-only stack"><h2>Tes données</h2><p class="sub">Compte ${esc(S.user)}. Dernière mise à jour le ${new Date(S.data.fetchedAt).toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}.</p><div class="stack filters">${filtersHtml()}</div></div>
   <div class="card"><h2>Semaine du ${new Date(wk + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}</h2>
       <div class="row"><label for="hrs" class="sub">Temps disponible</label><select id="hrs">${[3, 4, 5, 6, 8, 10].map((h) => `<option value="${h}" ${h === hours ? 'selected' : ''}>${h} h par semaine</option>`).join('')}</select></div>
       <div class="stack"><b>Jouer : <span class="num">${played} / ${target}</span> parties rapides cette semaine</b>
@@ -1524,14 +1528,16 @@ function render(keepScroll) {
   const y = scrollY;
   destroyBoards();
   $('#tip').hidden = true;
+  if (location.hash === '#plus') { history.replaceState(null, '', '#plan'); } // ancien menu Plus : ses entrées sont dans S'entraîner et Plan
   const v = $('#view'), [r, a, b, c] = route();
   paintJob();
   $('#nav').hidden = !S.data;
-  document.querySelectorAll('#nav a').forEach((x) => x.classList.toggle('on', x.dataset.grp ? x.dataset.grp.split(' ').includes(r) : x.getAttribute('href') === '#' + ({ partie: 'parties', erreur: 'puzzles', inedits: 'puzzles', drill: 'puzzles', historique: 'puzzles', ligne: 'ouvertures' }[r] || r) || (x.getAttribute('href') === '#plus' && ['ouvertures', 'ligne', 'stats', 'exos', 'gagner'].includes(r))));
+  const navKey = r === 'ouvertures' ? (a ? 'apprendre' : 'mesouvertures') : r; // les 5 sections : data-grp de index.html
+  document.querySelectorAll('#nav a').forEach((x) => x.classList.toggle('on', x.dataset.grp.split(' ').includes(navKey)));
   if (!S.data) { v.innerHTML = viewWelcome(); exo.attach(); header(); const f = $('#wf'); f.onsubmit = (ev) => { ev.preventDefault(); const u = $('#wu').value.trim(); if (u) doImport(u); }; return; }
   if (r !== 'partie') S.gv = null;
   if (r !== 'drill' && S.dr && S.dr.i >= S.dr.items.length) S.dr = null; // une série en cours se reprend, une série finie repart de zéro
-  const html = r === 'puzzles' ? viewPuzzles() : r === 'erreur' ? viewPuzzles([a, b]) : r === 'plus' ? viewPlus() : r === 'historique' ? viewHistory() : r === 'exos' ? viewExos() : r === 'inedits' ? viewInedits() : r === 'drill' ? viewDrill(a) : r === 'cours' ? (a ? viewLecon(a, b) : viewCours()) : r === 'ouvertures' ? (a === 'apprendre' ? viewApprendre() : a ? viewOpening(a) : viewOuvertures()) : r === 'ligne' ? viewLigne(a, b, c) : r === 'parties' ? viewParties() : r === 'partie' ? viewPartie(a, b) : r === 'plan' ? viewPlan() : r === 'bilan' ? viewBilan() : r === 'stats' ? viewStats(S) : r === 'gagner' ? viewGagner(a) : viewAccueil();
+  const html = r === 'puzzles' ? viewPuzzles() : r === 'erreur' ? viewPuzzles([a, b]) : r === 'entrainer' ? viewEntrainer() : r === 'historique' ? viewHistory() : r === 'exos' ? viewExos() : r === 'inedits' ? viewInedits() : r === 'drill' ? viewDrill(a) : r === 'cours' ? (a ? viewLecon(a, b) : viewCours()) : r === 'ouvertures' ? (a === 'apprendre' ? viewApprendre() : a ? viewOpening(a) : viewOuvertures()) : r === 'ligne' ? viewLigne(a, b, c) : r === 'parties' ? viewParties() : r === 'partie' ? viewPartie(a, b) : r === 'plan' ? viewPlan() : r === 'bilan' ? viewBilan() : r === 'stats' ? PROG_TABS('stats') + viewStats(S) : r === 'gagner' ? viewGagner(a) : viewAccueil();
   v.innerHTML = html;
   exo.attach(); // avant de créer les échiquiers : ils naissent à leur taille définitive
   if (r === 'puzzles' || r === 'erreur') { mountPuzzle(); const s = $('#pzt'); if (s) s.onchange = () => { S.pz.theme = s.value; S.pz.cur = null; S.pz.show = null; render(); }; }
@@ -1555,11 +1561,6 @@ function render(keepScroll) {
   keepUi();
   if (keepScroll) scrollTo(0, y); else scrollTo(0, 0);
 }
-// Volet « Leçons » de la barre latérale : se referme après un choix, se rouvre au prochain survol
-document.querySelectorAll('#nav .grp').forEach((g) => {
-  g.addEventListener('click', (ev) => { if (ev.target.closest('.fly a')) { g.classList.add('shut'); document.activeElement?.blur(); } });
-  g.addEventListener('mouseleave', () => g.classList.remove('shut'));
-});
 document.addEventListener('click', (ev) => {
   const x = ev.target.closest('[data-x]'); // action de l'exercice en cours : indice, solution, lecture d'une suite…
   if (x) { exo.act(x.dataset.x, x); return; }

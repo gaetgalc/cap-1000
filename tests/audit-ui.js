@@ -22,13 +22,13 @@ const SCREENS = [
   ['cours'], ['cours-fiche', 'cours/en_prise_pose/fiche'], ['cours-prive', 'cours/en_prise_pose'],
   ['gagner'], ['ouvertures'], ['ouvertures-apprendre', 'ouvertures/apprendre'], ['ouverture-fiche', 'ouvertures/italienne'],
   ['ligne-reciter', 'ligne/italienne/0'], ['ligne-voir', 'ligne/italienne/0/voir'],
-  ['parties'], ['stats'], ['plus', 'plus', { mobileOnly: true }],
+  ['parties'], ['stats'], ['entrainer'],
   ['partie', () => { const s = window.__cap, g = s.data.games.find((x) => s.an[x.id] && !s.an[x.id].bad); return 'partie/' + g.t; }],
   ['erreur', () => { const s = window.__cap; for (const g of s.data.games) { const e = s.an[g.id]?.errs?.[0]; if (e) return 'erreur/' + g.t + '/' + e.ply; } return 'puzzles'; }],
 ];
 
 // Exécuté dans la page : mesures sur tout ce qui est visible.
-function measure() {
+function measure(touch) {
   const vis = (el) => { const r = el.getBoundingClientRect(), cs = getComputedStyle(el); return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.opacity !== '0'; };
   const rgba = (s) => { const m = s.match(/[\d.]+/g); return m ? [+m[0], +m[1], +m[2], m[3] === undefined ? 1 : +m[3]] : [0, 0, 0, 0]; };
   const lum = ([r, g, b]) => { const f = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
@@ -63,10 +63,13 @@ function measure() {
     const big = fsz >= 24 || (fsz >= 18.66 && +cs.fontWeight >= 700), need = big ? 3 : 4.5;
     if (ratio < need) out.contrast.push(ratio.toFixed(2) + ' < ' + need + ' « ' + t.slice(0, 30) + ' »');
   }
-  for (const el of document.querySelectorAll('a[href], button, select, input, [data-act], [data-x], [data-f], [role=button]')) {
+  // Cibles tactiles : sur téléphone seulement (le skill les exige aux largeurs tactiles ; à la souris, 36 px suffisent).
+  for (const el of touch ? document.querySelectorAll('a[href], button, select, input, [data-act], [data-x], [data-f], [role=button]') : []) {
     if (!vis(el) || el.closest('[hidden]')) continue;
+    const lab = el.tagName === 'INPUT' && el.closest('label');
+    if (lab && lab.getBoundingClientRect().height >= 44) continue; // case à cocher dans une ligne cliquable
     const r = el.getBoundingClientRect(), cs = getComputedStyle(el);
-    if (cs.display === 'inline' && el.closest('p, li')) continue; // lien dans une phrase
+    if (cs.display === 'inline' && el.parentElement && el.parentElement.textContent.trim().length > el.textContent.trim().length + 2) continue; // lien dans une phrase
     if (r.width < 44 || r.height < 44) out.taps.push(Math.round(r.width) + '×' + Math.round(r.height) + ' « ' + label(el) + ' »');
   }
   out.primaries = [...document.querySelectorAll('.btn.pri')].filter(vis).length;
@@ -89,7 +92,7 @@ async function visit(ctx, size, report) {
     if (opt.mobileOnly && !size.mobile) continue;
     const hash = typeof route === 'function' ? await page.evaluate(route) : route;
     await page.goto(base + '#' + hash); await sleep(900);
-    const m = await page.evaluate(measure);
+    const m = await page.evaluate(measure, !!size.mobile);
     m.route = hash; m.errors = errs.splice(0);
     await page.screenshot({ path: path.join(OUT, size.id, name + '.png') });
     report[size.id][name] = m;
