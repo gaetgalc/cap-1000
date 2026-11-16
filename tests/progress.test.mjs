@@ -218,3 +218,34 @@ test('auto-évaluation d’une partie et exercice de plan : notés, relus, au jo
   assert.deepEqual(P.hist().filter((h) => h.k === 'i').map((h) => [h.id, h.r]), [['5:38', 2], ['5:40', 0]]);
   assert.equal(P.act()[P.dkey()].idea, 2);
 });
+
+test('Rush : score noté au journal, record par mode', () => {
+  const { P } = setup();
+  assert.deepEqual(P.rushBest(), { t3: 0, surv: 0 });
+  assert.equal(P.recordRush('t3', 12, 15), true, 'premier score : record');
+  assert.equal(P.recordRush('t3', 9, 12), false);
+  assert.equal(P.recordRush('surv', 20, 23), true);
+  assert.deepEqual(P.rushBest(), { t3: 12, surv: 20 });
+  const h = P.hist().filter((x) => x.k === 'r');
+  assert.deepEqual(h.map((x) => [x.m, x.ok, x.n]), [['t3', 12, 15], ['t3', 9, 12], ['surv', 20, 23]]);
+  assert.equal(P.act()[P.dkey()].rush, 3);
+});
+
+test('finale : même répétition espacée que les lignes, mémoire séparée', () => {
+  const { P, tomorrow } = setup();
+  assert.equal(P.endgameState('kq'), null);
+  P.recordEndgame('kq', 2);
+  const s = P.endgameState('kq');
+  assert.equal(s.ok, 1); assert.equal(s.aReviser, false);
+  tomorrow(1);
+  assert.equal(P.endgameState('kq').aReviser, true);
+  assert.deepEqual(P.endgamesDue(['kq', 'lucena']), ['kq'], 'une finale jamais jouée n’est pas à réviser');
+  assert.equal(P.lineState('kq'), null, 'pas mélangée aux lignes d’ouverture');
+  assert.equal(P.hist().at(-1).k, 'f');
+});
+
+test('partie jouée depuis une position de la relecture : notée au journal', () => {
+  const { P } = setup();
+  P.recordPlay('123', 30, 'gagne', 14);
+  assert.deepEqual((({ k, id, ply, why, n }) => ({ k, id, ply, why, n }))(P.hist().at(-1)), { k: 'j', id: '123', ply: 30, why: 'gagne', n: 14 });
+});

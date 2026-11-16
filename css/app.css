@@ -514,7 +514,7 @@ details.gd summary { cursor: pointer; font-size: var(--t-s); color: var(--accent
   .qlinks a, details.gd summary { min-height: var(--hit); }
   /* Cibles tactiles de 44 px sur les éléments qui ne sont pas des boutons */
   .brand, .gnum, .tools .pzprog, a.row, .sig a { min-height: var(--hit); display: flex; align-items: center; }
-  td a, p.small > a:only-child, .kv dd > a { min-height: var(--hit); display: inline-flex; align-items: center; }
+  td a, p.small > a:only-child, .meta.small > a:only-child, .kv dd > a { min-height: var(--hit); display: inline-flex; align-items: center; }
   tr.click td { height: var(--hit); }
   .stepper a, .stepper button, .stepper span { min-height: var(--hit); justify-content: center; }
   .hbar, ol.line li { min-height: var(--hit); }
@@ -579,6 +579,13 @@ cg-board square.check { background: radial-gradient(circle, var(--sq-check) 0, v
 .prog i.done { background: var(--ink3); } .prog i.cur { background: var(--ink); }
 .bilan { font-size: var(--t-s); padding-top: 6px; border-top: 1px solid rgba(255, 255, 255, .14); }
 h3.lh { font-size: var(--t-s); color: var(--ink2); margin-top: 4px; }
+/* Mon jeu : quand et comment tu perds (insights.js) */
+.ins { padding: var(--s-2) var(--s-3); border-radius: var(--r-s); background: var(--bg); border-left: 3px solid var(--c-prog); }
+.ins-grid { margin-top: var(--s-3); }
+.ins-grid h3 { font-size: var(--t-s); color: var(--ink2); margin: 0 0 var(--s-1); }
+.ins-grid td.ok b { color: var(--good); } .ins-grid td.ko b { color: var(--bad); }
+/* Ouvertures : explorateur Lichess filtré par niveau */
+h3.lexh { font-size: var(--t-s); color: var(--ink2); margin-top: var(--s-4); }
 .btn.pulse { border-color: var(--accent); animation: pulse 1.1s ease-in-out 3; }
 @keyframes pulse { 50% { box-shadow: 0 0 0 5px rgba(127, 196, 79, .4); } }
 
@@ -780,8 +787,8 @@ body.imm .toasts { bottom: calc(84px + var(--s-3) + env(safe-area-inset-bottom))
    où qu'apparaisse son lien (navigation, volet, menus, cartes .mrow). Seule l'icône change, jamais le texte. */
 a { --sec: var(--ink3); }
 a:is([href^="#accueil"], [href^="#avantpartie"]) { --sec: var(--c-jour); }
-a:is([href^="#entrainer"], [href^="#puzzles"], [href^="#erreur"], [href^="#inedits"], [href^="#historique"], [href^="#exos"], [href^="#drill"], [href^="#gagner"], [href^="#idees"]) { --sec: var(--c-train); }
-a:is([href^="#partie"], [href^="#mesouvertures"], [href^="#monouv"], [href="#ouvertures"]) { --sec: var(--c-games); }
+a:is([href^="#entrainer"], [href^="#puzzles"], [href^="#erreur"], [href^="#inedits"], [href^="#historique"], [href^="#exos"], [href^="#drill"], [href^="#gagner"], [href^="#idees"], [href^="#rush"], [href^="#finale"]) { --sec: var(--c-train); }
+a:is([href^="#partie"], [href^="#jouer"], [href^="#mesouvertures"], [href^="#monouv"], [href="#ouvertures"]) { --sec: var(--c-games); }
 a:is([href^="#cours"], [href^="#apprendre"], [href^="#ligne"], [href^="#ouvertures/"]) { --sec: var(--c-learn); }
 a:is([href^="#bilan"], [href^="#stats"], [href^="#plan"], [href^="#plus"]) { --sec: var(--c-prog); }
 /* Entrée inactive : teinte atténuée mais reconnaissable ; entrée active : pleine couleur et fond légèrement teinté */

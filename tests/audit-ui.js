@@ -26,6 +26,8 @@ const SCREENS = [
   ['gagner'], ['ouvertures'], ['ouvertures-apprendre', 'ouvertures/apprendre'], ['ouverture-fiche', 'ouvertures/italienne'],
   ['ligne-reciter', 'ligne/italienne/0'], ['ligne-voir', 'ligne/italienne/0/voir'],
   ['parties'], ['stats'], ['entrainer'], ['idees'], ['avantpartie'],
+  ['rush'], ['rush-3min', 'rush/t3'], ['finales'], ['finale', 'finale/lucena'],
+  ['jouer', () => { const s = window.__cap, g = s.data.games.find((x) => s.an[x.id] && !s.an[x.id].bad); return 'jouer/' + g.t + '/20'; }],
   ['mon-ouverture', () => { const s = window.__cap, g = s.data.games.find((x) => x.w); return 'monouv/w/' + encodeURIComponent(g.fam); }],
   ['partie', () => { const s = window.__cap, g = s.data.games.find((x) => s.an[x.id] && !s.an[x.id].bad); return 'partie/' + g.t; }],
   ['partie-debrief', () => { const s = window.__cap, g = s.data.games.find((x) => s.an[x.id] && !s.an[x.id].bad); return 'partie/' + g.t + '/d'; }],

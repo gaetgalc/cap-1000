@@ -28,6 +28,9 @@ import * as backup from './backup.js';
 import { toast } from './toast.js';
 import * as sound from './sound.js';
 import * as look from './look.js';
+import { ENDGAMES, egById, GOAL_TXT } from './endgames.js';
+import { phaseStats, pieceStats, hourStats, sessionStats, perfRef, gameRating, insightText } from './insights.js';
+import { fetchExplorer, explorerRows, LEVEL } from './explorer.js';
 
 const DEPTH = 12; // même profondeur sur tous les appareils : une erreur est classée pareil partout
 
@@ -423,6 +426,9 @@ function viewHistory() {
     if (x.k === 'd') { const D = DRILLS[x.ty]; return `<div class="hrow"><i class="hres ${x.ok >= x.n * 0.8 ? 'r2' : x.ok >= x.n * 0.5 ? 'r1' : 'r0'}"></i><span class="stepc"><b>Échauffement${D ? ' : ' + D.t : ''}</b><span>${x.ok} / ${x.n} justes · ${hm(x.t)}</span></span>${D ? `<a class="btn sm" href="#drill/${x.ty}">Refaire</a>` : ''}</div>`; }
     if (x.k === 'o') { const [oid, ok] = String(x.id).split(':'), o = byId(oid), l = o?.lines[+ok]; const [cls, lab] = RES[x.r] || RES[0]; return `<div class="hrow"><i class="hres ${cls}"></i><span class="stepc"><b>Ligne d’ouverture${o ? ` : ${o.nom}` : ''}</b><span>${l ? esc(l.n) + ' · ' : ''}${x.r === 2 ? 'Sans faute' : x.r === 1 ? 'Avec aide' : 'Suite vue'}${x.re ? ' (révision)' : ''} · ${hm(x.t)}</span></span>${l ? `<a class="btn sm" href="${lineHref(x.id)}">Refaire</a>` : ''}</div>`; }
     if (x.k === 'i') { const p = pzById(x.id); return `<div class="hrow"><i class="hres ${x.r === 2 ? 'r2' : 'r0'}"></i><span class="stepc"><b>Idée de plan${p ? ` · coup ${moveNo(p.e)} contre ${esc(p.g.opp)}` : ''}</b><span>${x.r === 2 ? 'Bon plan trouvé' : 'Autre plan choisi'} · ${hm(x.t)}</span></span></div>`; }
+    if (x.k === 'f') { const e = egById(x.id), [cls] = RES[x.r] || RES[0]; return `<div class="hrow"><i class="hres ${cls}"></i><span class="stepc"><b>Finale${e ? ' : ' + esc(e.t) : ''}</b><span>${x.r === 2 ? 'Réussie' : x.r === 1 ? 'Réussie avec indice' : 'Manquée'}${x.re ? ' (révision)' : ''} · ${hm(x.t)}</span></span>${e ? `<a class="btn sm" href="#finale/${e.id}">Refaire</a>` : ''}</div>`; }
+    if (x.k === 'r') return `<div class="hrow"><i class="hres ${x.n && x.ok / x.n >= 0.8 ? 'r2' : x.n && x.ok / x.n >= 0.5 ? 'r1' : 'r0'}"></i><span class="stepc"><b>Rush ${RUSH[x.m] ? RUSH[x.m].t.toLowerCase() : ''}</b><span>${x.ok} / ${x.n} justes${x.rec ? ' · record' : ''} · ${hm(x.t)}</span></span><a class="btn sm" href="#rush/${x.m}">Refaire</a></div>`;
+    if (x.k === 'j') { const g = S.data.games.find((y) => String(y.t) === x.id); return `<div class="hrow"><i class="hres ${x.why === 'gagne' ? 'r2' : x.why === 'mat_subi' || x.why === 'abandon' ? 'r0' : 'r1'}"></i><span class="stepc"><b>Position rejouée${g ? ` · ${dfmt(g.t)} contre ${esc(g.opp)}` : ''}</b><span>${{ gagne: 'Gagnée', mat_subi: 'Perdue', abandon: 'Abandonnée' }[x.why] || 'Nulle'} en ${Math.ceil(x.n / 2)} coups · ${hm(x.t)}</span></span>${g ? `<a class="btn sm" href="#partie/${g.t}${x.ply === 'v' ? '' : '/' + x.ply}">Partie</a>` : ''}</div>`; }
     if (x.k === 'c') { const g = S.data.games.find((y) => String(y.t) === x.id); return `<div class="hrow"><i class="hres ${x.r === 2 ? 'r2' : 'r0'}"></i><span class="stepc"><b>Partie gagnante rejouée${g ? ` · ${dfmt(g.t)} contre ${esc(g.opp)}` : ''}</b><span>${x.r === 2 ? 'Gagnée' : 'Pas gagnée'} en ${Math.ceil(x.n / 2)} coups · ${hm(x.t)}</span></span>${g ? `<a class="btn sm" href="#gagner/${g.t}">Refaire</a>` : ''}</div>`; }
     const [cls, lab] = RES[x.r] || RES[0], sub = `${lab}${x.q ? (x.q === 'e' ? ', jugé facile' : ', jugé difficile') : ''}${x.re ? ' (révision)' : ''} · ${hm(x.t)}`;
     if (x.k === 'l') return `<div class="hrow"><i class="hres ${cls}"></i><span class="stepc"><b>Position inédite${LI_NAME[x.a] ? ' : ' + LI_NAME[x.a] : ''}</b><span>${sub}${x.rt ? ' · niveau ' + x.rt : ''}</span></span>${x.p ? `<button class="btn sm" data-act="lireplay" data-t="${x.t}">Refaire</button>` : `<a class="btn sm" href="https://lichess.org/training/${esc(x.id)}" target="_blank" rel="noopener">Lichess</a>`}</div>`;
@@ -434,7 +440,7 @@ function viewHistory() {
   const yest = dkey(new Date(d0 - DAY / 2));
   const label = (k) => (k === today ? 'Aujourd’hui' : k === yest ? 'Hier' : new Date(k + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }));
   const isPz = (x) => x.k === 'm' || x.k === 'l';
-  const sum = (l) => { const z = l.filter((x) => isPz(x) && !x.re), dr = l.filter((x) => x.k === 'd').length, cv = l.filter((x) => x.k === 'c').length, ol = l.filter((x) => x.k === 'o').length, ii = l.filter((x) => x.k === 'i').length, rv = l.filter((x) => isPz(x) && x.re).length; return [z.length ? `${pl(z.length, 'puzzle')}, ${z.filter((x) => x.r === 2).length} du premier coup` : '', rv ? pl(rv, 'révision') : '', dr ? pl(dr, 'échauffement') : '', cv ? pl(cv, 'partie rejouée').replace('parties rejouée', 'parties rejouées') : '', ol ? `${ol} ligne${ol > 1 ? 's' : ''} d’ouverture` : '', ii ? pl(ii, 'idée') + ' de plan' : ''].filter(Boolean).join(' · '); };
+  const sum = (l) => { const z = l.filter((x) => isPz(x) && !x.re), dr = l.filter((x) => x.k === 'd').length, cv = l.filter((x) => x.k === 'c').length, ol = l.filter((x) => x.k === 'o').length, ii = l.filter((x) => x.k === 'i').length, fi = l.filter((x) => x.k === 'f').length, ru = l.filter((x) => x.k === 'r').length, rv = l.filter((x) => isPz(x) && x.re).length; return [z.length ? `${pl(z.length, 'puzzle')}, ${z.filter((x) => x.r === 2).length} du premier coup` : '', rv ? pl(rv, 'révision') : '', dr ? pl(dr, 'échauffement') : '', cv ? pl(cv, 'partie rejouée').replace('parties rejouée', 'parties rejouées') : '', ol ? `${ol} ligne${ol > 1 ? 's' : ''} d’ouverture` : '', ii ? pl(ii, 'idée') + ' de plan' : '', fi ? pl(fi, 'finale') : '', ru ? pl(ru, 'rush') : ''].filter(Boolean).join(' · '); };
   return head + tiles + `<div class="legend"><span style="--c:var(--good)">Du premier coup</span><span style="--c:var(--warn)">Trouvé avec aide</span><span style="--c:var(--bad)">Solution vue</span></div>`
     + [...days].map(([k, l]) => `<div class="card hday"><h2><span class="hcap">${label(k)}</span><span class="small">${sum(l)}</span></h2>${l.map(row).join('')}</div>`).join('')
     + (h.length > S.histN ? '<div><button class="btn" data-act="histmore">Afficher les exercices plus anciens</button></div>' : '');
@@ -858,64 +864,288 @@ function viewGagner(t) {
     nextT: nx && nx !== it ? nx.g.t : null,
   });
 }
-function mountGagner() {
-  const X = exo.current(), c = S.cvCur, cv = S.cv;
-  if (!X || !c || !cv) return;
-  const { it } = c, me = it.g.w ? 'w' : 'b', color = it.g.w ? 'white' : 'black';
-  const ch = new Chess(c.fen); let last = c.last;
-  for (const u of cv.moves) { const m = uciMove(ch, u); if (!m) break; last = [m.from, m.to]; }
+// Partie contre le moteur sur un écran d'exercice : #gagner, #jouer (depuis la relecture) et #finale.
+// o : { fen, last, me, st: { moves, over, hints }, from (demi-coups joués avant, pour la notation), engine(), depth,
+//       judge(ch, m, cpMe, mine) → raison de fin ou null (cpMe : éval de ton point de vue, connue avant chaque coup du moteur),
+//       end(why, record) : affichage et enregistrement de la fin, bar(), keep() }
+function botGame(X, o) {
+  const st0 = o.st, me = o.me, color = me === 'w' ? 'white' : 'black';
+  const ch = new Chess(o.fen); let last = o.last;
+  for (const u of st0.moves) { const m = uciMove(ch, u); if (!m) break; last = [m.from, m.to]; }
   let tk = 0;
   const mov = () => ({ free: false, color, dests: destsOf(ch), showDests: true, events: { after: onMove } });
   const turn = () => (ch.turn() === 'w' ? 'white' : 'black');
-  const cg = X.board({ fen: ch.fen(), orientation: color, turnColor: turn(), lastMove: last, movable: cv.over || ch.turn() !== me ? { color: undefined } : mov() });
-  const moves = () => { const el = $('#cvmoves'); if (el) el.textContent = ch.history().length ? st.lineText([...Array(it.ply).fill(''), ...ch.history()], it.ply) : 'Aucun pour l’instant.'; };
-  const playBar = () => X.setBar('<button class="btn" data-x="hint">Indice</button><button class="btn" data-x="resign">Abandonner</button><button class="btn" data-act="back">Retour</button>');
-  const endBar = () => X.setBar(`<button class="btn ${cv.over === 'gagne' ? '' : 'pri'}" data-x="restart">Recommencer</button>${X.spec.nextT ? `<a class="btn ${cv.over === 'gagne' ? 'pri' : ''}" href="#gagner/${X.spec.nextT}">Partie suivante ›</a>` : '<a class="btn" href="#gagner">Toutes les parties</a>'}`);
+  const cg = X.board({ fen: ch.fen(), orientation: color, turnColor: turn(), lastMove: last, movable: st0.over || ch.turn() !== me ? { color: undefined } : mov() });
+  const moves = () => { const el = $('#cvmoves'); if (el) el.textContent = ch.history().length ? st.lineText([...Array(o.from || 0).fill(''), ...ch.history()], o.from || 0) : 'Aucun pour l’instant.'; };
   function over(why, record = true) {
-    cv.over = why; tk++;
-    if (record) { progress.recordConversion(it.g.t, why === 'gagne' ? 2 : 0, cv.moves.length); header(); }
-    keepUi();
+    st0.over = why; tk++;
     cg.set({ movable: { color: undefined } });
-    const [cls, html] = CV_END[why] || CV_END.nulle;
-    X.say(cls, `<p>${html} <span class="small">${pl(Math.ceil(cv.moves.length / 2), 'coup')} joués.</span></p>`);
-    X.solved(); endBar();
+    o.end(why, record, ch);
+    o.keep();
   }
   async function botMove() {
     const k = ++tk;
     X.say('', '<p>Ton adversaire réfléchit…</p>');
     let r;
-    try { S.bot ||= new Engine(BOT); r = await S.bot.evalFen(ch.fen(), BOT_DEPTH, true); } catch { S.bot = null; if (X.alive()) X.say('ko', '<p>Le moteur ne répond pas sur ce navigateur. Recharge la page pour réessayer.</p>'); return; }
-    if (!X.alive() || k !== tk || cv.over || !r.best) return;
-    const before = ch.fen(), m = uciMove(ch, r.best);
+    try { r = await o.engine().evalFen(ch.fen(), o.depth, true); } catch { o.engine(true); if (X.alive()) X.say('ko', '<p>Le moteur ne répond pas sur ce navigateur. Recharge la page pour réessayer.</p>'); return; }
+    if (!X.alive() || k !== tk || st0.over || !r.best) return;
+    const cpMe = -r.cp, before = ch.fen();
+    const pre = o.judge(ch, null, cpMe, false); if (pre) return over(pre);
+    const m = uciMove(ch, r.best);
     if (!m) return;
-    cv.moves.push(r.best); keepUi(); moves();
+    st0.moves.push(r.best); o.keep(); moves();
     cg.set({ fen: ch.fen(), lastMove: [m.from, m.to], turnColor: color, movable: mov(), drawable: { autoShapes: [] } });
-    const why = cvEnd(ch, me); if (why) return over(why);
+    const why = o.judge(ch, m, null, false); if (why) return over(why);
     X.say('', `<p>${esc(justPlayed(describeAt(before, m.san, me)))} <b>À toi.</b></p>`);
   }
   function onMove(from, to) {
     const m = ch.move({ from, to, promotion: 'q' });
     if (!m) { cg.set({ fen: ch.fen(), movable: mov() }); return; }
-    cv.moves.push(from + to + (m.promotion || '')); keepUi(); moves();
+    st0.moves.push(from + to + (m.promotion || '')); o.keep(); moves();
     cg.set({ fen: ch.fen(), turnColor: turn(), movable: { color: undefined }, drawable: { autoShapes: [] } });
-    const why = cvEnd(ch, me); if (why) return over(why);
+    const why = o.judge(ch, m, null, true); if (why) return over(why);
     botMove();
   }
   X.on({
     async hint() {
-      if (cv.over || ch.turn() !== me) return;
+      if (st0.over || ch.turn() !== me) return;
       const k = tk, fen = ch.fen();
       X.say('', '<p>Je cherche le meilleur coup…</p>');
-      try { S.play ||= new Engine(); const r = await S.play.evalFen(fen, DEPTH, true); if (!X.alive() || k !== tk || ch.fen() !== fen || !r.best) return; cg.setAutoShapes([arrow(r.best, 'green')]); X.say('', `<p><b>Indice.</b> ${esc(hintFor(fen, r.best, me))} La flèche verte montre le coup du moteur.</p>`); } catch { S.play = null; }
+      try { S.play ||= new Engine(); const r = await S.play.evalFen(fen, DEPTH, true); if (!X.alive() || k !== tk || ch.fen() !== fen || !r.best) return; st0.hints = (st0.hints || 0) + 1; o.keep(); cg.setAutoShapes([arrow(r.best, 'green')]); X.say('', `<p><b>Indice.</b> ${esc(hintFor(fen, r.best, me))} La flèche verte montre le coup du moteur.</p>`); } catch { S.play = null; }
     },
-    resign() { if (!cv.over) over('abandon'); },
-    restart() { S.cv = { t: it.g.t, moves: [], over: null }; keepUi(); render(); },
+    resign() { if (!st0.over) over('abandon'); },
   });
   moves();
-  if (cv.over) return over(cv.over, false);
-  playBar();
+  if (st0.over) { over(st0.over, false); return; }
+  X.setBar(o.bar());
   if (ch.turn() !== me) botMove();
-  else if (cv.moves.length) X.say('', '<p>Partie reprise là où tu l’avais laissée. <b>À toi.</b></p>');
+  else if (st0.moves.length) X.say('', '<p>Partie reprise là où tu l’avais laissée. <b>À toi.</b></p>');
+}
+const botBar = () => '<button class="btn" data-x="hint">Indice</button><button class="btn" data-x="resign">Abandonner</button><button class="btn" data-act="back">Retour</button>';
+const sideBot = (fresh) => { if (fresh) S.bot = null; return (S.bot ||= new Engine(BOT)); };
+function mountGagner() {
+  const X = exo.current(), c = S.cvCur, cv = S.cv;
+  if (!X || !c || !cv) return;
+  const { it } = c, me = it.g.w ? 'w' : 'b';
+  const endBar = () => X.setBar(`<button class="btn ${cv.over === 'gagne' ? '' : 'pri'}" data-x="restart">Recommencer</button>${X.spec.nextT ? `<a class="btn ${cv.over === 'gagne' ? 'pri' : ''}" href="#gagner/${X.spec.nextT}">Partie suivante ›</a>` : '<a class="btn" href="#gagner">Toutes les parties</a>'}`);
+  X.on({ restart() { S.cv = { t: it.g.t, moves: [], over: null }; keepUi(); render(); } });
+  botGame(X, {
+    fen: c.fen, last: c.last, me, st: cv, from: it.ply, engine: sideBot, depth: BOT_DEPTH, bar: botBar, keep: keepUi,
+    judge: (ch) => cvEnd(ch, me),
+    end(why, record) {
+      if (record) { progress.recordConversion(it.g.t, why === 'gagne' ? 2 : 0, cv.moves.length); header(); }
+      const [cls, html] = CV_END[why] || CV_END.nulle;
+      X.say(cls, `<p>${html} <span class="small">${pl(Math.ceil(cv.moves.length / 2), 'coup')} joués.</span></p>`);
+      X.solved(); endBar();
+    },
+  });
+}
+
+// ---------- Jouer à partir d'une position de la relecture (#jouer/<t>/<k>) ----------
+// k : demi-coup de la partie, ou 'v' pour la variante jouée dans la relecture (sa position est gardée dans S.jp).
+// Tu reprends ton camp de la partie contre le même moteur bridé que #gagner.
+const JP_END = {
+  gagne: ['ok', '<b class="ok">Échec et mat : gagné.</b>'], mat_subi: ['ko', '<b class="ko">Échec et mat contre toi.</b> Regarde où la défense a lâché : la relecture de la partie t’attend.'],
+  pat: ['ko', '<b>Pat : partie nulle.</b>'], rep: ['ko', '<b>Nulle par répétition.</b>'], nulle: ['ko', '<b>Partie nulle.</b>'], abandon: ['ko', 'Partie abandonnée.'],
+};
+function viewJouer(t, k) {
+  const g = S.data.games.find((x) => String(x.t) === String(t));
+  if (!g) return viewParties();
+  if (!S.jp || String(S.jp.t) !== String(t) || String(S.jp.k) !== String(k)) {
+    if (k === 'v') return `<h1>Variante introuvable</h1><div class="card"><p class="sub">La variante n’a pas été gardée. Rejoue-la dans la relecture, puis touche « Jouer d’ici ».</p><div><a class="btn pri" href="#partie/${g.t}">Revenir à la partie</a></div></div>`;
+    const r = replay(g); if (!r) return viewParties();
+    const ply = Math.max(0, Math.min(+k || 0, r.mv.length)), prev = r.mv[ply - 1];
+    S.jp = { t: g.t, k: String(k), from: ply, fen: r.fens[ply], last: prev ? [prev.from, prev.to] : undefined, moves: [], over: null };
+  }
+  const P = S.jp, side = g.w ? 'Blancs' : 'Noirs', back = `#partie/${g.t}${k === 'v' ? '' : '/' + P.from}`;
+  const chips = `<span class="chip">${k === 'v' ? 'Ta variante' : `Coup ${Math.floor(P.from / 2) + 1}`}</span>`;
+  return exo.screen({
+    live: true, top: () => chips,
+    head: `<div class="pzhead main"><h1>Joue cette position</h1><div class="row">${chips}</div></div>`
+      + coach(`Position de ta ${gameRef(g)}${k === 'v' ? ', après ta variante' : ''}. <b>Tu as les ${side}</b> contre un moteur bridé : rejoue-la jusqu’au bout, autrement.`, 'intro'),
+    cap: `<p><i class="dot ${g.w ? 'w' : 'b'}"></i> Tu as les ${side}.</p>`,
+    panel: `<div class="meta small"><a href="${back}">Revenir à la partie</a></div>
+      <div class="card ghost"><h3>Avant chaque coup</h3><ol class="routine">${LESSONS.en_prise_pose.routine.map((x) => `<li>${x}</li>`).join('')}</ol></div>
+      <div class="card ghost"><h3>Coups joués</h3><p class="small" id="cvmoves">Aucun pour l’instant.</p></div>`,
+    bar: '',
+  });
+}
+function mountJouer() {
+  const X = exo.current(), P = S.jp;
+  if (!X || !P) return;
+  const g = S.data.games.find((x) => String(x.t) === String(P.t)); if (!g) return;
+  X.on({ restart() { Object.assign(P, { moves: [], over: null }); keepUi(); render(); } });
+  botGame(X, {
+    fen: P.fen, last: P.last, me: g.w ? 'w' : 'b', st: P, from: P.from, engine: sideBot, depth: BOT_DEPTH, bar: botBar, keep: keepUi,
+    judge: (ch) => cvEnd(ch, g.w ? 'w' : 'b'),
+    end(why, record) {
+      if (record) { progress.recordPlay(g.t, P.k === 'v' ? 'v' : P.from, why, P.moves.length); header(); }
+      const [cls, html] = JP_END[why] || JP_END.nulle;
+      X.say(cls, `<p>${html} <span class="small">${pl(Math.ceil(P.moves.length / 2), 'coup')} joués.</span></p>`);
+      X.solved();
+      X.setBar(`<button class="btn pri" data-x="restart">Rejouer la position</button><a class="btn" href="#partie/${g.t}${P.k === 'v' ? '' : '/' + P.from}">Revenir à la partie</a>`);
+    },
+  });
+}
+
+// ---------- Finales de base contre le moteur (#finales, #finale/<id>), comme « Practice » sur Chess.com ----------
+// Le moteur défend à pleine force. Réussite : 2 sans indice, 1 avec indice, 0 manquée ; répétition espacée (progress.recordEndgame).
+const EG_OK = new Set(['gagne', 'promu', 'tenu']);
+const egEnd = (e, why) => ({
+  gagne: ['ok', '<b class="ok">Échec et mat.</b> Finale réussie.'],
+  promu: ['ok', '<b class="ok">Dame !</b> Le pion est passé et la nouvelle dame ne peut pas être prise.'],
+  tenu: ['ok', e.stop ? '<b class="ok">Pion rattrapé.</b> Roi contre roi : nulle.' : '<b class="ok">Nulle tenue.</b> Tu as appliqué la défense jusqu’au bout.'],
+  pat: ['ko', '<b class="ko">Pat : nulle.</b> Laisse toujours une case libre au roi adverse.'],
+  rep: ['ko', '<b class="ko">Nulle par répétition.</b> Change de plan plutôt que de répéter.'],
+  nulle: ['ko', '<b class="ko">Nulle.</b> Le matériel ne suffit plus pour gagner.'],
+  long: ['ko', `<b class="ko">Trop long.</b> Le but était d’y arriver en ${e.limit} coups : relis le plan et recommence.`],
+  perdu: ['ko', e.goal === 'nulle' ? '<b class="ko">La position est perdue.</b> Relis la règle de défense et recommence.' : '<b class="ko">L’avantage a disparu.</b> Relis le plan et recommence.'],
+  mat_subi: ['ko', '<b class="ko">Échec et mat contre toi.</b>'],
+  abandon: ['ko', 'Finale abandonnée. Recommence quand tu veux.'],
+}[why] || ['ko', 'Finale terminée.']);
+function egJudge(e, P) {
+  const me = e.fen.split(' ')[1];
+  return (ch, m, cpMe, mine) => {
+    const end = cvEnd(ch, me);
+    if (end) return end === 'gagne' || end === 'mat_subi' ? end : e.goal === 'nulle' ? 'tenu' : end;
+    if (cpMe != null) { // avant un coup du moteur : éval de ton point de vue
+      if (e.goal !== 'nulle' && cpMe < 150) return 'perdu';
+      if (e.goal === 'nulle' && !e.noEval && cpMe <= -500) return 'perdu';
+      return null;
+    }
+    if (m?.promotion) {
+      if (mine && e.goal === 'promo' && !ch.moves({ verbose: true }).some((x) => x.to === m.to)) return 'promu';
+      if (!mine && e.goal === 'nulle') return 'perdu';
+    }
+    if (mine && Math.ceil(P.moves.length / 2) >= e.limit) return e.goal === 'nulle' ? 'tenu' : 'long';
+    return null;
+  };
+}
+function egChip(id) {
+  const s = progress.endgameState(id);
+  if (!s) return '<span class="chip">Nouvelle</span>';
+  return s.aReviser ? '<span class="chip warn">À refaire</span>' : `<span class="chip ${s.acquise ? 'good' : ''}">${s.acquise ? 'Acquise' : 'Réussie'} · revient le ${dshort(s.due)}</span>`;
+}
+function viewFinales() {
+  const due = progress.endgamesDue(ENDGAMES.map((e) => e.id));
+  return `<h1>Finales de base</h1>${coach('Les positions que tout joueur doit savoir gagner ou tenir, à jouer contre le moteur à pleine force. Sous 1000, des parties gagnées finissent nulles faute de connaître le mat avec la tour ou l’opposition : une fois apprises, elles reviennent en révision comme tes puzzles.')}
+  ${due.length ? `<div><a class="btn pri" href="#finale/${due[0]}">Refaire ${due.length > 1 ? `mes ${due.length} finales à réviser` : 'ma finale à réviser'}</a></div>` : ''}
+  ${[1, 2, 3].map((lvl) => `<h2 class="ent-h">${['', 'Les bases', 'Finales de pions', 'Finales de tours'][lvl]}</h2><div class="menu">${ENDGAMES.filter((e) => e.lvl === lvl).map((e) => `<a class="mrow" href="#finale/${e.id}"><span class="mico">${progress.endgameState(e.id) ? '✓' : ico('flag')}</span><span class="stepc"><b>${esc(e.t)}</b><span>${GOAL_TXT[e.goal]} · ${esc(e.intro)}</span></span>${egChip(e.id)}<span class="chev" aria-hidden="true">›</span></a>`).join('')}</div>`).join('')}`;
+}
+function viewFinale(id) {
+  const e = egById(id);
+  if (!e) return viewFinales();
+  if (!S.fg || S.fg.id !== id) S.fg = { id, moves: [], over: null, hints: 0 };
+  const me = e.fen.split(' ')[1], side = me === 'w' ? 'Blancs' : 'Noirs', i = ENDGAMES.indexOf(e), nx = ENDGAMES[(i + 1) % ENDGAMES.length];
+  const chips = `<span class="chip good">${GOAL_TXT[e.goal]}</span><span class="chip">${e.goal === 'nulle' ? `${e.limit} coups à tenir` : `en ${e.limit} coups`}</span>`;
+  return exo.screen({
+    live: true, top: () => chips,
+    head: `<div class="pzhead main"><h1>${esc(e.t)}</h1><div class="row">${chips}</div></div>` + coach(`${esc(e.intro)} <b>Tu as les ${side}.</b>`, 'intro'),
+    cap: `<p><i class="dot ${me}"></i> Trait aux ${side}. ${esc(e.intro)}</p>`,
+    panel: `<div class="meta small"><a href="#finales">Toutes les finales</a></div>
+      <div class="card ghost"><h3>La règle</h3><p class="small">${esc(e.rule)}</p></div>
+      <div class="card ghost"><h3>Le plan</h3><ol class="routine">${e.plan.map((x) => `<li>${esc(x)}</li>`).join('')}</ol></div>
+      <div class="card ghost"><h3>Coups joués</h3><p class="small" id="cvmoves">Aucun pour l’instant.</p></div>`,
+    bar: '', nextId: nx.id,
+  });
+}
+function mountFinale() {
+  const X = exo.current(), P = S.fg, e = P && egById(P.id);
+  if (!X || !e) return;
+  X.on({ restart() { S.fg = { id: e.id, moves: [], over: null, hints: 0 }; keepUi(); render(); } });
+  botGame(X, {
+    fen: e.fen, me: e.fen.split(' ')[1], st: P, from: 0, depth: DEPTH, bar: botBar, keep: keepUi,
+    engine: (fresh) => { if (fresh) S.fin = null; return (S.fin ||= new Engine()); },
+    judge: egJudge(e, P),
+    end(why, record) {
+      const ok = EG_OK.has(why);
+      if (record) { progress.recordEndgame(e.id, ok ? (P.hints ? 1 : 2) : 0); header(); exo.feedback(ok ? 'good' : 'bad'); }
+      const [cls, html] = egEnd(e, why);
+      X.say(cls, `<p>${html}${ok && P.hints ? ` <span class="small">Avec ${pl(P.hints, 'indice')} : elle reviendra plus tôt.</span>` : ''}</p>`);
+      X.solved();
+      X.setBar(`<button class="btn ${ok ? '' : 'pri'}" data-x="restart">Recommencer</button><a class="btn ${ok ? 'pri' : ''}" href="#finale/${X.spec.nextId}">Finale suivante ›</a>`);
+    },
+  });
+}
+
+// ---------- Rush (#rush, #rush/<t3|surv>) : positions de vérification à la chaîne, comme Puzzle Rush ----------
+// Positions des échauffements (drills.js) tirées de tes parties, mélangées. t3 : 3 minutes ; surv : la série s'arrête à 3 fautes.
+const RUSH = { t3: { t: '3 minutes', d: 'Le plus de bonnes réponses en 3 minutes.' }, surv: { t: 'Survie', d: 'Pas de limite de temps : la série s’arrête à la 3e faute.' } };
+const RUSH_TYPES = ['sur', 'menace', 'cadeau'], RUSH_MS = 180000, RUSH_LIVES = 3;
+let rushTimer = null;
+function rushFill(R) {
+  const add = RUSH_TYPES.flatMap((ty) => makeRound(ty, S.data.games, 6));
+  for (let i = add.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [add[i], add[j]] = [add[j], add[i]]; }
+  R.items.push(...add);
+}
+const rushLeft = (R) => Math.max(0, RUSH_MS - (Date.now() - R.t0));
+const rushClock = (R) => (R.m === 't3' ? mmss(Math.ceil(rushLeft(R) / 1000)) : `${'●'.repeat(RUSH_LIVES - R.ko)}${'○'.repeat(R.ko)}`);
+function rushFinish(R) {
+  if (R.done) return;
+  R.done = true; clearInterval(rushTimer);
+  R.rec = progress.recordRush(R.m, R.ok, R.n);
+}
+function viewRush(m) {
+  const best = progress.rushBest();
+  if (!RUSH[m]) {
+    if (S.rush?.done) S.rush = null; // depuis le menu, une série finie repart de zéro
+    return `<h1>Rush</h1>${coach('Des positions de tes parties, à la chaîne : ta pièce est-elle sûre ? que menace son dernier coup ? quelle pièce adverse est gratuite ? Réponds vite, mais juste : c’est le réflexe de vérification, sous la pression de la pendule.')}
+    <div class="menu">${Object.entries(RUSH).map(([k, x]) => `<a class="mrow" href="#rush/${k}"><span class="mico">${ico(k === 't3' ? 'clock' : 'bolt')}</span><span class="stepc"><b>${x.t}</b><span>${x.d}</span></span><span class="chip ${best[k] ? 'good' : ''}">Record : ${best[k] || '—'}</span><span class="chev" aria-hidden="true">›</span></a>`).join('')}</div>`;
+  }
+  let R = S.rush;
+  if (!R || R.m !== m) { R = S.rush = { m, items: [], i: 0, ok: 0, ko: 0, n: 0, t0: 0, done: false, missed: [] }; rushFill(R); }
+  if (R.items.length < 3) return `<h1>Rush</h1><div class="card"><p class="sub">Pas assez de positions dans tes parties pour l’instant. Reviens après quelques parties de plus.</p><div><a class="btn" href="#exos">Échauffements</a></div></div>`;
+  if (R.m === 't3' && R.t0 && !rushLeft(R)) rushFinish(R);
+  if (R.done) {
+    return `<h1>Rush ${RUSH[m].t.toLowerCase()}</h1><div class="card"><div class="row" style="align-items:baseline"><span class="big num">${R.ok}</span><span class="sub">bonne${R.ok > 1 ? 's' : ''} réponse${R.ok > 1 ? 's' : ''} sur ${R.n}${R.rec ? ' · nouveau record' : ` · record : ${best[m]}`}</span></div>
+      ${coach(R.rec ? 'Nouveau record. Le réflexe s’installe : garde-le en partie, à chaque coup.' : R.n && R.ok / R.n < 0.7 ? 'Trop de fautes : ralentis un peu, la justesse compte plus que le nombre.' : 'Bonne série. Refais-en une demain pour fixer le réflexe.')}
+      <div class="row"><button class="btn pri" data-act="rushagain">Rejouer</button><a class="btn" href="#rush">Autre mode</a></div></div>
+      ${R.missed.length ? `<div class="card"><h2>Tes fautes</h2>${R.missed.slice(0, 8).map((x) => `<div class="hrow"><i class="hres r0"></i><span class="stepc"><b>${x.q}</b><span>${esc(x.text)}</span></span></div>`).join('')}</div>` : ''}`;
+  }
+  if (R.i >= R.items.length - 2) rushFill(R);
+  const it = R.items[R.i];
+  const chips = `<span class="chip rushclk">${rushClock(R)}</span><span class="chip good">${R.ok}</span>`;
+  return exo.screen({
+    live: true, top: () => chips,
+    head: `<div class="pzhead main"><h1>Rush ${RUSH[m].t.toLowerCase()}</h1><div class="row">${chips}</div></div>${coach(it.q)}`,
+    cap: `<p><i class="dot ${it.white ? 'w' : 'b'}"></i> Tu as les ${it.white ? 'Blancs' : 'Noirs'}.${it.tap ? ' Touche une pièce sur l’échiquier.' : ''}</p>`,
+    panel: `<div class="card ghost"><h3>${RUSH[m].t}</h3><p class="sub">${RUSH[m].d} Record : ${best[m] || '—'}.</p></div>`,
+    bar: it.options.map(([v, l]) => `<button class="btn opt" data-x="ans" data-v="${v}">${l}</button>`).join('') + '<button class="btn" data-x="stop">Arrêter</button>',
+  });
+}
+function mountRush() {
+  clearInterval(rushTimer);
+  const X = exo.current(), R = S.rush;
+  if (!X || !R || R.done || !RUSH[route()[1]]) return;
+  const it = R.items[R.i], mine = it.white ? 'white' : 'black';
+  if (!R.t0) R.t0 = Date.now();
+  let answered = false;
+  const tick = () => {
+    if (!X.alive()) { clearInterval(rushTimer); return; }
+    document.querySelectorAll('.rushclk').forEach((c) => { c.textContent = rushClock(R); });
+    if (R.m === 't3' && !rushLeft(R)) { rushFinish(R); render(); }
+  };
+  rushTimer = setInterval(tick, 250);
+  const cg = X.board({ fen: it.fen, orientation: mine, lastMove: it.last, movable: { free: false, color: undefined }, draggable: { enabled: false }, selectable: { enabled: !!it.tap }, drawable: { enabled: false, visible: true, autoShapes: it.pre || [] }, events: it.tap ? { select: (key) => {
+    const pc = cg.state.pieces.get(key);
+    if (pc && (it.type === 'menace' ? pc.color === mine : pc.color !== mine)) answer(key);
+  } } : {} });
+  function answer(v) {
+    if (answered || R.done) return;
+    answered = true;
+    const ok = v === it.answer;
+    R.n++; if (ok) R.ok++; else { R.ko++; R.missed.push({ q: it.q, text: it.text }); }
+    exo.feedback(ok ? 'good' : 'bad');
+    document.querySelectorAll('.rushclk').forEach((c) => { c.textContent = rushClock(R); });
+    X.say(ok ? 'ok' : 'ko', `<div class="capm"><span class="capn">${ok ? 'Juste' : 'Raté'}</span></div>${ok ? '' : `<p>${esc(it.text)}</p>`}`);
+    const shapes = it.shapes.slice();
+    if (it.tap && it.answer !== 'none' && it.answer !== 'skip') shapes.push({ orig: it.answer, brush: 'green' });
+    cg.set({ drawable: { autoShapes: shapes } });
+    R.i++;
+    if (R.m === 'surv' && R.ko >= RUSH_LIVES) rushFinish(R);
+    setTimeout(() => { if (X.alive() && route()[0] === 'rush' && S.rush === R) render(); }, ok ? 450 : 1600);
+  }
+  X.on({ ans: answer, stop() { rushFinish(R); render(); } });
 }
 
 // ---------- Vues ----------
@@ -925,7 +1155,7 @@ function filtersHtml() {
     <select data-f="days" aria-label="Période"><option value="0">Depuis le début</option><option value="90" ${S.f.days === 90 ? 'selected' : ''}>90 derniers jours</option><option value="30" ${S.f.days === 30 ? 'selected' : ''}>30 derniers jours</option></select>
     <button class="btn sm" data-act="refresh" title="Récupérer les nouvelles parties de ${esc(S.user)}">Mettre à jour</button>`;
 }
-const TITLES = { idees: 'Idées de plan', avantpartie: 'Avant de jouer', ouvertures: 'Ouverture', ligne: 'Ouverture', puzzles: 'Puzzles', erreur: 'Comprendre', partie: 'Partie', cours: 'Cours', drill: 'Échauffement', inedits: 'Positions inédites', gagner: 'Gagner', monouv: 'Mon ouverture' };
+const TITLES = { idees: 'Idées de plan', avantpartie: 'Avant de jouer', ouvertures: 'Ouverture', ligne: 'Ouverture', puzzles: 'Puzzles', erreur: 'Comprendre', partie: 'Partie', cours: 'Cours', drill: 'Échauffement', inedits: 'Positions inédites', gagner: 'Gagner', monouv: 'Mon ouverture', rush: 'Rush', finale: 'Finale', jouer: 'Jouer' };
 function header() {
   const t = $('#tools'), [r, a] = route();
   const imm = !!S.data && (!!exo.current() || r === 'erreur' || (r === 'cours' && !!a) || (r === 'ouvertures' && !!a && a !== 'apprendre') || r === 'monouv' || r === 'avantpartie'); // écran d'exercice ou page de cours : barre du haut avec retour
@@ -1172,6 +1402,28 @@ function viewAccueil() {
 }
 
 // ---------- Mon jeu : objectif, chantier, points forts et faibles, tendance, bilan ----------
+// Quand et comment tu perds (insights.js, comme les « Insights » de Chess.com) : phase, pièce, heure, rang dans la session.
+// Calcul gardé tant que les parties et les analyses ne changent pas (la phase demande de rejouer chaque partie).
+let insMemo = { key: '', v: null };
+function insightsOf(gs) {
+  const key = gs.length + ':' + (gs[gs.length - 1]?.t || 0) + ':' + Object.keys(S.an).length + ':' + S.f.tc + ':' + S.f.days;
+  if (insMemo.key !== key) insMemo = { key, v: { phases: phaseStats(gs, S.an), pieces: pieceStats(gs, S.an), hours: hourStats(gs), sessions: sessionStats(gs) } };
+  return insMemo.v;
+}
+function insightsCard(gs) {
+  const I = insightsOf(gs), lines = insightText(I), every = (r) => (r ? `1 tous les ${Math.round(1 / r)} coups` : 'aucune');
+  const row = (label, n, val, cls = '') => `<tr><td>${label}</td><td class="r small">${n}</td><td class="r ${cls}"><b>${val}</b></td></tr>`;
+  const sc = (x) => (x.n >= 5 ? (x.score >= 55 ? 'ok' : x.score <= 42 ? 'ko' : '') : '');
+  const pcs = I.pieces.filter((p) => p.moves >= 10).slice(0, 4);
+  return `<div class="card"><h2>Quand et comment tu perds <span class="small">${TC[S.f.tc] || 'toutes cadences'}</span></h2>
+    ${lines.length ? `<div class="stack">${lines.map((t) => `<p class="ins">${esc(t)}</p>`).join('')}</div>` : '<p class="small">Pas encore d’écart net : il faut au moins 8 parties de chaque côté pour en tirer une règle.</p>'}
+    <div class="grid ins-grid">
+      <div><h3>Par phase <span class="small">fautes graves</span></h3><table><tbody>${I.phases.map((x) => row(x.label, x.n ? x.n + ' coups' : '—', x.n ? every(x.rate) : '—')).join('')}</tbody></table></div>
+      <div><h3>Par pièce jouée <span class="small">fautes graves</span></h3><table><tbody>${pcs.length ? pcs.map((x) => row(x.name[0].toUpperCase() + x.name.slice(1), x.moves + ' coups', every(x.rate))).join('') : '<tr><td class="small">Analyse plus de parties.</td></tr>'}</tbody></table></div>
+      <div><h3>Selon l’heure <span class="small">score</span></h3><table><tbody>${I.hours.map((x) => row(x.label, pl(x.n, 'partie'), x.n ? x.score + ' %' : '—', sc(x))).join('')}</tbody></table></div>
+      <div><h3>Dans la session <span class="small">score</span></h3><table><tbody>${I.sessions.map((x) => row(x.label, pl(x.n, 'partie'), x.n ? x.score + ' %' : '—', sc(x))).join('')}</tbody></table></div>
+    </div><p class="small">Phase et pièce : parties analysées seulement. Une session : parties jouées à moins d’une heure d’intervalle.</p></div>`;
+}
 function viewBilan() {
   const gs = games(), gb = goalBlock();
   const { es, sig, fc } = session();
@@ -1197,7 +1449,8 @@ function viewBilan() {
         <tr><td>Noirs</td><td>${wdl(st.tally(gs.filter((g) => !g.w)))}</td><td class="r">${st.score(st.tally(gs.filter((g) => !g.w)))} %</td></tr></tbody></table>${WDL_LEGEND}
       <dl class="kv">${es.n ? `<dt>Précision moyenne</dt><dd>${es.acc.toFixed(1)} %</dd><dt>Gaffes par partie</dt><dd>${(es.gaffes / es.n).toFixed(1)}</dd>` : ''}<dt>Parties analysées</dt><dd>${es.n} sur ${gs.length}</dd></dl>
       ${S.job.running ? '' : '<div><button class="btn sm" data-act="analyse">Analyser 20 parties de plus</button></div>'}</div>
-  </div>` : `<div class="card"><p class="sub">Aucune partie pour ce filtre (${TC[S.f.tc]}). Change la cadence ou la période.</p></div>`}`;
+  </div>
+  ${insightsCard(gs)}` : `<div class="card"><p class="sub">Aucune partie pour ce filtre (${TC[S.f.tc]}). Change la cadence ou la période.</p></div>`}`;
 }
 function mountBilan() {
 
@@ -1387,7 +1640,8 @@ function viewOuvertures() {
   };
   const root = st.tree(gs, S.white); let node = root; const ch = new Chess();
   const path = [];
-  for (const s of S.path) { const k = node.kids.get(s); if (!k || !ch.move(s)) break; node = k; path.push(s); }
+  // Au-delà de tes parties (coup choisi dans l'explorateur Lichess), la ligne continue avec un nœud vide.
+  for (const s of S.path) { if (!ch.move(s)) break; node = node.kids.get(s) || { n: 0, w: 0, d: 0, l: 0, kids: new Map() }; path.push(s); }
   S.path = path; S.exFen = ch.fen();
   const kids = [...node.kids.entries()].sort((a, b) => b[1].n - a[1].n).slice(0, 8);
   const myTurn = (path.length % 2 === 0) === S.white;
@@ -1409,7 +1663,8 @@ function viewOuvertures() {
     <div class="card"><h2>Explorateur de tes parties</h2>
       <div class="row"><button class="btn sm" data-act="expath" data-n="0">Début</button>${crumbs}</div>
       <p class="small">${node.n} partie${node.n > 1 ? 's' : ''} dans cette position, ${st.score(node)} % de score. ${kids.length ? (myTurn ? 'Tes coups ici :' : 'Les réponses de tes adversaires :') : ''}</p>
-      ${kids.length ? `<table><tbody>${kids.map(([s, k]) => `<tr class="click" data-act="exmove" data-san="${esc(s)}"><td><b>${fr(s)}</b></td><td class="r">${k.n}</td><td style="width:40%">${wdl(k)}</td><td class="r">${st.score(k)} %</td></tr>`).join('')}</tbody></table>` : '<p class="sub">Fin des coups enregistrés pour cette ligne.</p>'}
+      ${kids.length ? `<table><tbody>${kids.map(([s, k]) => `<tr class="click" data-act="exmove" data-san="${esc(s)}"><td><b>${fr(s)}</b></td><td class="r">${k.n}</td><td style="width:40%">${wdl(k)}</td><td class="r">${st.score(k)} %</td></tr>`).join('')}</tbody></table>` : `<p class="sub">${node.n ? 'Fin des coups enregistrés pour cette ligne.' : 'Tu n’as jamais eu cette position.'}</p>`}
+      <h3 class="lexh">À ton niveau sur Lichess</h3><div id="lexp" aria-live="polite"><p class="small">Chargement…</p></div>
     </div></div>
   <div class="card"><h2>Répertoire conseillé sous 1000</h2><div class="row"><a class="btn pri sm" href="#ouvertures/italienne">Apprendre l’italienne</a><a class="btn sm" href="#ouvertures/gambitdame">Apprendre le gambit Dame</a></div><div class="prose stack">
     ${first ? `<p>Tu ouvres par <b>${fr(first[0])}</b> dans ${st.pct(first[1].n, side.n)} % de tes parties avec les Blancs (${st.score(first[1])} % de score).</p>` : ''}
@@ -1419,6 +1674,18 @@ function viewOuvertures() {
     <p>Dans le tableau ci-dessus, garde les lignes marquées « À garder » et remplace celles marquées « À travailler » par ce répertoire.</p></div></div>`;
 }
 
+// Explorateur Lichess filtré par niveau (explorer.js), sous l'explorateur de tes parties : ce que jouent ici des joueurs
+// de ton niveau, avec leur score. Un coup s'ajoute à la ligne explorée, même si tu ne l'as jamais joué.
+async function lexpLoad(fen) {
+  const el = () => (S.exFen === fen && route()[0] === 'ouvertures' && !route()[1] ? $('#lexp') : null);
+  let d;
+  try { d = await fetchExplorer(fen); } catch (e) { if (el()) el().innerHTML = `<p class="small">${esc(e.message)}</p>`; return; }
+  const box = el(); if (!box) return;
+  const r = explorerRows(d, fen.split(' ')[1]), mine = (fen.split(' ')[1] === 'w') === S.white;
+  if (!r.total) { box.innerHTML = '<p class="small">Aucune partie à ce niveau dans cette position.</p>'; return; }
+  box.innerHTML = `<p class="small">${r.total.toLocaleString('fr-FR')} parties (${LEVEL})${r.opening ? ` · ${esc(r.opening)}` : ''}. ${mine ? 'Score de ton camp après chaque coup.' : 'Score de ton adversaire après chaque coup.'}</p>
+    <table><thead><tr><th>Coup</th><th class="r">Joué</th><th class="r">Parties</th><th class="r">Score</th></tr></thead><tbody>${r.rows.filter((x) => x.n).map((x) => { const san = d.moves.find((m) => m.uci === x.uci)?.san || ''; return `<tr class="click" data-act="exmove" data-san="${esc(san)}"><td><b>${esc(x.san)}</b></td><td class="r">${x.pct} %</td><td class="r">${x.n.toLocaleString('fr-FR')}</td><td class="r">${x.score} %</td></tr>`; }).join('')}</tbody></table>`;
+}
 // Liste des parties (demande du 16/11) : une ligne par partie, joueurs et Elo à gauche comme sur un échiquier
 // (adversaire en haut, toi en bas), puis résultat, ouverture et chiffres. Synthèse de la sélection au-dessus.
 const sgn = (x) => (x > 0 ? '+' : x < 0 ? '−' : '±') + Math.abs(x);
@@ -1551,12 +1818,14 @@ function gvShapes(v, k) {
   const m = v.mv[k];
   return [b.played || !m ? null : { orig: m.from, dest: m.to, brush: 'red' }, arrow(b.uci, 'green')].filter(Boolean);
 }
+// « Jouer d'ici » : reprendre la position affichée contre le moteur (#jouer), sauf partie finie.
+const playB = (v) => (new Chess(gvFen(v)).game_over() ? '' : '<button class="btn sm capplay" data-act="playhere" title="Reprends cette position contre le moteur">Jouer<span class="d-txt"> d’ici</span></button>');
 // Bandeau de la relecture : cls est la classe d'état du bandeau (sans « cap »).
 function gvCap(v) {
   const k = v.k, g = v.g, a = v.a, e = v.errAt[k], prevErr = v.errAt[k - 1], me = g.w ? 'w' : 'b';
   if (v.db != null) { const L = gvDbList(v), m = L[v.db]; return { cls: 'db', html: `<div class="capm"><span class="capn">Débrief ${v.db + 1} / ${L.length}</span><span class="chip">${m.title}</span></div><p>${esc(m.text)}</p>` }; }
   if (v.ask?.k === k) return { cls: 'coachq', html: `<div class="capm"><span class="capn">Le coach</span><button class="btn sm gvwhy" data-act="askclose">Fermer</button></div>${v.ask.err ? `<p>${esc(v.ask.err)}</p>` : v.ask.html ? `<p>${txt(v.ask.html)}</p>` : '<p>Je regarde la position…</p>'}` };
-  const askB = `<button class="btn sm capask" data-act="askpos" title="${coachKey() ? 'Demande au coach de commenter cette position' : 'Copie la question pour la coller dans Claude'}">Coach</button>`;
+  const askB = `<button class="btn sm capask" data-act="askpos" title="${coachKey() ? 'Demande au coach de commenter cette position' : 'Copie la question pour la coller dans Claude'}">Coach</button>${playB(v)}`;
   const kindChip = (x) => `<span class="chip ${x.kind === 'gaffe' ? 'bad' : x.kind === 'erreur' ? 'warn' : ''}">${x.kind === 'gaffe' ? 'Gaffe' : x.kind === 'erreur' ? 'Erreur' : 'Imprécision'}</span>`;
   if (e) return { cls: 'ko', html: `<div class="capm"><span class="capn">Moment clé, coup ${moveNo(e)}</span>${kindChip(e)}<a class="btn pri sm gvwhy" href="#erreur/${g.t}/${e.ply}">Comprendre<span class="d-txt">cette erreur</span></a>${askB}</div><p>${explain(e)}</p>` };
   const dbB = a ? ' <button class="btn sm" data-act="dbgo" data-i="0">Débrief de la partie</button>' : '';
@@ -1589,6 +1858,11 @@ function gvMoves(v) {
     if (i % 2 === 1 || i === mv.length - 1) h += (i % 2 === 1 ? note(errAt[i - 1]) : '') + note(errAt[i]);
   });
   return h;
+}
+// Elo estimé de la partie (insights.js) : repère personnel, d'après ta précision moyenne et ton classement moyen dans cette cadence.
+function perfChip(g, a) {
+  const ref = perfRef(S.data.games.filter((x) => x.tc === g.tc), S.an), e = gameRating(a.acc, ref);
+  return e ? `<span class="chip" title="Repère : ta précision moyenne (${ref.acc} %) vaut ton classement moyen (${ref.elo}) ; chaque point de précision en plus ou en moins compte pour 25 points.">Jouée comme un ${e}</span>` : '';
 }
 // ---------- Idées de plan : sur une position calme de tes parties, choisir la bonne idée (ideas.js) ----------
 function ideaPool() { return ideaPositions(S.data.games.filter((g) => g.tc === targetTc()), S.an).sort((a, b) => b.g.t - a.g.t || b.e.ply - a.e.ply); }
@@ -1698,7 +1972,7 @@ function viewPartie(t, plyArg) {
     wrap: 'gv',
     rail: a ? `<div class="evbar ${g.w ? '' : 'flip'}" id="gvev" aria-hidden="true" style="--ev:${evalShare(a.ev[v.k])}"><i></i></div>` : '',
     cap: cap.html, capClass: cap.cls,
-    panel: `${a ? `<div class="row gvsum"><span class="chip bad">${pl(a.errs.filter((x) => x.kind === 'gaffe').length, 'gaffe')} ??</span><span class="chip warn">${pl(a.errs.filter((x) => x.kind === 'erreur').length, 'erreur')} ?</span><span class="chip">${pl(a.errs.filter((x) => x.kind === 'imprecision').length, 'imprécision')} ?!</span><span class="chip good">Précision ${a.acc?.toFixed(0)} %</span><button class="btn sm" data-act="dbgo" data-i="0">Débrief</button></div>
+    panel: `${a ? `<div class="row gvsum"><span class="chip bad">${pl(a.errs.filter((x) => x.kind === 'gaffe').length, 'gaffe')} ??</span><span class="chip warn">${pl(a.errs.filter((x) => x.kind === 'erreur').length, 'erreur')} ?</span><span class="chip">${pl(a.errs.filter((x) => x.kind === 'imprecision').length, 'imprécision')} ?!</span><span class="chip good">Précision ${a.acc?.toFixed(0)} %</span>${perfChip(g, a)}<button class="btn sm" data-act="dbgo" data-i="0">Débrief</button></div>
       <div class="gvch"><p class="small">Tes chances de gain. Points rouges : gaffes, orange : erreurs. Touche la courbe pour aller au coup.</p><div class="chart" id="evc"></div></div>`
     : `<div class="card"><p class="sub">Cette partie n’est pas encore analysée.</p><div><button class="btn pri" data-act="analyse1" ${S.job.running ? 'disabled' : ''}>${S.job.running ? 'Analyse en cours' : 'Analyser cette partie'}</button></div></div>`}
       <div class="gvm" id="gvm">${gvMoves(v)}</div>
@@ -1756,7 +2030,7 @@ function gvVarCap(v) {
   let evalP = '<span class="small">éval…</span>';
   if (over) evalP = `<span class="chip">${over}</span>`;
   else if (e) { const b = e.best ? uciMove(new Chess(w.fens[i]), e.best) : null; evalP = `<span class="small">éval ${fmtEval(v.g.w ? e.cp : -e.cp)}</span>${b ? `<span class="capbest">Meilleur <b>${fr(b.san)}</b></span>` : ''}`; }
-  return { cls: 'var', html: `<div class="capm"><span class="capn">Variante</span>${evalP}</div><div class="moves vline">${line || '<span class="small">Aucun coup encore</span>'}</div><p>${esc(txtK)}</p>` };
+  return { cls: 'var', html: `<div class="capm"><span class="capn">Variante</span>${evalP}${playB(v)}</div><div class="moves vline">${line || '<span class="small">Aucun coup encore</span>'}</div><p>${esc(txtK)}</p>` };
 }
 function gvVarBar(v) {
   const w = v.var, i = w.i, n = w.mv.length;
@@ -1818,6 +2092,8 @@ function viewExos() {
     const h = hist.filter((x) => x.type === k), last = h[h.length - 1];
     return `<a class="mrow" href="#drill/${k}"><span class="mico">${h.length ? Math.round((100 * last.ok) / last.n) + '%' : ico('play')}</span><span class="stepc"><b>${d.t}</b><span>${d.d}${h.length ? ` · ${pl(h.length, 'série')}` : ''}</span></span><span class="chev" aria-hidden="true">›</span></a>`;
   }).join('')}
+  <a class="mrow" href="#rush"><span class="mico">${ico('bolt')}</span><span class="stepc"><b>Rush</b><span>Les mêmes questions à la chaîne, contre la montre ou en survie</span></span><span class="chev" aria-hidden="true">›</span></a>
+  <a class="mrow" href="#finales"><span class="mico">${ico('king')}</span><span class="stepc"><b>Finales de base</b><span>Mater, faire dame, tenir la nulle contre le moteur · ${ENDGAMES.length} positions</span></span><span class="chev" aria-hidden="true">›</span></a>
   <a class="mrow" href="#gagner"><span class="mico">${ico('play')}</span><span class="stepc"><b>Gagner les parties gagnées</b><span>Reprends une partie où tu avais +5 et va jusqu’au mat contre le moteur · ${pl(cvList().length, 'partie')}</span></span><span class="chev" aria-hidden="true">›</span></a></div>`;
 }
 function viewDrill(type) {
@@ -1887,6 +2163,7 @@ function entNext() {
   return { kind: 'dr' };
 }
 function viewEntrainer() {
+  const egDue = progress.endgamesDue(ENDGAMES.map((e) => e.id)).length;
   const n = entNext(), d = pzDay(), due = progress.linesDue(allLineKeys()), cv = cvList().length, nh = progress.hist().length;
   const les = session().steps.find((x) => x.k === 'les');
   let hero;
@@ -1907,7 +2184,9 @@ function viewEntrainer() {
     ${n.kind === 'pz' ? '' : tile('#puzzles', 'tgt', 'Puzzles sur mes erreurs', 'Tes propres fautes, à corriger', d.due ? `${d.due} en attente` : '', '--c-train')}
     ${tile('#exos', 'clock', 'Échauffements', 'Vérifier avant de jouer, 2 minutes', '', '--c-train')}
     ${tile(due.length ? lineHref(due[0]) : '#ouvertures/apprendre', 'lines', 'Réciter mes lignes', 'Tes ouvertures, de mémoire', due.length ? `${due.length} à réviser` : '', '--c-learn')}
+    ${tile('#rush', 'bolt', 'Rush', 'Vérifier vite, contre la montre', progress.rushBest().t3 ? 'Record : ' + progress.rushBest().t3 : '', '--c-train')}
     ${tile('#gagner', 'flag', 'Finir les parties gagnées', 'Convertir l’avantage contre le moteur', cv ? pl(cv, 'partie') : '', '--c-train')}
+    ${tile('#finales', 'king', 'Finales de base', 'Mater, faire dame, tenir la nulle', egDue ? `${egDue} à refaire` : '', '--c-train')}
     ${tile('#inedits', 'spark', 'Positions inédites', 'Puzzles neufs sur ton chantier', '', '--c-train')}
     ${tile('#idees', 'bulb', 'Idées de plan', 'Choisir le bon plan dans tes positions calmes', '', '--c-train')}
   </div>
@@ -1990,7 +2269,7 @@ function viewPlan() {
 // ---------- État de l'écran, conservé quand on quitte ou recharge la page ----------
 function keepUi() {
   if (!S.data) return;
-  ls.set('ui', { d: dkey(), pz: S.pz, cl: S.cl, cv: S.cv && !S.cv.over ? S.cv : null, dr: S.dr && S.dr.i < S.dr.items.length ? S.dr : null, li: S.li?.cur && !S.li.counted ? { cur: S.li.cur, failed: !!S.li.failed, replay: !!S.li.replay } : null });
+  ls.set('ui', { d: dkey(), pz: S.pz, cl: S.cl, cv: S.cv && !S.cv.over ? S.cv : null, fg: S.fg && !S.fg.over ? S.fg : null, jp: S.jp && !S.jp.over ? S.jp : null, dr: S.dr && S.dr.i < S.dr.items.length ? S.dr : null, li: S.li?.cur && !S.li.counted ? { cur: S.li.cur, failed: !!S.li.failed, replay: !!S.li.replay } : null });
 }
 function restoreUi() {
   const u = ls.get('ui', null); if (!u) return;
@@ -1998,6 +2277,8 @@ function restoreUi() {
   if (u.pz) S.pz = same ? u.pz : { ...u.pz, free: false, redo: [], show: null }; // un nouveau jour repart de la file normale
   S.cl = u.cl || null;
   S.cv = u.cv || null;
+  S.fg = u.fg || null;
+  S.jp = u.jp || null;
   if (same) S.dr = u.dr || null;
   S.liKeep = u.li || null;
 }
@@ -2036,13 +2317,14 @@ function render(keepScroll) {
   document.querySelectorAll('#nav a').forEach((x) => { const h = x.getAttribute('href'); x.classList.toggle('on', x.dataset.grp ? x.dataset.grp.split(' ').includes(navKey) : h === here || (h === '#' + r && r !== 'ouvertures' && !x.dataset.fill)); });
   if (!S.data) { v.innerHTML = viewWelcome(); exo.attach(); header(); const f = $('#wf'); f.onsubmit = (ev) => { ev.preventDefault(); const u = $('#wu').value.trim(); if (u) doImport(u); }; return; }
   if (r !== 'partie') S.gv = null;
+  if (r !== 'rush') clearInterval(rushTimer);
   if (r !== 'drill' && S.dr && S.dr.i >= S.dr.items.length) S.dr = null; // une série en cours se reprend, une série finie repart de zéro
-  const html = r === 'idees' ? viewIdees() : r === 'avantpartie' ? viewAvant() : r === 'puzzles' ? viewPuzzles() : r === 'erreur' ? viewPuzzles([a, b]) : r === 'entrainer' ? viewEntrainer() : r === 'historique' ? viewHistory() : r === 'exos' ? viewExos() : r === 'inedits' ? viewInedits() : r === 'drill' ? viewDrill(a) : r === 'cours' ? (a ? viewLecon(a, b) : viewCours()) : r === 'ouvertures' ? (a === 'apprendre' ? viewApprendre() : a ? viewOpening(a) : viewOuvertures()) : r === 'monouv' ? viewMonOuv(a, b) : r === 'ligne' ? viewLigne(a, b, c) : r === 'parties' ? viewParties() : r === 'partie' ? viewPartie(a, b) : r === 'plan' ? viewPlan() : r === 'bilan' ? viewBilan() : r === 'stats' ? viewStats(S) : r === 'gagner' ? viewGagner(a) : viewAccueil();
+  const html = r === 'idees' ? viewIdees() : r === 'avantpartie' ? viewAvant() : r === 'puzzles' ? viewPuzzles() : r === 'erreur' ? viewPuzzles([a, b]) : r === 'entrainer' ? viewEntrainer() : r === 'historique' ? viewHistory() : r === 'exos' ? viewExos() : r === 'inedits' ? viewInedits() : r === 'drill' ? viewDrill(a) : r === 'cours' ? (a ? viewLecon(a, b) : viewCours()) : r === 'ouvertures' ? (a === 'apprendre' ? viewApprendre() : a ? viewOpening(a) : viewOuvertures()) : r === 'monouv' ? viewMonOuv(a, b) : r === 'ligne' ? viewLigne(a, b, c) : r === 'parties' ? viewParties() : r === 'partie' ? viewPartie(a, b) : r === 'plan' ? viewPlan() : r === 'bilan' ? viewBilan() : r === 'stats' ? viewStats(S) : r === 'gagner' ? viewGagner(a) : r === 'jouer' ? viewJouer(a, b) : r === 'finales' ? viewFinales() : r === 'finale' ? viewFinale(a) : r === 'rush' ? viewRush(a) : viewAccueil();
   v.innerHTML = html;
   exo.attach(); // avant de créer les échiquiers : ils naissent à leur taille définitive
   if (r === 'puzzles' || r === 'erreur') { mountPuzzle(); const s = $('#pzt'); if (s) s.onchange = () => { S.pz.theme = s.value; S.pz.cur = null; S.pz.show = null; render(); }; }
   else if (r === 'cours' && a) mountLecon();
-  else if (r === 'ouvertures' && !a) board($('#exb'), { fen: S.exFen, orientation: S.white ? 'white' : 'black', viewOnly: true });
+  else if (r === 'ouvertures' && !a) { board($('#exb'), { fen: S.exFen, orientation: S.white ? 'white' : 'black', viewOnly: true }); lexpLoad(S.exFen); }
   else if (r === 'ouvertures' && a !== 'apprendre') mountOpening();
   else if (r === 'monouv') mountMonOuv();
   else if (r === 'ligne') mountLigne();
@@ -2050,6 +2332,9 @@ function render(keepScroll) {
   else if (r === 'drill') mountDrill();
   else if (r === 'inedits') mountInedits();
   else if (r === 'gagner') mountGagner();
+  else if (r === 'jouer') mountJouer();
+  else if (r === 'finale') mountFinale();
+  else if (r === 'rush') mountRush();
   else if (r === 'idees') mountIdees();
   else if (r === 'stats') mountStats(S);
   else if (r === 'plan') {
@@ -2149,10 +2434,19 @@ document.addEventListener('click', (ev) => {
   else if (act === 'analyse') runAnalysis(20);
   else if (act === 'analyse1') runAnalysis(1, S.gv.g);
   else if (act === 'stattc') { S.statTc = el.dataset.tc; render(true); }
+  else if (act === 'rushagain') { S.rush = null; render(); }
+  else if (act === 'playhere') {
+    const v = S.gv; if (!v) return;
+    if (v.var) { const w = v.var, m = w.mv[w.i - 1] || v.mv[w.k0 - 1]; S.jp = { t: v.g.t, k: 'v', from: w.k0 + w.i, fen: w.fens[w.i], last: m ? [m.from, m.to] : undefined, moves: [], over: null }; location.hash = `#jouer/${v.g.t}/v`; }
+    else { S.jp = null; location.hash = `#jouer/${v.g.t}/${v.k}`; }
+  }
   else if (act === 'back') {
     const r = route()[0];
     if (r === 'erreur') { if (history.length > 1) history.back(); else location.hash = '#puzzles'; }
     else if (r === 'gagner') location.hash = route()[1] ? '#gagner' : '#exos';
+    else if (r === 'jouer') location.hash = '#partie/' + route()[1];
+    else if (r === 'finale') location.hash = '#finales';
+    else if (r === 'rush') location.hash = route()[1] ? '#rush' : '#entrainer';
     else if (r === 'ligne') location.hash = '#ouvertures/' + route()[1];
     else if (r === 'ouvertures') location.hash = '#ouvertures/apprendre';
     else if (r === 'monouv') location.hash = '#ouvertures';

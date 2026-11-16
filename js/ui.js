@@ -26,6 +26,8 @@ const IC = {
   book: `<path d="M4 5.500C6.500 4.500 9.500 4.500 12 6c2.500-1.500 5.500-1.500 8-.5V19c-2.500-1-5.500-1-8 .5-2.500-1.500-5.500-1.500-8-.5z M12 6v13.500" ${LT}/>`,
   tree: `<circle cx="6" cy="5" r="2" ${LT}/><circle cx="6" cy="19" r="2" ${LT}/><circle cx="18" cy="12" r="2" ${LT}/><path d="M6 7v10M6 12h3a4 4 0 0 0 4-4V7.500M13 12h3" ${LT}/>`,
   log: `<path d="M7 3h10v18H7zM10 8h4M10 12h4M10 16h2" ${LT}/>`,
+  bolt: `<path d="M13 2L5 13.500h6L10 22l8-11.500h-6z" ${LT}/>`,
+  king: `<path d="M12 2.500v4M10 4.500h4M7 21h10M8 17.500h8l1-6.500a5 5 0 0 0-10 0z" ${LT}/>`,
   // Haut-parleur (sons activés) et haut-parleur barré (sons coupés)
   snd: `<path d="M4 9.5h3.500L12 5.500v13L7.500 14.500H4z" fill="currentColor"/><path d="M15.500 9a4 4 0 0 1 0 6M18 6.500a7.500 7.500 0 0 1 0 11" ${LN}/>`,
   mute: `<path d="M4 9.5h3.500L12 5.500v13L7.500 14.500H4z" fill="currentColor"/><path d="M16 9.500l5 5M21 9.500l-5 5" ${LN}/>`,
