@@ -106,6 +106,10 @@ Idées non faites : import des parties Lichess, comptes et synchronisation (la s
 - Pas de synchronisation entre appareils : analyses, cours et progression sont locaux. Transfert possible par fichier (Coach > Plan et réglages ou Plus > Sauvegarde).
 - Dépôt public : ne jamais y écrire de clé, d'e-mail ni de donnée personnelle.
 
+## Skills et plugins Claude Code
+
+Déclarés dans `.claude/settings.json` (chargés à chaque session sur ce dépôt) : `superpowers` (TDD, débogage méthodique, plans, vérification avant de terminer), `mattpocock-skills` (pratiques d'ingénierie), `frontend-design` (Anthropic) et `hallmark` (design d'interface soigné). Les règles de ce fichier et de `docs/REFONTE.md` priment sur celles des skills. Commandes intégrées utiles avant publication : `/code-review`, `/simplify`.
+
 ## Tester
 
 ```bash
