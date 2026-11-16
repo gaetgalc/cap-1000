@@ -23,7 +23,7 @@ Site statique sans build, servi par GitHub Pages depuis `main` (racine). Tout to
 
 | Fichier | Rôle |
 |---|---|
-| `index.html` | Coquille, navigation (onglet « Coach » = `#accueil`, `#bilan` et `#plan`, reliés par les sous-onglets `COACH_TABS` ; sur ordinateur, entrée « Leçons » qui ouvre au survol un volet Puzzles / Cours / Ouvertures : `.grp`, `.fly` ; sur téléphone, le volet s'efface et ses liens restent dans la barre du bas) |
+| `index.html` | Coquille, navigation (sur ordinateur, entrée « Coach » qui ouvre au survol un volet Séance du jour `#accueil` / Mon jeu `#bilan` / Plan et réglages `#plan`, sans sous-onglets dans les pages ; sur téléphone, « Coach » mène à l'accueil et Mon jeu / Plan sont dans « Plus » ; entrée « Leçons » qui ouvre au survol un volet Puzzles / Cours / Ouvertures : `.grp`, `.fly` ; sur téléphone, le volet s'efface et ses liens restent dans la barre du bas) |
 | `css/app.css` | Thème unique sombre, jetons dans `:root` |
 | `js/app.js` | État `S`, routage par hash, toutes les vues, événements |
 | `js/ui.js` | Aides d'affichage sans état : `$`, `esc`, formats, icônes `ico()`, bulle du coach, barre victoires/nulles/défaites |
@@ -84,9 +84,9 @@ Mise en page (CSS `body.fit`) : `.bwrap` (échiquier + bandeau) et `.fitside` (`
 - Changer un seuil ou un thème : modifier `classify.js`, augmenter `VERSION`, ajouter le cas dans `tests/classify.test.mjs`. À l'ouverture du site, `reclassify()` reclasse les parties déjà évaluées sans relancer Stockfish.
 - Les analyses d'avant le 15/11 n'ont pas de données brutes (`pv` absent) : `autoAnalyse()` les réévalue une fois en arrière-plan, après les nouvelles parties. L'ancienne analyse reste en place tant que la nouvelle n'est pas prête.
 
-## Accueil (`viewAccueil`, refait le 15/11)
+## Accueil (`viewAccueil`, refait le 15/11, sans défilement depuis le 16/11)
 
-Une seule décision par écran, dans cet ordre : objectif sur une ligne (`goalStrip`), séance du jour avec un seul bouton principal sur l'étape en cours et les 4 étapes en barre cliquable (`sessionCard`), chantier en 3 lignes (`focusMini`), dernière partie de la cadence suivie avec sa pire faute et deux boutons « Voir ce que j'ai joué » / « Rejouer l'erreur » (`lastGameCard`), liens rapides. Tout le détail chiffré est dans « Mon jeu » (`viewBilan`, `mountBilan`) ; le Plan ne garde que la semaine et les réglages. Ne pas rajouter de bloc d'analyse sur l'accueil : il va dans « Mon jeu ».
+La page ne défile jamais (`body.homefit`, posé par `header()`), aux 4 tailles de contrôle. Contenu : objectif sur une ligne (`goalStrip`), séance du jour avec un seul bouton principal sur l'étape en cours (`sessionCard` ; téléphone : barre des 4 étapes cliquables ; ordinateur : programme des 4 étapes sous le bouton), chantier en 3 lignes qui mène à Mon jeu (`focusMini`), dernière partie de la cadence suivie avec sa pire faute et deux boutons « Voir ce que j'ai joué » / « Rejouer l'erreur » (`lastGameCard`). Ordinateur : séance à gauche, chantier et dernière partie à droite, centré en hauteur. Tout ajout doit garder la page sans défilement en 390 × 664. Tout le détail chiffré est dans « Mon jeu » (`viewBilan`, `mountBilan`) ; le Plan ne garde que la semaine et les réglages. Ne pas rajouter de bloc d'analyse sur l'accueil : il va dans « Mon jeu ».
 
 ## Boucle pédagogique
 

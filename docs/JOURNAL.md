@@ -270,6 +270,18 @@ Fait : `tests/fixture.js` (parties simulées communes, sorties de `parcours.js`)
 
 Non fait : le script de contrôle du skill (`gate.mjs`) et son tirage de polices (`start.mjs`) n'ont pas pu être lancés dans l'environnement de Claude ; la table de polices a été lue directement.
 
+## 25. Accueil sans défilement, Coach en menu déroulant (16/11)
+
+> je veux que les 3 toggle en haut aille dans le menu déroulant à gauche. je veux une homepage non scrollable avec les principales infos à avoir de manière épurée et claire
+
+Fait :
+- Les sous-onglets Séance du jour / Mon jeu / Plan et réglages disparaissent du haut des pages. Sur ordinateur, ils s'ouvrent au survol de « Coach » dans la colonne de gauche, comme le volet « Leçons ». Sur téléphone, « Coach » mène à l'accueil ; Mon jeu et Plan et réglages sont en tête de « Plus ».
+- Accueil sans défilement à toutes les tailles : objectif sur une ligne, séance, chantier, dernière partie. Liens rapides supprimés (la navigation les porte déjà).
+- Ordinateur : deux colonnes centrées en hauteur. À gauche la séance, avec sous le bouton le programme des 4 étapes et leur état ; à droite le chantier (clic : Mon jeu) et la dernière partie.
+- Téléphone : titres de carte retirés pour tenir en 390 × 664 (« Chantier : … » en une ligne, « Voir mon coup » au lieu de « Voir ce que j'ai joué »). Contenu fini 28 px au-dessus de la barre du bas.
+
+Écart avec `docs/REFONTE.md` (plan du 15/11 d'une autre session) : il prévoyait « pas de volet au survol ». La demande de Gaëtan du 16/11 prime ; à reprendre à l'étape 3 de la refonte (navigation).
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |
