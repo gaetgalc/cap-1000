@@ -145,7 +145,7 @@ Le test génère des parties par coups semi-aléatoires au format Chess.com, int
 - `data-act` = actions globales (navigation, analyse…), `data-x` = actions de l'exercice affiché (indice, solution, lecture d'une suite ; enregistrées par `X.on`), `data-f` = filtres et sélecteurs, `data-mini` = mini-échiquiers des fiches.
 - Ne jamais écrire `.bwrap`, `.fitside` ou une barre d'actions à la main dans une vue : passer par `exo.screen`. Ne pas garder de poignée d'écran dans `S` : elle vit dans la fermeture du montage.
 - Les analyses marquées `bad` (partie illisible) sont exclues de toutes les statistiques.
-- Relecture de partie : `gvGo(k)` met l'écran à jour sur place (`gvSync`), sans `render()`.
+- Relecture de partie : `gvGo(k)` met l'écran à jour sur place (`gvSync`), sans `render()`. L'échiquier se joue librement (les deux camps, demande du 16/11, « comme Chess.com ») : le coup de la partie avance d'un coup, un autre coup ouvre une variante `S.gv.var` (`{ k0, mv, fens, i, ev }`, `gvMove`), évaluée à la demande par `S.play` (`gvVarEval`, flèche verte du meilleur coup), parcourue par `vgo` / flèches du clavier, quittée par « Revenir à la partie », Échap ou tout clic sur un coup de la partie. Clic droit : flèches et cases dessinées.
 - Profondeur d'analyse unique (`DEPTH = 12`) sur tous les appareils.
 - Ne jamais modifier une règle de classement sans augmenter `VERSION` dans `classify.js` : sinon les parties déjà analysées gardent l'ancien classement.
 - `Engine.evalFen(fen, depth, urgent)` : `urgent` fait passer la vérification d'un coup devant les calculs de suites.

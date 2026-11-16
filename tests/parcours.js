@@ -92,6 +92,24 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   check(/Meilleur /.test(await bar('#xcap')) || (await shapes()).err, 'relecture : le bandeau nomme le meilleur coup');
   check(await page.locator('#xb svg.cg-shapes g, #xb svg g').count() > 0, 'relecture : la flèche est dessinée sur l’échiquier');
 
+  // ---- Relecture : l'échiquier se joue, un autre coup ouvre une variante évaluée ----
+  await page.click('#xbar [aria-label="Début"]'); await sleep(300);
+  const gw = await S(() => window.__cap.gv.g.w);
+  const alt0 = await S(() => { const v = window.__cap.gv, real = v.mv[0]; return new Chess(v.fens[0]).moves({ verbose: true }).find((x) => x.from + x.to !== real.from + real.to); });
+  const real0 = await S(() => window.__cap.gv.mv[0]);
+  await tap('#xb', real0.from, gw); await sleep(150); await tap('#xb', real0.to, gw); await sleep(400);
+  check(await S(() => window.__cap.gv.k === 1 && !window.__cap.gv.var), 'relecture : jouer le coup de la partie avance d’un coup');
+  await page.click('#xbar [aria-label="Coup précédent"]'); await sleep(300);
+  await tap('#xb', alt0.from, gw); await sleep(150); await tap('#xb', alt0.to, gw); await sleep(400);
+  check(await S(() => window.__cap.gv.var?.mv.length === 1) && /Variante/.test(await bar('#xcap')) && /Revenir à la partie/.test(await bar('#xbar')), 'relecture : un autre coup ouvre une variante');
+  await page.waitForFunction(() => /éval [-+0-9M]/.test(document.querySelector('#xcap')?.textContent || ''), null, { timeout: 15000 }).catch(() => {});
+  check(/éval [-+0-9M]/.test(await bar('#xcap')), 'relecture : la variante est évaluée par le moteur');
+  const rep = await S(() => new Chess(window.__cap.gv.var.fens[1]).moves({ verbose: true })[0]);
+  await tap('#xb', rep.from, gw); await sleep(150); await tap('#xb', rep.to, gw); await sleep(400);
+  check(await S(() => window.__cap.gv.var?.mv.length === 2), 'relecture : l’autre camp se joue aussi dans la variante');
+  await page.click('#xbar [data-act="vexit"]'); await sleep(300);
+  check(await S(() => !window.__cap.gv.var && window.__cap.gv.k === 0), 'relecture : retour à la partie au coup de départ');
+
   // ---- Gagner les parties gagnées ----
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#gagner`); await sleep(500);
   const firstCv = await S(() => document.querySelector('#view .menu a.mrow')?.getAttribute('href'));

@@ -220,6 +220,8 @@ textarea { font: var(--t-xs)/1.4 ui-monospace, Menlo, monospace; color: var(--in
 .cap.ko { border-top-color: var(--bad); background: var(--bad-soft); }
 .cap p { margin: 0; } .cap .dot { display: inline-block; margin-right: 6px; vertical-align: -1px; }
 .cap b.ok { color: var(--good); } .cap b.ko { color: var(--bad); }
+.cap.var { border-top-color: var(--accent); }
+.cap .vline { flex: none; max-height: 64px; }
 .capm { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .capn { font: 600 var(--t-m) var(--display); display: inline-flex; align-items: center; gap: 6px; }
 .verdict { font-size: var(--t-s); color: var(--ink2); }
