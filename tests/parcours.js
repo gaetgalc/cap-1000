@@ -30,6 +30,10 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   check(await S(() => document.querySelectorAll('.home .stepper li').length === 4 && document.querySelectorAll('.home .btn.pri').length === 1 && !!document.querySelector('.gstrip') && !!document.querySelector('.lgame a[href^="#erreur/"]')), 'accueil : objectif, séance à un seul bouton, dernière partie avec son erreur');
   check(await S(() => document.documentElement.scrollHeight <= innerHeight && document.querySelector('.lgame').getBoundingClientRect().bottom <= document.querySelector('#nav').getBoundingClientRect().top), 'accueil : rien ne défile, tout est au-dessus de la barre du bas');
   // Navigation à 4 entrées (16/11) : chaque entrée ouvre un volet de ses pages ; sur téléphone, le premier appui ouvre, le second ferme
+  await page.click('.lgame [data-act="lgnav"][data-d="1"]'); await sleep(300);
+  check(await S(() => window.__cap.lg === 1 && !!document.querySelector('.lgame [data-act="lgnav"][data-d="-1"]:not([disabled])')), 'dernière partie : la flèche remonte à la gaffe précédente, et l’autre flèche revient');
+  check(await S(() => { const c = document.querySelector('.lgame .lgerr .chip'); return !c || /^(Gaffe( \d+ sur \d+)?|Erreur)$/.test(c.textContent); }), 'dernière partie : la pastille dit « Gaffe 2 sur 3 » quand la partie en a plusieurs');
+  await page.click('.lgame [data-act="lgnav"][data-d="-1"]'); await sleep(300);
   check(/dernières parties/.test(await bar('.brief .bdiag')) && /Objectif|Joue et analyse/.test(await bar('.brief .fnums')), 'accueil : le mot du coach donne un diagnostic chiffré et un objectif');
   await page.setViewportSize({ width: 390, height: 664 }); await sleep(300);
   check(await S(() => document.querySelector('.lgbtn').getBoundingClientRect().bottom <= document.querySelector('#nav').getBoundingClientRect().top), 'accueil en 390 × 664 : les boutons de la dernière partie restent au-dessus de la barre du bas');

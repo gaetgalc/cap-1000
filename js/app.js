@@ -11,7 +11,7 @@ import { $, esc, dfmt, TC, HOW, coach, txt, pl, f1, ico, wdl, WDL_LEGEND, setHtm
 import { lineChart } from './charts.js';
 import { progress, DAY } from './progress.js';
 import { board, destroyBoards, destsOf, arrow, errShapes, REDUCED } from './board.js';
-import { moveMark, evalShare, errStep } from './review.js';
+import { moveMark, evalShare, errStep, gaffeTrail } from './review.js';
 import * as exo from './exercise.js';
 import { LI_ANGLES, LI_FOR, LI_DIFF, fetchPuzzle } from './lichess.js';
 import { DRILLS, DRILL_FOR, makeRound } from './drills.js';
@@ -1138,22 +1138,25 @@ function briefCard(fc, steps) {
 }
 // Dernière partie de la cadence suivie : résultat et pire faute, à revoir ou à rejouer en un clic.
 // Dernière partie de la cadence suivie : résultat et pire faute, à revoir ou à rejouer en un clic.
+// Fil des gaffes (review.gaffeTrail) : flèches pour remonter dans les parties, une gaffe par clic ; « Gaffe 2 sur 3 »
+// quand une partie en a plusieurs. S.lg : étape affichée (0 = la plus récente).
 function lastGameCard() {
-  const tc = targetTc(), l = S.data.games.filter((g) => g.tc === tc);
-  const g = l[l.length - 1] || S.data.games[S.data.games.length - 1];
-  if (!g) return '';
-  const a = S.an[g.id], out = g.out === 'W' ? ['good', 'Victoire'] : g.out === 'L' ? ['bad', 'Défaite'] : ['', 'Nulle'];
-  const e = a && !a.bad ? a.errs.filter((x) => x.kind !== 'imprecision' && x.best).sort((x, y) => y.drop - x.drop)[0] : null;
-  const body = !a ? `${S.job.running ? skel('Analyse en cours', 80, 55) : '<span class="sub">Pas encore analysée.</span>'}<div class="row"><a class="btn" href="#partie/${g.t}">Revoir la partie</a></div>`
-    : a.bad ? '<span class="sub">Partie illisible pour l’analyse.</span>'
-    : !e ? `<span class="sub">Aucune gaffe ni erreur grave${a.acc != null ? `, précision ${a.acc.toFixed(0)} %` : ''}.</span><div class="row"><a class="btn" href="#partie/${g.t}">Revoir la partie</a></div>`
-    : `<span class="lgerr"><span class="chip ${e.kind === 'gaffe' ? 'bad' : 'warn'}">${e.kind === 'gaffe' ? 'Gaffe' : 'Erreur'}</span><span>Coup ${moveNo(e)} : <b>${esc(fr(e.played))}</b>, il fallait <b>${esc(fr(e.bestSan))}</b></span></span>`;
-  const head = `<span class="htitle"><span class="chip ${out[0]}">${out[1]}</span> contre ${esc(g.opp)} <span class="sub">(${g.or}), ${g.w ? 'Blancs' : 'Noirs'}</span></span>`;
-  // Ordinateur : la position de la pire faute, coup joué en rouge (la solution reste à trouver dans « Rejouer l'erreur »).
+  const trail = gaffeTrail(S.data.games, S.an, targetTc());
+  if (!trail.length) return '';
+  const k = Math.max(0, Math.min(trail.length - 1, S.lg || 0)), { g, e, i, n, pending } = trail[k], a = S.an[g.id];
+  const out = g.out === 'W' ? ['good', 'Victoire'] : g.out === 'L' ? ['bad', 'Défaite'] : ['', 'Nulle'];
+  const body = pending ? (S.job.running ? skel('Analyse en cours', 80, 55) : '<span class="sub">Pas encore analysée.</span>')
+    : !e ? `<span class="sub">Aucune gaffe ni erreur grave${a.acc != null ? `, précision ${a.acc.toFixed(0)} %` : ''}.</span>`
+    : `<span class="lgerr"><span class="chip ${e.kind === 'gaffe' ? 'bad' : 'warn'}">${e.kind !== 'gaffe' ? 'Erreur' : n > 1 ? `Gaffe ${i} sur ${n}` : 'Gaffe'}</span><span>Coup ${moveNo(e)} : <b>${esc(fr(e.played))}</b>, il fallait <b>${esc(fr(e.bestSan))}</b></span></span>`;
+  const head = `<span class="htitle"><span class="chip ${out[0]}">${out[1]}</span> contre ${esc(g.opp)} <span class="sub">(${g.or}), ${g.w ? 'Blancs' : 'Noirs'}<span class="m-only-i">, ${dfmt(g.t)}</span></span></span>`;
+  // Ordinateur : la position de la faute, coup joué en rouge (la solution reste à trouver dans « Rejouer l'erreur »).
   const pos = e ? `<a class="lgpos d-only" href="#partie/${g.t}/${e.ply}" aria-label="Position avant ${esc(fr(e.played))}"><span class="board" id="lgb" data-t="${g.t}" data-ply="${e.ply}"></span></a>` : '';
-  const btns = !e ? '' : `<div class="lgbtn"><a class="btn" href="#partie/${g.t}/${e.ply}"><span class="d-only">Voir ce que j’ai joué</span><span class="m-only">Voir mon coup</span></a><a class="btn" href="#erreur/${g.t}/${e.ply}">Rejouer l’erreur</a></div>`;
-  return `<section class="card lgame"><span class="hlab d-flex">Ta dernière partie<span class="small">${dfmt(g.t)}${a && !a.bad ? ` · <a href="#partie/${g.t}/d">Débrief</a>` : ''}</span></span>
-    ${e ? `<div class="lgrow">${pos}<div class="lgtxt">${head}${body}</div></div>${btns}` : head + body}</section>`;
+  const nav = (d, lab, icon) => `<button class="btn ico" data-act="lgnav" data-d="${d}" aria-label="${lab}" title="${lab}" ${k + d < 0 || k + d >= trail.length ? 'disabled' : ''}>${ico(icon)}</button>`;
+  const mid = e ? `<a class="btn" href="#partie/${g.t}/${e.ply}"><span class="d-only">Voir mon coup</span><span class="m-only">Mon coup</span></a><a class="btn" href="#erreur/${g.t}/${e.ply}"><span class="d-only">Rejouer l’erreur</span><span class="m-only">Rejouer</span></a>`
+    : `<a class="btn wide" href="#partie/${g.t}">Revoir la partie</a>`;
+  return `<section class="card lgame"><span class="hlab d-flex">${k ? `Partie du ${dfmt(g.t)}` : 'Ta dernière partie'}<span class="small">${k + 1} / ${trail.length}${!k ? ` · ${dfmt(g.t)}` : ''}${a && !a.bad ? ` · <a href="#partie/${g.t}/d">Débrief</a>` : ''}</span></span>
+    ${e ? `<div class="lgrow">${pos}<div class="lgtxt">${head}${body}</div></div>` : head + body}
+    <div class="lgbtn">${nav(1, 'Gaffe plus ancienne', 'prev')}${mid}${nav(-1, 'Gaffe plus récente', 'next')}</div></section>`;
 }
 // Mini-échiquier de la dernière partie : non interactif, créé seulement s'il est affiché (ordinateur).
 function mountAccueil() {
@@ -2212,6 +2215,7 @@ document.addEventListener('click', (ev) => {
   else if (act === 'dbgo') gvDb(+el.dataset.i);
   else if (act === 'dbend') gvGo(S.gv?.k ?? 0);
   else if (act === 'askpos') gvAsk();
+  else if (act === 'lgnav') { S.lg = Math.max(0, (S.lg || 0) + +el.dataset.d); render(true); }
   else if (act === 'selfck') { progress.recordSelf(el.dataset.id, el.dataset.v === '1'); render(true); }
   else if (act === 'askclose') { if (S.gv) { S.gv.ask = null; gvSync(); } }
   else if (act === 'vgo') gvVarGo(+el.dataset.i);

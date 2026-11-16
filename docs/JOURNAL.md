@@ -423,6 +423,12 @@ Vérifié : 90 tests unitaires (nouveaux : `ideas`, `program`, `portrait`, `theo
 
 Constat à trancher : le chantier choisi automatiquement est « Mauvais coup en milieu de partie » (thème `plan`, le plus vague), avec une règle générale.
 
+## 39. Remonter ses gaffes depuis l'accueil (16/11)
+
+> dans "tes dernières parties" je veux une flèche qui montre toutes les anciennes parties et les gaffes. un flèche une gaffe (débrouille toi pour montrer clairement si il y a plus d'une gaffe dans un match
+
+Carte « Ta dernière partie » : flèches de part et d'autre des deux boutons (‹ plus ancienne, › plus récente), une gaffe par clic, de la partie la plus récente à la plus ancienne (`review.gaffeTrail`, état `S.lg`). Plusieurs gaffes dans une partie : la pastille dit « Gaffe 2 sur 4 » (dans l'ordre de la partie). Partie sans gaffe : une seule étape, sa pire erreur ou « Aucune gaffe ». En-tête « Partie du 12/11 » et compteur « 4 / 49 » (ordinateur), date sous l'adversaire (téléphone). Libellés raccourcis pour tenir sur une ligne : « Voir mon coup » / « Rejouer l'erreur » (téléphone : « Mon coup » / « Rejouer »). Vérifié sur les vraies parties (49 étapes sur les 40 parties analysées), test de `gaffeTrail`, parcours, audit sans écart.
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |

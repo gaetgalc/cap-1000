@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 globalThis.Chess = createRequire(import.meta.url)('../vendor/chess.js').Chess;
-const { moveMark, evalShare, errStep } = await import('../js/review.js');
+const { moveMark, evalShare, errStep, gaffeTrail } = await import('../js/review.js');
 const { MATE } = await import('../js/classify.js');
 
 test('symbole : ?? gaffe, ? erreur, ?! imprécision, avec la couleur du site', () => {
@@ -45,4 +45,24 @@ test('erreur précédente ou suivante : positions des erreurs, sans boucler', ()
   assert.equal(errStep(plies, 5, -1), 4);
   assert.equal(errStep(plies, 4, -1), null);
   assert.equal(errStep([], 3, 1), null);
+});
+
+test('fil des gaffes (accueil) : de la plus récente partie à la plus ancienne, une étape par gaffe', () => {
+  const G = (t, tc = 'rapid') => ({ id: 'g' + t, t, tc });
+  const e = (ply, kind, drop = 20) => ({ ply, kind, drop, best: 'e2e4' });
+  const games = [G(1), G(2), G(3), G(4), G(5, 'blitz'), G(6)];
+  const an = {
+    g1: { errs: [e(30, 'gaffe')] },
+    g2: { errs: [e(40, 'gaffe'), e(12, 'gaffe'), e(20, 'erreur'), e(25, 'imprecision')] }, // 2 gaffes, dans l'ordre de la partie
+    g3: { errs: [e(10, 'erreur', 10), e(14, 'erreur', 30), e(16, 'imprecision')] },      // pas de gaffe : sa pire erreur
+    g4: { errs: [] },                                                                      // partie propre : une étape sans faute
+    g6: { bad: true },
+  };
+  const t = gaffeTrail(games, an, 'rapid');
+  assert.deepEqual(t.map((x) => [x.g.t, x.e?.ply ?? null, x.i, x.n]), [[4, null, 0, 0], [3, 14, 0, 0], [2, 12, 1, 2], [2, 40, 2, 2], [1, 30, 1, 1]]);
+});
+
+test('fil des gaffes : la partie la plus récente non analysée reste en tête', () => {
+  const t = gaffeTrail([{ id: 'a', t: 1, tc: 'rapid' }, { id: 'b', t: 2, tc: 'rapid' }], { a: { errs: [{ ply: 8, kind: 'gaffe', best: 'e2e4' }] } }, 'rapid');
+  assert.deepEqual(t.map((x) => [x.g.id, x.e?.ply ?? null, !!x.pending]), [['b', null, true], ['a', 8, false]]);
 });

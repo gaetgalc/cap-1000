@@ -26,3 +26,19 @@ export function errStep(plies, k, dir) {
   for (let i = plies.length - 1; i >= 0; i--) if (plies[i] < k) return plies[i];
   return null;
 }
+
+// Fil des gaffes de la carte « Ta dernière partie » (accueil) : parties de la cadence suivie, de la plus récente à la plus
+// ancienne ; une étape par gaffe (i sur n, dans l'ordre de la partie). Partie sans gaffe : une étape, sa pire erreur
+// (i = n = 0) ou rien (e = null). Partie la plus récente pas encore analysée : en tête (pending).
+export function gaffeTrail(games, an, tc) {
+  const gs = games.filter((g) => g.tc === tc).sort((a, b) => b.t - a.t), out = [];
+  gs.forEach((g, k) => {
+    const a = an[g.id];
+    if (!a) { if (k === 0) out.push({ g, e: null, i: 0, n: 0, pending: true }); return; }
+    if (a.bad) return;
+    const gaffes = a.errs.filter((x) => x.kind === 'gaffe' && x.best).sort((x, y) => x.ply - y.ply);
+    if (gaffes.length) gaffes.forEach((e, j) => out.push({ g, e, i: j + 1, n: gaffes.length }));
+    else out.push({ g, e: a.errs.filter((x) => x.kind === 'erreur' && x.best).sort((x, y) => y.drop - x.drop)[0] || null, i: 0, n: 0 });
+  });
+  return out;
+}
