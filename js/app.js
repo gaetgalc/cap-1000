@@ -7,7 +7,7 @@ import * as st from './stats.js';
 import { LESSONS, ENGINE_LESSONS, RULES } from './lessons.js';
 import { viewStats, mountStats } from './alltime.js';
 import { fr, settle, buildLine, insight, hintFor, lastMoveText, moveText, material, describeAt, justPlayed } from './explain.js';
-import { $, esc, dfmt, TC, HOW, coach, txt, pl, f1, ico, wdl, WDL_LEGEND } from './ui.js';
+import { $, esc, dfmt, TC, HOW, coach, txt, pl, f1, ico, wdl, WDL_LEGEND, setHtml } from './ui.js';
 import { lineChart } from './charts.js';
 import { progress, DAY } from './progress.js';
 import { board, destroyBoards, destsOf, arrow, errShapes } from './board.js';
@@ -17,6 +17,7 @@ import { DRILLS, DRILL_FOR, makeRound } from './drills.js';
 import { OPENINGS, GROUPS, byId, lineKey, movesOf, matchGame } from './openings.js';
 import { MODELS, coachKey, coachModel, facts, genLesson, askCoach, buildPrompt, parseLesson } from './coach.js';
 import * as backup from './backup.js';
+import { toast } from './toast.js';
 
 const DEPTH = 12; // même profondeur sur tous les appareils : une erreur est classée pareil partout
 
@@ -41,13 +42,14 @@ async function load() {
   S.an = (await dbGet('an:' + S.user)) || {};
   S.ai = (await dbGet('ai:' + S.user)) || {};
 }
-async function doImport(user) {
+async function doImport(user, manual) {
   const first = !S.data;
   S.importing = { done: 0, total: 0, err: null };
   if (first) render(); else paintJob();
   try {
     const prev = user === S.user ? S.data : await dbGet('data:' + user);
     const d = await importPlayer(user, prev, (a, b) => { S.importing = { done: a, total: b, err: null }; paintJob(); const el = $('#imp'); if (el) el.textContent = b ? `Import des parties : ${a} mois sur ${b}` : 'Connexion à Chess.com'; });
+    const n = d.games.length - (prev?.games?.length || 0);
     S.user = d.user; S.data = d; ls.set('user', d.user);
     await dbSet('data:' + d.user, d);
     S.an = (await dbGet('an:' + d.user)) || {};
@@ -55,6 +57,7 @@ async function doImport(user) {
     S.importing = null;
     if (!d.games.some((g) => g.tc === S.f.tc) && S.f.tc !== 'all') { S.f = { tc: 'all', days: 0 }; ls.set('filter', S.f); }
     if (first) render(); else bgRender();
+    if (first || manual || n > 0) toast(first ? `${pl(d.games.length, 'partie')} importée${d.games.length > 1 ? 's' : ''}` : n > 1 ? `${n} nouvelles parties importées` : n ? '1 nouvelle partie importée' : 'Aucune nouvelle partie');
     reclassify();
     autoAnalyse();
   } catch (e) {
@@ -104,9 +107,10 @@ async function runAnalysis(count, only, list) {
   const pool = analysisPool();
   const queue = list || (only ? [only] : [...pool.filter((g) => !S.an[g.id]), ...pool.filter((g) => toRedo(S.an[g.id]))].slice(0, count));
   if (!queue.length) return;
-  S.job = { running: true, done: 0, total: queue.length, stop: false, msg: '' };
+  S.job = { running: true, done: 0, part: 0, total: queue.length, stop: false, msg: '' };
   const user = S.user, saveAn = () => (S.user === user ? dbSet('an:' + user, S.an) : null);
   paintJob();
+  if (['accueil', 'cours'].includes(route()[0])) bgRender(); // « pas encore analysée » devient un bloc de chargement
   try {
     S.engine ||= new Engine();
     await S.engine.ready;
@@ -118,11 +122,11 @@ async function runAnalysis(count, only, list) {
         if (!mp) break;
         S.an[g.id] = analysis(g, { ev: old.ev, best: old.best, pv: old.pv, nb: old.nb, depth: old.depth, mp });
       } else {
-        const raw = await evaluateGame(S.engine, g, DEPTH, alive);
+        const raw = await evaluateGame(S.engine, g, DEPTH, alive, (i, n) => { S.job.part = i / n; paintJob(); });
         if (S.job.stop && !raw) break; // interrompue : l'ancienne analyse, s'il y en a une, reste en place
         S.an[g.id] = raw ? analysis(g, raw) : { ev: [], errs: [], nb: 0, acc: null, maxAdv: 0, last: 0, bad: true };
       }
-      S.job.done++;
+      S.job.done++; S.job.part = 0;
       if (S.job.done % 3 === 0 || S.job.done === queue.length) await saveAn();
       paintJob();
       const r = route()[0];
@@ -135,18 +139,32 @@ async function runAnalysis(count, only, list) {
   }
   S.job.running = false;
   bgRender();
+  const n = S.job.done;
+  if (n && !S.job.msg && S.user === user) toast(`${pl(n, 'partie')} analysée${n > 1 ? 's' : ''}`);
 }
+// Bandeau d'avancement : import, puis analyse (parties finies + avancée dans la partie en cours).
+// La barre est mise à jour sur place (transform), sans reconstruire le bouton de pause sous le doigt.
 function paintJob() {
   const el = $('#job');
   const j = S.job;
   if (S.importing && !S.importing.err && S.data) {
-    el.hidden = false; el.innerHTML = `<span>Mise à jour depuis Chess.com (${S.importing.done}/${S.importing.total || '?'} mois)</span>`;
+    el.hidden = false; el.dataset.k = 'imp'; el.innerHTML = `<span>Mise à jour depuis Chess.com (${S.importing.done}/${S.importing.total || '?'} mois)</span>`;
   } else if (j.running) {
+    if (el.dataset.k !== 'run') {
+      el.dataset.k = 'run';
+      el.innerHTML = '<span id="jobt"></span><span class="bar" role="progressbar" aria-label="Analyse des parties" aria-valuemin="0" aria-valuemax="100"><i></i></span><button class="btn sm" id="jobstop">Mettre en pause</button>';
+      $('#jobstop').onclick = () => { S.job.stop = true; };
+    }
     el.hidden = false;
-    el.innerHTML = `<span>Analyse de tes parties : <b class="num">${j.done}/${j.total}</b></span><span class="bar"><i style="width:${(100 * j.done) / j.total}%"></i></span><button class="btn sm" id="jobstop">Mettre en pause</button>`;
-    $('#jobstop').onclick = () => { S.job.stop = true; };
-  } else if (j.msg) { el.hidden = false; el.innerHTML = `<span class="err">${esc(j.msg)}</span>`; } else el.hidden = true;
+    const p = Math.min(1, (j.done + (j.part || 0)) / j.total), bar = $('.bar', el);
+    setHtml($('#jobt'), `Analyse de tes parties : <b class="num">${j.done}/${j.total}</b>`);
+    bar.setAttribute('aria-valuenow', Math.round(100 * p));
+    bar.firstElementChild.style.transform = `scaleX(${p})`;
+  } else { el.dataset.k = ''; if (j.msg) { el.hidden = false; el.innerHTML = `<span class="err">${esc(j.msg)}</span>`; } else el.hidden = true; }
 }
+
+// Blocs gris de chargement à la place d'un texte « en cours » : largeurs des lignes en %, libellé pour les lecteurs d'écran.
+const skel = (label, ...w) => `<span class="skel-g">${label ? `<span class="vh">${esc(label)}</span>` : ''}${w.map((x) => `<span class="skel" style="width:${x}%" aria-hidden="true"></span>`).join('')}</span>`;
 
 // ---------- Échiquier ----------
 
@@ -1020,13 +1038,24 @@ function lastGameCard() {
   if (!g) return '';
   const a = S.an[g.id], out = g.out === 'W' ? ['good', 'Victoire'] : g.out === 'L' ? ['bad', 'Défaite'] : ['', 'Nulle'];
   const e = a && !a.bad ? a.errs.filter((x) => x.kind !== 'imprecision' && x.best).sort((x, y) => y.drop - x.drop)[0] : null;
-  const body = !a ? `<span class="sub">${S.job.running ? 'Analyse en cours.' : 'Pas encore analysée.'}</span><div class="row"><a class="btn" href="#partie/${g.t}">Revoir la partie</a></div>`
+  const body = !a ? `${S.job.running ? skel('Analyse en cours', 80, 55) : '<span class="sub">Pas encore analysée.</span>'}<div class="row"><a class="btn" href="#partie/${g.t}">Revoir la partie</a></div>`
     : a.bad ? '<span class="sub">Partie illisible pour l’analyse.</span>'
     : !e ? `<span class="sub">Aucune gaffe ni erreur grave${a.acc != null ? `, précision ${a.acc.toFixed(0)} %` : ''}.</span><div class="row"><a class="btn" href="#partie/${g.t}">Revoir la partie</a></div>`
-    : `<span class="lgerr"><span class="chip ${e.kind === 'gaffe' ? 'bad' : 'warn'}">${e.kind === 'gaffe' ? 'Gaffe' : 'Erreur'}</span><span>Coup ${moveNo(e)} : <b>${esc(fr(e.played))}</b>, il fallait <b>${esc(fr(e.bestSan))}</b></span></span>
-      <div class="lgbtn"><a class="btn" href="#partie/${g.t}/${e.ply}"><span class="d-only">Voir ce que j’ai joué</span><span class="m-only">Voir mon coup</span></a><a class="btn" href="#erreur/${g.t}/${e.ply}">Rejouer l’erreur</a></div>`;
+    : `<span class="lgerr"><span class="chip ${e.kind === 'gaffe' ? 'bad' : 'warn'}">${e.kind === 'gaffe' ? 'Gaffe' : 'Erreur'}</span><span>Coup ${moveNo(e)} : <b>${esc(fr(e.played))}</b>, il fallait <b>${esc(fr(e.bestSan))}</b></span></span>`;
+  const head = `<span class="htitle"><span class="chip ${out[0]}">${out[1]}</span> contre ${esc(g.opp)} <span class="sub">(${g.or}), ${g.w ? 'Blancs' : 'Noirs'}</span></span>`;
+  // Ordinateur : la position de la pire faute, coup joué en rouge (la solution reste à trouver dans « Rejouer l'erreur »).
+  const pos = e ? `<a class="lgpos d-only" href="#partie/${g.t}/${e.ply}" aria-label="Position avant ${esc(fr(e.played))}"><span class="board" id="lgb" data-t="${g.t}" data-ply="${e.ply}"></span></a>` : '';
+  const btns = !e ? '' : `<div class="lgbtn"><a class="btn" href="#partie/${g.t}/${e.ply}"><span class="d-only">Voir ce que j’ai joué</span><span class="m-only">Voir mon coup</span></a><a class="btn" href="#erreur/${g.t}/${e.ply}">Rejouer l’erreur</a></div>`;
   return `<section class="card lgame"><span class="hlab d-flex">Ta dernière partie<span class="small">${dfmt(g.t)}</span></span>
-    <span class="htitle"><span class="chip ${out[0]}">${out[1]}</span> contre ${esc(g.opp)} <span class="sub">(${g.or}), ${g.w ? 'Blancs' : 'Noirs'}</span></span>${body}</section>`;
+    ${e ? `<div class="lgrow">${pos}<div class="lgtxt">${head}${body}</div></div>${btns}` : head + body}</section>`;
+}
+// Mini-échiquier de la dernière partie : non interactif, créé seulement s'il est affiché (ordinateur).
+function mountAccueil() {
+  const el = $('#lgb');
+  if (!el || !el.offsetWidth || el.firstChild) return;
+  const g = S.data.games.find((x) => String(x.t) === el.dataset.t), e = g && S.an[g.id]?.errs.find((x) => x.ply === +el.dataset.ply);
+  if (!e) return;
+  board(el, { fen: e.fen, orientation: g.w ? 'white' : 'black', viewOnly: true, coordinates: false, shapes: [arrow(e.playedUci, 'red')].filter(Boolean) });
 }
 function viewAccueil() {
   const { steps, fc, nDone } = session();
@@ -1091,7 +1120,7 @@ function viewCours() {
   return `${LEARN_TABS('cours')}<h1>Cours</h1>
     ${coachKey() ? coach('Je prépare chaque cours à partir de tes propres positions : une idée, tes erreurs à rejouer, une règle à emporter. Ouvre un cours et demande-moi de le préparer.')
     : `<div class="card"><h2>Ton coach privé</h2><p class="prose">Chaque cours peut devenir une leçon particulière : Claude étudie tes positions, te pose les bonnes questions avant de te laisser jouer, puis t’explique pourquoi ton coup échouait. Deux façons de faire : avec ton abonnement Claude (un copier-coller, proposé dans chaque cours), ou en un clic avec une clé API facturée à l’usage.</p><details class="manual"><summary>Activer la génération en un clic (clé API)</summary>${keyForm()}</details></div>`}
-    ${ids.length ? `<h2>Tes priorités</h2><div class="grid">${ids.map((id, i) => card(id, i < 3 ? i + 1 : 0)).join('')}</div>` : `<div class="card"><p class="sub">${S.job.running ? 'Analyse en cours : le classement des cours arrive.' : 'Lance l’analyse de tes parties pour classer les cours selon tes erreurs.'}</p></div>`}
+    ${ids.length ? `<h2>Tes priorités</h2><div class="grid">${ids.map((id, i) => card(id, i < 3 ? i + 1 : 0)).join('')}</div>` : S.job.running ? `<h2>Tes priorités</h2><div class="grid">${[0, 1, 2].map((i) => `<div class="card">${skel(i ? '' : 'Analyse en cours : le classement des cours arrive.', 30, 75, 90, 60)}</div>`).join('')}</div>` : '<div class="card"><p class="sub">Lance l’analyse de tes parties pour classer les cours selon tes erreurs.</p></div>'}
     <h2>Autres cours</h2><div class="grid">${others.map((id) => card(id, 0)).join('')}</div>`;
 }
 
@@ -1205,7 +1234,7 @@ function viewLecon(id, mode) {
   const read = progress.lessonsRead();
   const busy = S.gen && S.gen.id === id && !S.gen.err;
   S.lessonEx = ex;
-  const coachCard = busy ? coach('Je prépare ton cours à partir de tes positions. Compte 20 à 40 secondes.')
+  const coachCard = busy ? coach('Je prépare ton cours à partir de tes positions. Compte 20 à 40 secondes.') + `<div class="card">${skel('', 40, 95, 85, 70)}</div>`
     : S.ai[id] ? `<div><a class="btn pri lg" href="#cours/${id}">Revenir au cours privé</a></div>`
     : coachKey() ? `<div class="card"><h2>Cours privé</h2><p class="prose">Claude prépare une leçon particulière sur ce thème à partir de ${ex.length ? `tes ${ex.length} positions les plus coûteuses` : 'tes statistiques'} : questions guidées, explications, règle à retenir, quiz.</p>
         ${S.gen?.id === id && S.gen.err ? `<p class="err">${esc(S.gen.err)}</p>` : ''}<div><button class="btn pri lg" data-act="gen" data-id="${id}">Préparer mon cours privé</button></div>${manualBlock(id)}</div>`
@@ -1521,6 +1550,7 @@ async function restoreFrom(file) {
     S.user = b.user; S.f = ls.get('filter', S.f); S.pz = null; S.cl = null; S.dr = null; S.cv = null; S.li = null; S.liKeep = null; S.gen = null; LINES.clear();
     await load(); restoreUi();
     location.hash = '#accueil'; render();
+    toast('Sauvegarde restaurée');
     reclassify(); autoAnalyse();
   } catch (e) { if (m) m.textContent = e.message || String(e); }
 }
@@ -1554,12 +1584,13 @@ function render(keepScroll) {
   else if (r === 'gagner') mountGagner();
   else if (r === 'stats') mountStats(S);
   else if (r === 'plan') {
-    $('#hrs').onchange = (e) => { ls.set('hours', +e.target.value); render(true); };
-    const save = () => { const elo = +$('#gelo').value, date = $('#gdate').value; if (elo >= 100 && date) { ls.set('goal', { elo, date }); render(true); } };
+    $('#hrs').onchange = (e) => { ls.set('hours', +e.target.value); render(true); toast('Temps par semaine enregistré'); };
+    const save = () => { const elo = +$('#gelo').value, date = $('#gdate').value; if (elo >= 100 && date) { ls.set('goal', { elo, date }); render(true); toast('Objectif enregistré'); } };
     $('#gelo').onchange = save; $('#gdate').onchange = save;
     const cm = $('#cmodel'); if (cm) cm.onchange = () => ls.set('model', cm.value);
     document.querySelectorAll('[data-plan]').forEach((c) => { c.onchange = () => { const k = 'plan:' + weekKey(), d = ls.get(k, {}); d[c.dataset.plan] = c.checked; ls.set(k, d); c.closest('.check').classList.toggle('done', c.checked); }; });
   } else if (r === 'bilan') mountBilan();
+  else if (r === 'accueil') mountAccueil();
   header();
   keepUi();
   if (keepScroll) scrollTo(0, y); else scrollTo(0, 0);
@@ -1576,7 +1607,7 @@ document.addEventListener('click', (ev) => {
   if (!el) return;
   const act = el.dataset.act;
   if (el.tagName === 'A') ev.preventDefault();
-  if (act === 'refresh') doImport(S.user);
+  if (act === 'refresh') doImport(S.user, true);
   else if (act === 'analyse') runAnalysis(20);
   else if (act === 'analyse1') runAnalysis(1, S.gv.g);
   else if (act === 'stattc') { S.statTc = el.dataset.tc; render(true); }
@@ -1640,7 +1671,7 @@ document.addEventListener('click', (ev) => {
   else if (act === 'open') location.hash = '#partie/' + el.dataset.t;
   else if (act === 'more') { S.listN += 50; render(true); }
   else if (act === 'goto') gvGo(+el.dataset.k);
-  else if (act === 'bakexp') { const m = $('#bakmsg'); backup.exportFile(S.user).then((n) => { if (m) m.textContent = `Fichier ${n} téléchargé. Range-le dans tes fichiers ou envoie-le sur ton autre appareil.`; }).catch((e) => { if (m) m.textContent = 'Sauvegarde impossible : ' + (e.message || e); }); }
+  else if (act === 'bakexp') { const m = $('#bakmsg'); backup.exportFile(S.user).then((n) => { if (m) m.textContent = `Fichier ${n} téléchargé. Range-le dans tes fichiers ou envoie-le sur ton autre appareil.`; toast('Sauvegarde téléchargée'); }).catch((e) => { if (m) m.textContent = 'Sauvegarde impossible : ' + (e.message || e); }); }
   else if (act === 'opgrp') { S.opGrp = el.dataset.g; render(true); }
   else if (act === 'optab') { S.opTab = el.dataset.tab; render(true); }
   else if (act === 'bakimp') $('#bakfile')?.click();
@@ -1660,7 +1691,7 @@ document.addEventListener('change', (ev) => {
 document.addEventListener('submit', async (ev) => {
   const f = ev.target.closest('form[data-form]'); if (!f) return;
   ev.preventDefault();
-  if (f.dataset.form === 'key') { const v = $('#keyin', f).value.trim(); if (v) { ls.set('key', v); render(true); } }
+  if (f.dataset.form === 'key') { const v = $('#keyin', f).value.trim(); if (v) { ls.set('key', v); render(true); toast('Clé enregistrée sur cet appareil'); } }
   else if (f.dataset.form === 'paste') {
     const id = f.dataset.id, refs = ls.get('brief:' + id, null) || lessonArgs(id).ex.map((x) => ({ t: x.g.t, ply: x.e.ply }));
     try { const L = parseLesson($('#pastein').value, refs.length); L.ex = refs; L.model = 'abonnement'; S.ai[id] = L; await dbSet('ai:' + S.user, S.ai); S.cl = null; S.gen = null; location.hash = '#cours/' + id; render(); }
@@ -1668,7 +1699,7 @@ document.addEventListener('submit', async (ev) => {
   }
   else if (f.dataset.form === 'ask') {
     const q = $('#askq').value.trim(), out = $('#aska'), c = S.clPos; if (!q || !c) return;
-    out.innerHTML = coach('Je regarde la position…');
+    out.innerHTML = coach(skel('Je regarde la position', 90, 70));
     try { const L = S.ai[S.cl.id]; const ans = await askCoach(`Cours : ${L.titre}. Idée : ${L.idee}\n${facts(c.x.g, c.x.e)}\nExplication donnée : ${c.pos.explication}`, q); out.innerHTML = coach(txt(ans)); }
     catch (e) { out.innerHTML = `<p class="err">${esc(e.message)}</p>`; }
   }
@@ -1679,7 +1710,13 @@ document.addEventListener('keydown', (ev) => {
   if (route()[0] !== 'partie' || !S.gv) return;
   if (ev.key === 'ArrowLeft') gvGo(S.gv.k - 1); else if (ev.key === 'ArrowRight') gvGo(S.gv.k + 1);
 });
-addEventListener('hashchange', () => render());
+// Changement de vue : fondu de 150 ms (View Transitions API, rien si elle manque). Jamais en quittant un exercice,
+// ni si l'appareil demande moins de mouvement ; les rendus d'arrière-plan (bgRender) ne passent pas par ici.
+const calm = matchMedia('(prefers-reduced-motion: reduce)');
+addEventListener('hashchange', () => {
+  if (!document.startViewTransition || calm.matches || exo.current() || document.hidden) render();
+  else document.startViewTransition(() => render());
+});
 document.addEventListener('pointerover', (ev) => {
   const el = ev.target.closest?.('[data-tip]'), tip = $('#tip');
   if (!el) return;
@@ -1688,7 +1725,7 @@ document.addEventListener('pointerover', (ev) => {
   tip.style.left = Math.max(4, Math.min(innerWidth - tw - 4, r.left + r.width / 2 - tw / 2)) + 'px'; tip.style.top = Math.max(4, r.top - 34) + 'px';
 });
 document.addEventListener('pointerout', (ev) => { if (ev.target.closest?.('[data-tip]')) $('#tip').hidden = true; });
-let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { const r = route()[0]; if (r === 'bilan') mountBilan(); else if (r === 'stats') mountStats(S); else if (r === 'partie' && S.gv?.cg) gvSync(); }, 200); });
+let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { const r = route()[0]; if (r === 'bilan') mountBilan(); else if (r === 'accueil' && S.data) mountAccueil(); else if (r === 'stats') mountStats(S); else if (r === 'partie' && S.gv?.cg) gvSync(); }, 200); });
 
 if (new URLSearchParams(location.search).has('debug')) window.__cap = S; // accès à l'état pour les tests
 (async function init() {

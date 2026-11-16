@@ -78,12 +78,14 @@ export class Engine {
 
 // Évalue chaque position d'une partie. Renvoie les données brutes { ev, best, pv, nb, depth },
 // ou null si la partie est illisible ou si l'analyse est interrompue (alive() faux).
-export async function evaluateGame(engine, game, depth, alive = () => true) {
+// onPly(i, n) : avancement dans la partie (position i sur n), pour la barre d'analyse.
+export async function evaluateGame(engine, game, depth, alive = () => true, onPly = () => {}) {
   const r = replay(game);
   if (!r) return null;
   const ev = [], best = [], pv = [];
-  for (const fen of r.fens) {
+  for (const [i, fen] of r.fens.entries()) {
     if (!alive()) return null;
+    onPly(i, r.fens.length);
     const c = new Chess(fen), white = c.turn() === 'w';
     if (c.game_over()) { ev.push(c.in_checkmate() ? (white ? -MATE : MATE) : 0); best.push(null); pv.push([]); continue; }
     const e = await engine.evalFen(fen, depth);
