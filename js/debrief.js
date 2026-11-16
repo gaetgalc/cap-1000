@@ -11,13 +11,15 @@ const ev1 = (cp) => (cp > 0 ? '+' : cp < 0 ? '−' : '') + Math.abs(cp / 100).to
 const MISSED = new Set(['cadeau_rate', 'tactique_ratee', 'mat_rate']);
 
 // g : { w, san, out, how } ; a : { ev, errs }. Renvoie [{ k, ply, title, text }] ; ply = position à montrer dans la relecture.
-export function moments(g, a) {
+// o : { plan, name } facultatif, plan typique de l'ouverture jouée (theory.planOf), ajouté à la sortie de l'ouverture.
+export function moments(g, a, o = {}) {
   const n = g.san.length, pov = (i) => (g.w ? a.ev[i] : -a.ev[i]), pct = (i) => Math.round(winPct(pov(i)));
   const mine = (i) => (i % 2 === 0) === g.w, serious = a.errs.filter((e) => e.kind !== 'imprecision' && e.theme);
   const out = [];
   // Sortie de l'ouverture : la position au 10e coup.
   const k0 = Math.min(20, n), c0 = pov(k0);
   out.push({ k: 'ouv', ply: k0, title: 'Sortie de l’ouverture', text: c0 >= 150 ? `Tu sors de l’ouverture avec l’avantage (${ev1(c0)}).` : c0 <= -150 ? `Tu sors de l’ouverture en difficulté (${ev1(c0)}) : c’est là qu’il faut regarder d’abord.` : `Position équilibrée après l’ouverture (${ev1(c0)}).` });
+  if (o.plan) out[0].text += ` ${o.name}, le plan pour ton camp : ${o.plan}`;
   // Tournant : le coup adverse qui te fait passer au-dessus de 60 % de chances de gain, le plus coûteux pour lui.
   let tour = null, told = null;
   for (let i = 0; i < n; i++) {

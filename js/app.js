@@ -6,7 +6,7 @@ import { classify, VERSION, winPct, fmtEval, uciMove, isPuzzle, replay } from '.
 import * as st from './stats.js';
 import { LESSONS, ENGINE_LESSONS, RULES } from './lessons.js';
 import { viewStats, mountStats } from './alltime.js';
-import { fr, settle, buildLine, insight, hintFor, lastMoveText, moveText, material, describeAt, justPlayed } from './explain.js';
+import { fr, settle, buildLine, insight, hintFor, lastMoveText, moveText, material, describeAt, justPlayed, PLAN_RULE } from './explain.js';
 import { $, esc, dfmt, TC, HOW, coach, txt, pl, f1, ico, wdl, WDL_LEGEND, setHtml } from './ui.js';
 import { lineChart } from './charts.js';
 import { progress, DAY } from './progress.js';
@@ -17,7 +17,11 @@ import { LI_ANGLES, LI_FOR, LI_DIFF, fetchPuzzle } from './lichess.js';
 import { DRILLS, DRILL_FOR, makeRound } from './drills.js';
 import { OPENINGS, GROUPS, byId, lineKey, movesOf, matchGame } from './openings.js';
 import { MODELS, coachKey, coachModel, facts, genLesson, askCoach, buildPrompt, parseLesson, askPosition, positionText } from './coach.js';
-import { coachBrief, briefFacts, CAUSES, mainCause } from './brief.js';
+import { coachBrief, briefFacts, CAUSES, mainCause, selfVerdict } from './brief.js';
+import { ideaPositions, ideaChoices } from './ideas.js';
+import { STAGES, programWeek, weekStats, reviewText } from './program.js';
+import { portrait } from './portrait.js';
+import { theoryExits, planOf } from './theory.js';
 import { moments } from './debrief.js';
 import { intent } from './plan.js';
 import * as backup from './backup.js';
@@ -418,6 +422,7 @@ function viewHistory() {
   const row = (x) => {
     if (x.k === 'd') { const D = DRILLS[x.ty]; return `<div class="hrow"><i class="hres ${x.ok >= x.n * 0.8 ? 'r2' : x.ok >= x.n * 0.5 ? 'r1' : 'r0'}"></i><span class="stepc"><b>Échauffement${D ? ' : ' + D.t : ''}</b><span>${x.ok} / ${x.n} justes · ${hm(x.t)}</span></span>${D ? `<a class="btn sm" href="#drill/${x.ty}">Refaire</a>` : ''}</div>`; }
     if (x.k === 'o') { const [oid, ok] = String(x.id).split(':'), o = byId(oid), l = o?.lines[+ok]; const [cls, lab] = RES[x.r] || RES[0]; return `<div class="hrow"><i class="hres ${cls}"></i><span class="stepc"><b>Ligne d’ouverture${o ? ` : ${o.nom}` : ''}</b><span>${l ? esc(l.n) + ' · ' : ''}${x.r === 2 ? 'Sans faute' : x.r === 1 ? 'Avec aide' : 'Suite vue'}${x.re ? ' (révision)' : ''} · ${hm(x.t)}</span></span>${l ? `<a class="btn sm" href="${lineHref(x.id)}">Refaire</a>` : ''}</div>`; }
+    if (x.k === 'i') { const p = pzById(x.id); return `<div class="hrow"><i class="hres ${x.r === 2 ? 'r2' : 'r0'}"></i><span class="stepc"><b>Idée de plan${p ? ` · coup ${moveNo(p.e)} contre ${esc(p.g.opp)}` : ''}</b><span>${x.r === 2 ? 'Bon plan trouvé' : 'Autre plan choisi'} · ${hm(x.t)}</span></span></div>`; }
     if (x.k === 'c') { const g = S.data.games.find((y) => String(y.t) === x.id); return `<div class="hrow"><i class="hres ${x.r === 2 ? 'r2' : 'r0'}"></i><span class="stepc"><b>Partie gagnante rejouée${g ? ` · ${dfmt(g.t)} contre ${esc(g.opp)}` : ''}</b><span>${x.r === 2 ? 'Gagnée' : 'Pas gagnée'} en ${Math.ceil(x.n / 2)} coups · ${hm(x.t)}</span></span>${g ? `<a class="btn sm" href="#gagner/${g.t}">Refaire</a>` : ''}</div>`; }
     const [cls, lab] = RES[x.r] || RES[0], sub = `${lab}${x.q ? (x.q === 'e' ? ', jugé facile' : ', jugé difficile') : ''}${x.re ? ' (révision)' : ''} · ${hm(x.t)}`;
     if (x.k === 'l') return `<div class="hrow"><i class="hres ${cls}"></i><span class="stepc"><b>Position inédite${LI_NAME[x.a] ? ' : ' + LI_NAME[x.a] : ''}</b><span>${sub}${x.rt ? ' · niveau ' + x.rt : ''}</span></span>${x.p ? `<button class="btn sm" data-act="lireplay" data-t="${x.t}">Refaire</button>` : `<a class="btn sm" href="https://lichess.org/training/${esc(x.id)}" target="_blank" rel="noopener">Lichess</a>`}</div>`;
@@ -429,7 +434,7 @@ function viewHistory() {
   const yest = dkey(new Date(d0 - DAY / 2));
   const label = (k) => (k === today ? 'Aujourd’hui' : k === yest ? 'Hier' : new Date(k + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }));
   const isPz = (x) => x.k === 'm' || x.k === 'l';
-  const sum = (l) => { const z = l.filter((x) => isPz(x) && !x.re), dr = l.filter((x) => x.k === 'd').length, cv = l.filter((x) => x.k === 'c').length, ol = l.filter((x) => x.k === 'o').length, rv = l.filter((x) => isPz(x) && x.re).length; return [z.length ? `${pl(z.length, 'puzzle')}, ${z.filter((x) => x.r === 2).length} du premier coup` : '', rv ? pl(rv, 'révision') : '', dr ? pl(dr, 'échauffement') : '', cv ? pl(cv, 'partie rejouée').replace('parties rejouée', 'parties rejouées') : '', ol ? `${ol} ligne${ol > 1 ? 's' : ''} d’ouverture` : ''].filter(Boolean).join(' · '); };
+  const sum = (l) => { const z = l.filter((x) => isPz(x) && !x.re), dr = l.filter((x) => x.k === 'd').length, cv = l.filter((x) => x.k === 'c').length, ol = l.filter((x) => x.k === 'o').length, ii = l.filter((x) => x.k === 'i').length, rv = l.filter((x) => isPz(x) && x.re).length; return [z.length ? `${pl(z.length, 'puzzle')}, ${z.filter((x) => x.r === 2).length} du premier coup` : '', rv ? pl(rv, 'révision') : '', dr ? pl(dr, 'échauffement') : '', cv ? pl(cv, 'partie rejouée').replace('parties rejouée', 'parties rejouées') : '', ol ? `${ol} ligne${ol > 1 ? 's' : ''} d’ouverture` : '', ii ? pl(ii, 'idée') + ' de plan' : ''].filter(Boolean).join(' · '); };
   return head + tiles + `<div class="legend"><span style="--c:var(--good)">Du premier coup</span><span style="--c:var(--warn)">Trouvé avec aide</span><span style="--c:var(--bad)">Solution vue</span></div>`
     + [...days].map(([k, l]) => `<div class="card hday"><h2><span class="hcap">${label(k)}</span><span class="small">${sum(l)}</span></h2>${l.map(row).join('')}</div>`).join('')
     + (h.length > S.histN ? '<div><button class="btn" data-act="histmore">Afficher les exercices plus anciens</button></div>' : '');
@@ -920,10 +925,10 @@ function filtersHtml() {
     <select data-f="days" aria-label="Période"><option value="0">Depuis le début</option><option value="90" ${S.f.days === 90 ? 'selected' : ''}>90 derniers jours</option><option value="30" ${S.f.days === 30 ? 'selected' : ''}>30 derniers jours</option></select>
     <button class="btn sm" data-act="refresh" title="Récupérer les nouvelles parties de ${esc(S.user)}">Mettre à jour</button>`;
 }
-const TITLES = { ouvertures: 'Ouverture', ligne: 'Ouverture', puzzles: 'Puzzles', erreur: 'Comprendre', partie: 'Partie', cours: 'Cours', drill: 'Échauffement', inedits: 'Positions inédites', gagner: 'Gagner', monouv: 'Mon ouverture' };
+const TITLES = { idees: 'Idées de plan', avantpartie: 'Avant de jouer', ouvertures: 'Ouverture', ligne: 'Ouverture', puzzles: 'Puzzles', erreur: 'Comprendre', partie: 'Partie', cours: 'Cours', drill: 'Échauffement', inedits: 'Positions inédites', gagner: 'Gagner', monouv: 'Mon ouverture' };
 function header() {
   const t = $('#tools'), [r, a] = route();
-  const imm = !!S.data && (!!exo.current() || r === 'erreur' || (r === 'cours' && !!a) || (r === 'ouvertures' && !!a && a !== 'apprendre') || r === 'monouv'); // écran d'exercice ou page de cours : barre du haut avec retour
+  const imm = !!S.data && (!!exo.current() || r === 'erreur' || (r === 'cours' && !!a) || (r === 'ouvertures' && !!a && a !== 'apprendre') || r === 'monouv' || r === 'avantpartie'); // écran d'exercice ou page de cours : barre du haut avec retour
   document.body.classList.toggle('imm', imm);
   document.body.classList.toggle('homefit', !!S.data && r === 'accueil');
   $('#ttl').textContent = imm ? TITLES[r] : '';
@@ -1010,7 +1015,7 @@ function session() {
     { k: 'dr', done: !!a.dr, t: 'Échauffe ton regard', d: drOn ? `« ${DRILLS[dr].t} » : série en cours, position ${S.dr.i + 1} sur ${S.dr.items.length}.` : `« ${DRILLS[dr].t} » : 10 positions, 2 minutes.`, cta: [drOn ? 'Reprendre l’échauffement' : 'Lancer l’échauffement', '#drill/' + dr], p: drOn ? S.dr.i / S.dr.items.length : 0 },
     { k: 'pz', done: es.n > 0 && (pzDone >= pzGoal || due === 0), t: 'Corrige tes erreurs', d: es.n ? `${Math.min(pzDone, pzGoal)} / ${pzGoal} puzzles tirés de tes parties${fc ? ', ton chantier d’abord' : ''}` : (S.job.running ? `Analyse de tes parties en cours (${S.job.done}/${S.job.total}). Les puzzles arrivent.` : 'Lance l’analyse pour créer tes puzzles.'), cta: es.n ? [pzDone ? 'Continuer mes puzzles' : 'Résoudre mes puzzles', null, 'pzfocus'] : (S.job.running ? null : ['Analyser mes parties', null, 'analyse']), p: es.n ? pzDone / pzGoal : 0, x: es.n && pzDone ? pzDots(pzDay()) : '' },
     { k: 'les', done: !!a.les, t: 'Prends ton cours', d: (S.ai[les] ? S.ai[les].titre : LESSONS[les].titre) + (S.ai[les] ? ' · cours privé prêt' : ''), cta: [clOn ? 'Reprendre le cours' : 'Ouvrir le cours', '#cours/' + les], p: a.les ? 1 : 0 },
-    { k: 'play', done: played >= 2, t: 'Joue 2 parties rapides', d: `${Math.min(played, 2)} / 2 jouées aujourd’hui.${fc ? ' Avant chaque coup : « ' + RULES[fc.id] + ' »' : ''}`, cta: ['Jouer sur Chess.com', 'https://www.chess.com/play/online/new'], p: Math.min(played, 2) / 2 },
+    { k: 'play', done: played >= 2, t: 'Joue 2 parties rapides', d: `${Math.min(played, 2)} / 2 jouées aujourd’hui.${fc ? ' Avant chaque coup : « ' + RULES[fc.id] + ' »' : ''}`, cta: ['Préparer ma partie', '#avantpartie'], p: Math.min(played, 2) / 2 },
   ];
   return { steps, ids, es, sig, fc, nDone: steps.filter((x) => x.done).length };
 }
@@ -1030,6 +1035,29 @@ function focusCard(fc, es) {
     <div><button class="btn" data-act="lifocus">Travailler ce thème sur des positions inédites</button></div>
     <div class="row">${fs.ok && others[0] ? `<button class="btn pri" data-act="focusnext" data-id="${others[0].id}">Chantier suivant : ${st.THEMES[others[0].id]}</button>` : ''}
       ${others.length ? `<label class="small" for="fsel">Changer</label><select id="fsel" data-f="focus"><option value="${fc.id}">${st.THEMES[fc.id]}</option>${others.map((t) => `<option value="${t.id}">${st.THEMES[t.id]} (${t.n})</option>`).join('')}</select>` : ''}</div></section>`;
+}
+// Ton portrait : où, quand et comment tu perds tes points (portrait.js).
+function portraitCard() {
+  const p = portrait(S.data.games.filter((g) => g.tc === targetTc()), S.an);
+  return p.length ? `<div class="card"><h2>Ton portrait</h2><ul class="portrait">${p.map((x) => `<li>${esc(x.t)}</li>`).join('')}</ul></div>` : '';
+}
+// Programme de 4 semaines du chantier et bilan de la semaine passée (program.js).
+function programCard(fc) {
+  if (!fc) return '';
+  const w = programWeek(fc.since), gs = S.data.games.filter((g) => g.tc === targetTc()), hist = progress.hist();
+  const wk = (from, to) => weekStats({ games: gs, an: S.an, hist, themeId: fc.id, from, to });
+  return `<div class="card"><h2>Ton programme <span class="small">${w.i < 4 ? `semaine ${w.i + 1} sur 4` : 'terminé'}</span></h2>
+    <ol class="dayplan">${STAGES.map((x, i) => `<li class="${i < w.i ? 'done' : i === w.i ? 'on' : ''}"><i aria-hidden="true">${i < w.i ? '✓' : i + 1}</i><span><b>Semaine ${i + 1} · ${x.t}${i === w.i ? ' <span class="chip">en cours</span>' : ''}</b><span>${x.d}</span></span></li>`).join('')}</ol>
+    <p class="sub">${w.i === 0 ? 'Premier bilan lundi prochain, ici et sur l’accueil.' : esc(reviewText(wk(w.prev, w.start), wk(w.prev - 7 * DAY, w.prev), st.THEMES[fc.id]))}</p>
+    ${w.i >= 4 ? `<p class="small">${focusStats(fc).ok ? 'Chantier validé : passe au suivant.' : 'Quatre semaines passées sans diviser l’erreur par deux : le chantier continue, reprends à la semaine 1.'}</p>` : ''}</div>`;
+}
+// Où tu sors de la théorie dans les ouvertures du catalogue (theory.js) : une ligne précise à revoir.
+function theoryCard() {
+  const x = theoryExits(S.data.games.filter((g) => g.tc === targetTc()), OPENINGS).slice(0, 3);
+  if (!x.length) return '';
+  const mv = (r, s) => `${Math.floor(r.ply / 2) + 1}${r.ply % 2 ? '…' : '.'}${fr(s)}`;
+  return `<div class="card"><h2>Où tu sors de la théorie</h2>${x.map((r) => `<a class="mrow" href="${lineHref(lineKey(r.o, r.k), true)}"><span class="mico">${ico('lines')}</span><span class="stepc"><b>${esc(r.o.nom)} · ${esc(r.o.lines[r.k].n)}</b><span>${r.n} fois sur ${r.of}, tu joues ${r.played.map(([s, n]) => mv(r, s) + (n > 1 ? ` (${n} fois)` : '')).join(', ')} au lieu de ${mv(r, r.book)}.</span></span><span class="chev" aria-hidden="true">›</span></a>`).join('')}
+    <p class="small">Une seule ligne bien sue vaut mieux que quinze fiches : ouvre-la pour la revoir commentée, puis récite-la.</p></div>`;
 }
 // Pourquoi tu te trompes : les réponses données après les puzzles tirés de tes parties (progress.causes).
 function causesCard() {
@@ -1085,12 +1113,28 @@ function sessionCard(steps, nDone) {
 // Mot du coach : ce que je vois dans tes parties, ce qu'on fait aujourd'hui, à quoi on saura que ça marche (brief.js).
 // Le détail chiffré reste dans « Mon jeu ».
 const STEP_NEXT = { dr: 'l’échauffement', pz: 'les puzzles de ton chantier', les: 'ton cours', play: 'tes 2 parties' };
+// Partie récente à faire juger par l'élève (« As-tu appliqué la règle ? ») : la dernière partie analysée de la cadence
+// suivie, jouée depuis le début du chantier et depuis moins de 3 jours. ans : réponse déjà donnée (null sinon).
+function selfGame(fc) {
+  const g = S.data.games.filter((x) => x.tc === targetTc() && S.an[x.id] && !S.an[x.id].bad && x.t >= fc.since && x.t * 1000 > Date.now() - 3 * DAY).sort((x, y) => y.t - x.t)[0];
+  return g ? { g, ans: progress.selfOf(g.id) } : null;
+}
 function briefCard(fc, steps) {
   if (!fc) return '';
-  const fs = focusStats(fc), cur = steps.find((x) => !x.done);
-  const b = coachBrief({ facts: briefFacts(S.data.games.filter((g) => g.tc === targetTc()), S.an, fc.id), theme: st.THEMES[fc.id], rule: RULES[fc.id], fs, cause: progress.causes(), next: cur ? STEP_NEXT[cur.k] : null });
-  return `<a class="card fmini brief" href="#bilan"><span class="hlab">Le mot du coach · chantier ${esc(st.THEMES[fc.id].toLowerCase())}${fs.ok ? ' <span class="chip good">validé</span>' : ''}<span class="chev" aria-hidden="true">›</span></span>
-    <span class="bdiag">${esc(b.diag)}</span><span class="btodo d-only">${esc(b.todo)}</span><span class="sub fnums">${esc(b.goal)}</span></a>`;
+  const fs = focusStats(fc), cur = steps.find((x) => !x.done), th = st.THEMES[fc.id], sg = selfGame(fc);
+  if (sg && !sg.ans) return `<section class="card fmini brief"><span class="hlab">Le mot du coach · ta partie contre ${esc(sg.g.opp)}</span>
+    <span class="selfrow"><span class="bdiag">As-tu appliqué ta règle dans cette partie ?<span class="d-only"> « ${esc(RULES[fc.id])} »</span></span>
+    <span class="selfq"><button class="btn" data-act="selfck" data-id="${esc(sg.g.id)}" data-v="1">Oui</button><button class="btn" data-act="selfck" data-id="${esc(sg.g.id)}" data-v="0">Non</button></span></span></section>`;
+  const gs = S.data.games.filter((g) => g.tc === targetTc());
+  const b = coachBrief({ facts: briefFacts(gs, S.an, fc.id), theme: th, rule: RULES[fc.id], fs, cause: progress.causes(), next: cur ? STEP_NEXT[cur.k] : null });
+  const w = programWeek(fc.since);
+  // Réponse du jour à « As-tu appliqué la règle ? » : le verdict de l'analyse remplace le diagnostic pendant 20 heures.
+  if (sg?.ans && Date.now() - sg.ans.t < 20 * 3600000) b.diag = selfVerdict(sg.ans.y, S.an[sg.g.id].errs.filter((e) => e.theme === fc.id && e.kind !== 'imprecision').map(moveNo), th);
+  // Le lundi, le bilan de la semaine passée remplace le diagnostic.
+  else if (new Date().getDay() === 1 && w.i >= 1) b.diag = reviewText(weekStats({ games: gs, an: S.an, hist: progress.hist(), themeId: fc.id, from: w.prev, to: w.start }), weekStats({ games: gs, an: S.an, hist: progress.hist(), themeId: fc.id, from: w.prev - 7 * DAY, to: w.prev }), th);
+  const stage = w.i < 4 ? ` Semaine ${w.i + 1} sur 4 : ${STAGES[w.i].t.toLowerCase()}.` : '';
+  return `<a class="card fmini brief" href="#bilan"><span class="hlab">Le mot du coach · chantier ${esc(th.toLowerCase())}${fs.ok ? ' <span class="chip good">validé</span>' : ''}<span class="chev" aria-hidden="true">›</span></span>
+    <span class="bdiag">${esc(b.diag)}</span><span class="btodo d-only">${esc(b.todo + stage)}</span><span class="sub fnums">${esc(b.goal)}</span></a>`;
 }
 // Dernière partie de la cadence suivie : résultat et pire faute, à revoir ou à rejouer en un clic.
 // Dernière partie de la cadence suivie : résultat et pire faute, à revoir ou à rejouer en un clic.
@@ -1133,8 +1177,11 @@ function viewBilan() {
   return `<h1>Mon jeu</h1>
   <div class="hero">${gb.html}
     <div class="card"><h2>Ton classement ${S.f.tc === 'all' ? 'Rapide' : TC[S.f.tc]}</h2><div class="chart" id="rc"></div></div></div>
+  ${portraitCard()}
   ${focusCard(fc, es)}
+  ${programCard(fc)}
   ${causesCard()}
+  ${theoryCard()}
   ${gs.length ? `<div class="grid">
     <div class="card"><h2>Points forts</h2>${sigHtml(sig.forces, 'good', 'Pas encore assez de parties pour dégager un point fort net.')}</div>
     <div class="card"><h2>Points faibles</h2>${sigHtml(sig.faiblesses, 'bad', 'Aucune faiblesse nette détectée pour ce filtre.')}</div>
@@ -1540,8 +1587,77 @@ function gvMoves(v) {
   });
   return h;
 }
+// ---------- Idées de plan : sur une position calme de tes parties, choisir la bonne idée (ideas.js) ----------
+function ideaPool() { return ideaPositions(S.data.games.filter((g) => g.tc === targetTc()), S.an).sort((a, b) => b.g.t - a.g.t || b.e.ply - a.e.ply); }
+function ideaCur() {
+  const pool = ideaPool(); if (!pool.length) return null;
+  if (!S.idea || !pool.some((p) => p.id === S.idea.cur)) {
+    const done = new Set(progress.hist().filter((h) => h.k === 'i').map((h) => h.id));
+    S.idea = { cur: (pool.find((x) => !done.has(x.id)) || pool[0]).id };
+  }
+  return pool.find((p) => p.id === S.idea.cur);
+}
+function ideaNext() {
+  const pool = ideaPool(), done = new Set(progress.hist().filter((h) => h.k === 'i').map((h) => h.id)), i = pool.findIndex((p) => p.id === S.idea?.cur);
+  const rest = [...pool.slice(i + 1), ...pool.slice(0, Math.max(0, i))];
+  S.idea = { cur: (rest.find((x) => !done.has(x.id)) || rest[0] || pool[0])?.id };
+  render();
+}
+function viewIdees() {
+  const p = ideaCur();
+  if (!p) return `<h1>Idées de plan</h1><div class="card">${coach('Pas encore de position calme dans tes parties analysées. Analyse plus de parties : chaque imprécision de milieu de partie devient un exercice de plan.')}<div><a class="btn" href="#entrainer">Retour à l’entraînement</a></div></div>`;
+  const me = p.g.w ? 'w' : 'b', side = p.g.w ? 'Blancs' : 'Noirs', ch = ideaChoices(p.e.fen, p.e, me);
+  return exo.screen({
+    live: true,
+    head: `<div class="pzhead"><h1>Idées de plan</h1></div>` + coach(`<b>Quel est le bon plan ici ?</b> Pas de tactique : choisis l’idée que tu jouerais avec les ${side}.`, 'intro'),
+    cap: `<p><i class="dot ${me}"></i> Trait aux ${side}. <span class="m-txt">Quel est le bon plan ?</span><span class="d-txt">Choisis une idée à droite.</span></p>`,
+    panel: `<div class="ideas">${ch.map((c, i) => `<button class="btn idea-c" data-x="pick" data-v="${i}">${esc(c.text)}</button>`).join('')}</div><div id="idex"></div>
+      <div class="meta small">Coup ${moveNo(p.e)} de ta ${gameRef(p.g)} · <a href="#partie/${p.g.t}/${p.e.ply}">Ouvrir la partie</a></div>`,
+    bar: '<button class="btn" data-x="skip">Autre position</button>',
+  });
+}
+function mountIdees() {
+  const X = exo.current(), p = ideaCur(); if (!X || !p) return;
+  const me = p.g.w ? 'w' : 'b', ch = ideaChoices(p.e.fen, p.e, me), best = ch.find((c) => c.good), st0 = { done: false };
+  const cg = X.board({ fen: p.e.fen, orientation: p.g.w ? 'white' : 'black', lastMove: p.e.prev ? [p.e.prev.slice(0, 2), p.e.prev.slice(2, 4)] : undefined, movable: { color: undefined } });
+  // La troisième idée n'est qu'un coup plausible : le moteur doit confirmer qu'il est nettement moins bon que le meilleur.
+  const chk = ch.findIndex((c) => c.check);
+  if (chk >= 0) (async () => {
+    try {
+      S.play ||= new Engine();
+      const val = async (mv) => { const c = new Chess(p.e.fen); if (!uciMove(c, mv)) return null; return -(await S.play.evalFen(c.fen(), 10, true)).cp; };
+      const vb = await val(best.mv), vc = await val(ch[chk].mv);
+      if (vb != null && vc != null && vc > vb - 50 && X.alive() && !st0.done) { const el = document.querySelector(`[data-x="pick"][data-v="${chk}"]`); if (el) el.remove(); }
+    } catch { S.play = null; }
+  })();
+  X.on({
+    pick(v) {
+      if (st0.done) return; st0.done = true;
+      const c = ch[+v], ok = !!c.good;
+      progress.recordIdea(p.id, ok); exo.feedback(ok ? 'good' : 'bad');
+      document.querySelectorAll('.idea-c').forEach((el) => { const x = ch[+el.dataset.v]; el.disabled = true; el.classList.toggle('ok', !!x.good); el.classList.toggle('ko', el.dataset.v === v && !ok); });
+      cg.setAutoShapes([arrow(best.mv, 'green'), ok ? null : arrow(c.mv, 'red')].filter(Boolean));
+      X.say(ok ? 'ok' : 'ko', ok ? `<b class="ok">Bon plan.</b> ${fr(best.san)} : c’est l’idée du moteur.` : `<b class="ko">Pas ce plan-là.</b> La bonne idée passait par ${fr(best.san)}.`);
+      $('#idex').innerHTML = `<div class="card idea"><h3>Le bon plan : ${fr(best.san)}</h3><p>${esc(best.text)}</p>${best.k && PLAN_RULE[best.k] ? `<p class="small">${esc(PLAN_RULE[best.k])}</p>` : ''}${!ok && c.mv === p.e.playedUci ? '<p class="small">C’est le coup que tu avais joué en partie.</p>' : ''}</div>`;
+      X.setBar('<button class="btn pri" data-x="next">Position suivante</button>');
+    },
+    next: () => ideaNext(),
+    skip: () => ideaNext(),
+  });
+}
+// ---------- Avant de jouer : la règle, la routine et la consigne du moment, puis Chess.com ----------
+function viewAvant() {
+  const fc = ls.get('focus', null), c = mainCause(progress.causes()), L = fc ? LESSONS[fc.id] : null, w = fc ? programWeek(fc.since) : null;
+  return `<h1>Avant de jouer</h1><div class="card avant">
+    <span class="small">Ta règle pour ces parties</span><p class="rulet">« ${esc(fc ? RULES[fc.id] : 'Échecs, captures, menaces : je les examine avant chaque coup.')} »</p>
+    ${L?.routine ? `<h3>Ta routine, avant chaque coup</h3><ol class="routine">${L.routine.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>` : ''}
+    ${c ? `<p class="sub">Et surtout : ${esc(CAUSES[c].tip)}</p>` : ''}
+    ${w && w.i < 4 ? `<p class="small">Semaine ${w.i + 1} sur 4 · ${STAGES[w.i].t} : ${esc(STAGES[w.i].d)}</p>` : ''}
+    <div class="row"><a class="btn pri lg" href="https://www.chess.com/play/online/new" target="_blank" rel="noopener">Jouer sur Chess.com</a><button class="btn" data-act="refresh">J’ai joué, mettre à jour</button></div>
+    <p class="small">Après la partie, reviens sur l’accueil : je te demanderai si tu as appliqué la règle, et l’analyse dira si c’est vrai.</p></div>`;
+}
 // Débrief : le coach raconte la partie en moments clés (debrief.js), l'échiquier suit.
-const gvDbList = (v) => (v.a ? (v.dbl ||= moments(v.g, v.a)) : []);
+const gvDbList = (v) => { if (!v.a) return []; if (!v.dbl) { const p = planOf(v.g, OPENINGS); v.dbl = moments(v.g, v.a, p ? { plan: p.text, name: p.o.nom } : {}); } return v.dbl; };
 function gvDb(i) {
   const v = S.gv, L = v ? gvDbList(v) : []; if (!L.length) return;
   v.var = null; v.ask = null; v.db = Math.max(0, Math.min(L.length - 1, i)); v.k = Math.min(v.mv.length, L[v.db].ply);
@@ -1790,6 +1906,7 @@ function viewEntrainer() {
     ${tile(due.length ? lineHref(due[0]) : '#ouvertures/apprendre', 'lines', 'Réciter mes lignes', 'Tes ouvertures, de mémoire', due.length ? `${due.length} à réviser` : '', '--c-learn')}
     ${tile('#gagner', 'flag', 'Finir les parties gagnées', 'Convertir l’avantage contre le moteur', cv ? pl(cv, 'partie') : '', '--c-train')}
     ${tile('#inedits', 'spark', 'Positions inédites', 'Puzzles neufs sur ton chantier', '', '--c-train')}
+    ${tile('#idees', 'bulb', 'Idées de plan', 'Choisir le bon plan dans tes positions calmes', '', '--c-train')}
   </div>
   <h2 class="ent-h">Apprendre</h2><div class="ent-grid two">
     ${tile('#cours', 'book', 'Cours', les?.d ? esc(les.d) : 'Leçons illustrées par tes positions', '', '--c-learn')}
@@ -1917,7 +2034,7 @@ function render(keepScroll) {
   if (!S.data) { v.innerHTML = viewWelcome(); exo.attach(); header(); const f = $('#wf'); f.onsubmit = (ev) => { ev.preventDefault(); const u = $('#wu').value.trim(); if (u) doImport(u); }; return; }
   if (r !== 'partie') S.gv = null;
   if (r !== 'drill' && S.dr && S.dr.i >= S.dr.items.length) S.dr = null; // une série en cours se reprend, une série finie repart de zéro
-  const html = r === 'puzzles' ? viewPuzzles() : r === 'erreur' ? viewPuzzles([a, b]) : r === 'entrainer' ? viewEntrainer() : r === 'historique' ? viewHistory() : r === 'exos' ? viewExos() : r === 'inedits' ? viewInedits() : r === 'drill' ? viewDrill(a) : r === 'cours' ? (a ? viewLecon(a, b) : viewCours()) : r === 'ouvertures' ? (a === 'apprendre' ? viewApprendre() : a ? viewOpening(a) : viewOuvertures()) : r === 'monouv' ? viewMonOuv(a, b) : r === 'ligne' ? viewLigne(a, b, c) : r === 'parties' ? viewParties() : r === 'partie' ? viewPartie(a, b) : r === 'plan' ? viewPlan() : r === 'bilan' ? viewBilan() : r === 'stats' ? viewStats(S) : r === 'gagner' ? viewGagner(a) : viewAccueil();
+  const html = r === 'idees' ? viewIdees() : r === 'avantpartie' ? viewAvant() : r === 'puzzles' ? viewPuzzles() : r === 'erreur' ? viewPuzzles([a, b]) : r === 'entrainer' ? viewEntrainer() : r === 'historique' ? viewHistory() : r === 'exos' ? viewExos() : r === 'inedits' ? viewInedits() : r === 'drill' ? viewDrill(a) : r === 'cours' ? (a ? viewLecon(a, b) : viewCours()) : r === 'ouvertures' ? (a === 'apprendre' ? viewApprendre() : a ? viewOpening(a) : viewOuvertures()) : r === 'monouv' ? viewMonOuv(a, b) : r === 'ligne' ? viewLigne(a, b, c) : r === 'parties' ? viewParties() : r === 'partie' ? viewPartie(a, b) : r === 'plan' ? viewPlan() : r === 'bilan' ? viewBilan() : r === 'stats' ? viewStats(S) : r === 'gagner' ? viewGagner(a) : viewAccueil();
   v.innerHTML = html;
   exo.attach(); // avant de créer les échiquiers : ils naissent à leur taille définitive
   if (r === 'puzzles' || r === 'erreur') { mountPuzzle(); const s = $('#pzt'); if (s) s.onchange = () => { S.pz.theme = s.value; S.pz.cur = null; S.pz.show = null; render(); }; }
@@ -1930,6 +2047,7 @@ function render(keepScroll) {
   else if (r === 'drill') mountDrill();
   else if (r === 'inedits') mountInedits();
   else if (r === 'gagner') mountGagner();
+  else if (r === 'idees') mountIdees();
   else if (r === 'stats') mountStats(S);
   else if (r === 'plan') {
     $('#hrs').onchange = (e) => { ls.set('hours', +e.target.value); render(true); toast('Temps par semaine enregistré'); };
@@ -2094,6 +2212,7 @@ document.addEventListener('click', (ev) => {
   else if (act === 'dbgo') gvDb(+el.dataset.i);
   else if (act === 'dbend') gvGo(S.gv?.k ?? 0);
   else if (act === 'askpos') gvAsk();
+  else if (act === 'selfck') { progress.recordSelf(el.dataset.id, el.dataset.v === '1'); render(true); }
   else if (act === 'askclose') { if (S.gv) { S.gv.ask = null; gvSync(); } }
   else if (act === 'vgo') gvVarGo(+el.dataset.i);
   else if (act === 'vexit') { const k0 = S.gv?.var?.k0; if (k0 != null) gvGo(k0); }

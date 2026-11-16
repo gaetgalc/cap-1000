@@ -395,6 +395,21 @@ Demande : dans « Mes ouvertures », cliquer sur une ouverture pour la détaille
 
 Vérifié : 75 tests unitaires (nouveaux : `plan`, `brief`, `debrief`, `coach`, causes dans `progress`), parcours de bout en bout (étapes coach, cause, débrief ajoutées), audit sans écart sur 24 écrans (nouvel écran `partie-debrief`), captures en 390 × 664 et 1366 × 768 avec une API Claude simulée.
 
+## 37. Coach privé, tier 2 : suivi dans la durée (16/11)
+
+> fais toutes les t2
+
+6. **Idées de plan** (`#idees`, `ideas.js`) : sur une position calme de tes parties (imprécision ou erreur de plan après le 8e coup, position pas encore décidée), choisir la bonne idée parmi trois, rédigées comme des plans (« Installer ton cavalier en d5… »). La bonne : l'intention du meilleur coup ; les autres : ton coup en partie et un coup plausible, que Stockfish doit confirmer moins bon d'au moins 0,5 (sinon il est retiré). Journal `k: 'i'` (`progress.recordIdea`). Tuile dans S'entraîner.
+7. **Programme de 4 semaines** (`program.js`) : Comprendre, Automatiser, Appliquer, Vérifier, semaines du lundi au dimanche depuis le début du chantier. Carte « Ton programme » dans Mon jeu avec le bilan de la semaine passée (parties, taux d'erreur du chantier contre la semaine d'avant, puzzles, échauffements). Le lundi, ce bilan remplace le diagnostic du mot du coach ; la semaine en cours s'ajoute à sa consigne (ordinateur).
+8. **Portrait** (`portrait.js`) : phase où tu perds tes points, pendule, menaces subies ou occasions ratées, camp, parties gagnantes laissées filer. Carte « Ton portrait » en tête de Mon jeu (5 parties analysées au moins).
+9. **Plan de l'ouverture jouée** (`theory.planOf`) : ajouté au moment « Sortie de l'ouverture » du débrief, d'après les idées de la fiche du catalogue pour ton camp.
+10. **Sortie de théorie** (`theory.theoryExits`) : pour les ouvertures du catalogue, le coup où tu quittes la ligne apprise (tes coups seulement), regroupé et compté. Carte « Où tu sors de la théorie » dans Mon jeu, chaque ligne ouvre la ligne commentée.
+11. **Avant et après la partie** : l'étape « Joue 2 parties » mène à `#avantpartie` (règle, routine du cours, consigne de la cause dominante, semaine du programme, puis Chess.com). Après une partie analysée de moins de 3 jours, le mot du coach demande « As-tu appliqué ta règle ? » (`progress.recordSelf`, clé `self`) ; la réponse est confrontée à l'analyse (`brief.selfVerdict`) pendant 20 heures.
+
+Écran de 664 px de haut : le mot du coach passe à 2 lignes, sans objectif chiffré, boutons Oui / Non sur la ligne de la question (bandeau d'objectif sur deux lignes et séance entamée faisaient déborder la dernière partie de 26 px).
+
+Vérifié : 90 tests unitaires (nouveaux : `ideas`, `program`, `portrait`, `theory`, auto-évaluation et idées dans `progress`, `selfVerdict`, plan dans `debrief`), parcours de bout en bout (étapes du tier 2 en fin de parcours), audit sans écart sur 27 écrans (nouveaux : `idees`, `avantpartie`), captures en 390 × 664.
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |
