@@ -1,0 +1,13 @@
+Jeux de pièces servis par Cap 1000 (Plan et réglages > Apparence)
+
+merida/   Armando Hernandez Marroquin. Licence GPLv2 ou ultérieure
+          (https://www.gnu.org/licenses/gpl-2.0.txt), compatible avec la GPL-3.0-or-later du site.
+          SVG repris tels quels du dépôt lichess-org/lila (public/piece/merida), publiés sous cette licence
+          (COPYING.md de ce dépôt).
+
+chessnut/ Alexis Luengas (https://github.com/LexLuengas/chessnut-pieces). Licence Apache 2.0
+          (texte complet : CHESSNUT-APACHE-2.0.txt), compatible avec la GPL-3.0-or-later du site.
+          SVG repris tels quels du dépôt lichess-org/lila (public/piece/chessnut).
+
+Les pièces « Classiques » (par défaut) sont celles de Colin M.L. Burnett (GPLv2 ou ultérieure),
+incluses dans vendor/chessground.css.

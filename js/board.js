@@ -2,6 +2,7 @@
 /* global Chess */
 import { Chessground } from '../vendor/chessground.min.js';
 import { play, enabled, soundFor, moveBetween, moveAt } from './sound.js';
+import { look, setLook, clampSize, speed } from './look.js';
 
 export const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches; // pas de lecture automatique si l'appareil le demande
 const boards = []; // échiquiers de l'écran courant, détruits au rendu suivant
@@ -26,14 +27,60 @@ export function board(el, cfg) {
   // (coup joué à la main, lecture d'une suite, relecture), jamais l'affichage initial ni un retour en arrière.
   let at = cfg.fen;
   const userMove = (orig, dest, ...r) => { const u = moveAt(at, orig, dest); if (u) { at = u.fen; play(soundFor(u.move)); } cfg.events?.move?.(orig, dest, ...r); };
-  const cg = Chessground(el, { coordinates: true, animation: { duration: 220 }, ...(cfg.fen ? { check: chkOf(cfg.fen) } : {}), ...cfg, drawable, events: { ...cfg.events, move: userMove } });
+  const cg = Chessground(el, { coordinates: true, animation: { duration: REDUCED ? 0 : 220 }, ...(cfg.fen ? { check: chkOf(cfg.fen) } : {}), ...cfg, drawable, events: { ...cfg.events, move: userMove } });
   const set0 = cg.set; // le roi en échec est signalé à chaque changement de position
   cg.set = (c) => {
     if (c.fen) { if (enabled()) play(soundFor(moveBetween(at, c.fen))); at = c.fen; }
     return set0(c.fen ? { check: chkOf(c.fen), ...c } : c);
   };
   boards.push(cg);
+  if (el.parentElement?.classList.contains('bwrap')) grip(el);
   return cg;
+}
+
+// Poignée de redimensionnement (écran d'exercice, ordinateur) : glisser le coin de l'échiquier, double-clic pour la taille
+// automatique, flèches au clavier. La taille va dans cap1000:look ; le CSS la borne pour que la page ne défile jamais.
+function grip(el) {
+  const wrap = el.parentElement;
+  if (wrap.querySelector('.bgrip')) return;
+  const g = document.createElement('button');
+  g.type = 'button'; g.className = 'bgrip'; g.title = 'Taille de l’échiquier (double-clic : automatique)'; g.setAttribute('aria-label', 'Taille de l’échiquier');
+  wrap.appendChild(g);
+  const root = document.documentElement, cur = () => el.getBoundingClientRect().width;
+  const most = () => { // plus grande taille possible dans cette fenêtre
+    const was = root.style.getPropertyValue('--bsz');
+    root.style.setProperty('--bsz', '9999px');
+    const m = cur();
+    if (was) root.style.setProperty('--bsz', was); else root.style.removeProperty('--bsz');
+    return m;
+  };
+  const fit = (v, max) => clampSize(Math.min(v, max));
+  let drag = null;
+  g.addEventListener('pointerdown', (ev) => {
+    ev.preventDefault();
+    drag = { x: ev.clientX, y: ev.clientY, w: cur(), max: most(), id: ev.pointerId };
+    try { g.setPointerCapture(ev.pointerId); } catch { /* rien */ }
+    g.classList.add('on');
+  });
+  g.addEventListener('pointermove', (ev) => {
+    if (!drag) return;
+    const v = fit(drag.w + Math.max(ev.clientX - drag.x, ev.clientY - drag.y), drag.max);
+    root.style.setProperty('--bsz', v + 'px');
+  });
+  const end = () => {
+    if (!drag) return;
+    drag = null; g.classList.remove('on');
+    setLook({ size: clampSize(cur()) });
+  };
+  g.addEventListener('pointerup', end);
+  g.addEventListener('pointercancel', end);
+  g.addEventListener('dblclick', () => setLook({ size: null }));
+  g.addEventListener('keydown', (ev) => {
+    const d = { ArrowUp: 16, ArrowRight: 16, ArrowDown: -16, ArrowLeft: -16 }[ev.key];
+    if (!d) return;
+    ev.preventDefault(); ev.stopPropagation();
+    setLook({ size: fit((look().size || cur()) + d, most()) });
+  });
 }
 export const arrow = (uci, brush) => (uci ? { orig: uci.slice(0, 2), dest: uci.slice(2, 4), brush } : null);
 export const errShapes = (e) => [arrow(e.playedUci, 'red'), arrow(e.best, 'green')].filter(Boolean);
@@ -44,7 +91,8 @@ export const stepShapes = (s) => (s.tags.shapes || []).map((q) => ({ orig: q.ori
 // o : { len(), step(k), brush(k), arrows(liste), show(), alive() }
 export function film(o) {
   const f = { i: 0, play: false, tm: 0 };
-  const read = (s) => Math.max(1500, Math.min(3000, 700 + 21 * s.text.length)); // temps de lecture du commentaire
+  const k = speed(); // vitesse de lecture choisie dans Apparence (lente, normale, rapide)
+  const read = (s) => k * Math.max(1500, Math.min(3000, 700 + 21 * s.text.length)); // temps de lecture du commentaire
   f.stop = () => { clearTimeout(f.tm); f.play = false; };
   function tick() {
     if (!f.play) return;
@@ -58,7 +106,7 @@ export function film(o) {
       if (f.i >= o.len()) f.play = false;
       o.show();
       if (f.play) f.tm = setTimeout(tick, read(nx));
-    }, 750);
+    }, 750 * k);
   }
   f.start = (from, delay) => {
     f.stop();
@@ -66,7 +114,7 @@ export function film(o) {
     f.i = Math.max(0, Math.min(f.i, o.len()));
     f.play = f.i < o.len();
     o.show();
-    if (f.play) f.tm = setTimeout(tick, delay ?? (f.i ? read(o.step(f.i - 1)) : 700));
+    if (f.play) f.tm = setTimeout(tick, delay ?? (f.i ? read(o.step(f.i - 1)) : 700 * k));
   };
   return f;
 }

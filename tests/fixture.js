@@ -33,7 +33,7 @@ function game(i) {
 }
 const GAMES = Array.from({ length: 12 }, (_, i) => game(i));
 
-const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.wasm': 'application/wasm', '.woff2': 'font/woff2' };
+const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.wasm': 'application/wasm', '.woff2': 'font/woff2', '.svg': 'image/svg+xml' };
 const server = http.createServer((req, rsp) => {
   const p = path.join(ROOT, decodeURIComponent(req.url.split('?')[0]).replace(/\/$/, '/index.html'));
   fs.readFile(p, (e, buf) => { rsp.writeHead(e ? 404 : 200, { 'Content-Type': MIME[path.extname(p)] || 'application/octet-stream', 'Cache-Control': 'no-store' }); rsp.end(e ? '' : buf); });

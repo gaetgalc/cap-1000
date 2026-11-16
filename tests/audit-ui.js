@@ -2,6 +2,9 @@
 // Lancer : node tests/audit-ui.js [dossier]   (par défaut tests/out/audit ; captures + audit.json + résumé à l'écran)
 // Mesures, d'après les règles de la refonte (docs/REFONTE.md) : défilement de la page, débordement horizontal,
 // tailles de texte, texte sous 13 px, contraste du texte, cibles tactiles sous 44 px, boutons pleins, arrondis.
+// Échiquier (lot 1 du 16/11) : coordonnées dans leur case et sans chevauchement (échiquier retourné compris), largeur de
+// l'échiquier de la relecture et des cours (.xwide) d'au moins 360 px en 390 de large. Les coordonnées (12 px) sont dans
+// cg-container, donc hors de la mesure « texte sous 13 px » : exception assumée, documentée dans css/app.css (--t-coord).
 /* eslint-disable no-console */
 const { chromium } = require('playwright');
 const fs = require('fs'), path = require('path'), os = require('os');
@@ -25,6 +28,18 @@ const SCREENS = [
   ['parties'], ['stats'], ['entrainer'],
   ['partie', () => { const s = window.__cap, g = s.data.games.find((x) => s.an[x.id] && !s.an[x.id].bad); return 'partie/' + g.t; }],
   ['erreur', () => { const s = window.__cap; for (const g of s.data.games) { const e = s.an[g.id]?.errs?.[0]; if (e) return 'erreur/' + g.t + '/' + e.ply; } return 'puzzles'; }],
+  // Position d'un cours privé : cours simulé injecté dans l'état (jamais enregistré), sur la première erreur analysée.
+  ['cours-position', () => {
+    const s = window.__cap;
+    for (const g of s.data.games) {
+      const e = s.an[g.id]?.errs?.[0]; if (!e) continue;
+      s.ai.en_prise_pose = { titre: 'Ne plus poser une pièce en prise', accroche: 'Accroche.', idee: 'Idée.', regle: 'Règle.', methode: [], quiz: [],
+        positions: [{ i: 0, question: 'Avant de jouer, quelle pièce adverse peut prendre la case où tu vas ?', explication: 'Explication.', retenir: 'À retenir.', indice: 'Indice.' }], ex: [{ t: g.t, ply: e.ply }] };
+      s.cl = { id: 'en_prise_pose', step: 1, quiz: {} };
+      return 'cours/en_prise_pose';
+    }
+    return 'cours';
+  }],
 ];
 
 // Exécuté dans la page : mesures sur tout ce qui est visible.
@@ -73,6 +88,29 @@ function measure(touch) {
     if (r.width < 44 || r.height < 44) out.taps.push(Math.round(r.width) + '×' + Math.round(r.height) + ' « ' + label(el) + ' »');
   }
   out.primaries = [...document.querySelectorAll('.btn.pri')].filter(vis).length;
+  // Coordonnées : chaque étiquette reste dans l'échiquier et dans sa case (8 par côté), aucune n'en recouvre une autre.
+  out.coords = [];
+  for (const w of document.querySelectorAll('.cg-wrap')) {
+    if (!vis(w)) continue;
+    const B = (w.querySelector('cg-board') || w).getBoundingClientRect(), sq = B.width / 8, boxes = []; // cases réelles : chessground arrondit au multiple de 8
+    for (const c of w.querySelectorAll('coords coord')) {
+      if (!vis(c.parentElement)) continue;
+      const rg = document.createRange(); rg.selectNodeContents(c);
+      const r = rg.getBoundingClientRect();
+      if (!r.width) continue;
+      boxes.push({ t: c.textContent, r });
+      const col = Math.floor((r.left - B.left) / sq), row = Math.floor((r.top - B.top) / sq);
+      if (r.left < B.left - 0.5 || r.right > B.right + 0.5 || r.top < B.top - 0.5 || r.bottom > B.bottom + 0.5) out.coords.push('« ' + c.textContent + ' » hors de l’échiquier');
+      else if (col !== Math.floor((r.right - 0.5 - B.left) / sq) || row !== Math.floor((r.bottom - 0.5 - B.top) / sq)) out.coords.push('« ' + c.textContent + ' » à cheval sur deux cases');
+    }
+    for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+      const a = boxes[i].r, b = boxes[j].r;
+      if (a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom) out.coords.push('« ' + boxes[i].t + ' » recouvre « ' + boxes[j].t + ' »');
+    }
+  }
+  const xb = document.querySelector('#xb');
+  out.board = xb && vis(xb) ? Math.round(xb.getBoundingClientRect().width) : 0;
+  out.wide = !!document.querySelector('.xwide');
   for (const el of document.querySelectorAll('body *')) {
     if (el.closest('cg-container, svg') || !vis(el)) continue;
     const rr = getComputedStyle(el).borderTopLeftRadius;
@@ -131,6 +169,8 @@ async function visit(ctx, size, report) {
       if (m.small.length) pb.push(m.small.length + ' textes < 13 px');
       if (m.contrast.length) pb.push(m.contrast.length + ' contrastes faibles');
       if (m.taps.length) pb.push(m.taps.length + ' cibles < 44 px');
+      if (m.coords.length) pb.push('coordonnées : ' + m.coords.slice(0, 3).join(', '));
+      if (m.wide && sid.startsWith('390x') && m.board < 360) pb.push('échiquier de ' + m.board + ' px (360 au moins)');
       if (m.errors.length) pb.push('erreurs JS : ' + m.errors.join(' | '));
       console.log(`${sid.padEnd(9)} ${name.padEnd(21)} ${pb.join(' · ') || 'rien à signaler'}`);
     }
