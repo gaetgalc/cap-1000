@@ -79,7 +79,7 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   // ---- Relecture d'une partie : meilleur coup affiché par défaut ----
   const g0 = await S(() => { const s = window.__cap, g = s.data.games.find((x) => s.an[x.id] && !s.an[x.id].bad); return { t: g.t, id: g.id }; });
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#partie/${g0.t}`); await sleep(700);
-  const shapes = () => S(() => { const v = window.__cap.gv; return { k: v.k, best: v.a.best[v.k], err: !!v.errAt[v.k], next: v.mv[v.k] && v.mv[v.k].from + v.mv[v.k].to, sh: v.cg.state.drawable.autoShapes.map((x) => x.orig + (x.dest || '') + ':' + x.brush) }; });
+  const shapes = () => S(() => { const v = window.__cap.gv; return { k: v.k, best: v.a.best[v.k], err: !!v.errAt[v.k], next: v.mv[v.k] && v.mv[v.k].from + v.mv[v.k].to, sh: v.cg.state.drawable.autoShapes.map((x) => x.orig + (x.dest || x.ldest || '') + ':' + (x.brush || x.lbrush)) }; });
   let okAll = true, okRed = true;
   for (let i = 0; i < 8; i++) {
     const s = await shapes();
@@ -91,6 +91,9 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   check(okRed, 'relecture : flèche rouge du coup joué quand il diffère du meilleur');
   check(/Meilleur /.test(await bar('#xcap')) || (await shapes()).err, 'relecture : le bandeau nomme le meilleur coup');
   check(await page.locator('#xb svg.cg-shapes g, #xb svg g').count() > 0, 'relecture : la flèche est dessinée sur l’échiquier');
+  // Saut de cavalier : flèche en L dessinée à la main, pas de diagonale.
+  await S(() => window.__cap.gv.cg.setAutoShapes([{ orig: 'b1', dest: 'c3', brush: 'green' }, { orig: 'e2', dest: 'e4', brush: 'red' }])); await sleep(200);
+  check(await S(() => { const a = window.__cap.gv.cg.state.drawable.autoShapes; return !!a[0].customSvg && !a[0].dest && a[0].ldest === 'c3' && !a[1].customSvg; }) && await page.locator('#xb .cg-custom-svgs polyline').count() === 1, 'cavalier : flèche en L, les autres pièces gardent la flèche droite');
 
   // ---- Relecture : l'échiquier se joue, un autre coup ouvre une variante évaluée ----
   await page.click('#xbar [aria-label="Début"]'); await sleep(300);

@@ -300,6 +300,12 @@ Fait : l'échiquier de la relecture (`#partie`) n'est plus figé. Les deux camps
 
 Vérifié : 5 contrôles ajoutés au test de bout en bout, captures en 390 × 664 et 1366 × 768 sans défilement. Non fait : arbre de plusieurs variantes gardées dans la liste des coups (une seule variante à la fois).
 
+## 28. Flèche en L pour le cavalier (16/11)
+
+> Pour le cavalier j'ai envie d'avoir un L et pas une flèche droite pour le meilleur coup
+
+Fait : sur tous les échiquiers (relecture, puzzles, suites commentées), une flèche de saut de cavalier est tracée en L, grande branche puis petite, avec la couleur et l'épaisseur des autres flèches. Les flèches tracées soi-même au clic droit restent droites (chessground).
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |

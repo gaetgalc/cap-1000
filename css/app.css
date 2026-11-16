@@ -368,7 +368,8 @@ details.gd summary { cursor: pointer; font-size: var(--t-s); color: var(--accent
 .cap.ko .ask { color: var(--ink); }
 @media (max-width: 859px) { .actbar .btn.opt { font-size: var(--t-m); font-weight: 600; } }
 
-.cg-wrap .cg-shapes { opacity: .85; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .35)); }
+.cg-wrap .cg-shapes, .cg-wrap .cg-custom-svgs { opacity: .85; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .35)); }
+.cg-wrap .cg-custom-svgs svg { overflow: visible; } /* flèches en L du cavalier : elles sortent de la case de départ */
 .capbest { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: var(--r-s); background: var(--good-soft); color: var(--good); font-size: var(--t-xs); font-weight: 600; white-space: nowrap; }
 .capbest b { color: var(--accent-ink); }
 .capbest.ko { background: var(--bad-soft); color: var(--bad); } .capbest.ko b { color: var(--bad-ink); }

@@ -151,7 +151,7 @@ Le test génère des parties par coups semi-aléatoires au format Chess.com, int
 - `Engine.evalFen(fen, depth, urgent)` : `urgent` fait passer la vérification d'un coup devant les calculs de suites.
 - Tout exercice terminé est noté par `progress.record…` au moment où il se termine, jamais au changement d'écran.
 - Boutons de contrôle : icônes SVG de `ico()`, pas de flèches Unicode (émojis sur iPhone). Une barre mise à jour pendant une lecture passe par `setHtml` pour ne pas remplacer un bouton sous le doigt.
-- `board()` (dans `board.js`) signale l'échec à chaque `cg.set({ fen })` et enregistre l'échiquier pour `destroyBoards()` ; ne pas créer d'échiquier sans passer par elle (`X.board` sur un écran d'exercice).
+- `board()` (dans `board.js`) remplace toute flèche de saut de cavalier par une flèche en L dessinée à la main (`lPath`, calque `customSvg` de chessground, champs `ldest` / `lbrush` à la place de `dest` / `brush`), signale l'échec à chaque `cg.set({ fen })` et enregistre l'échiquier pour `destroyBoards()` ; ne pas créer d'échiquier sans passer par elle (`X.board` sur un écran d'exercice).
 - Pas de sac d'aides passé en paramètre : un module importe ce dont il a besoin depuis `ui.js`, `charts.js`, `explain.js`.
 
 ## Points ouverts
