@@ -364,6 +364,14 @@ Après (`viewEntrainer`, `entNext`, `mountEntrainer`) :
 
 Vérifié : tests, parcours, audit sans écart, captures aux 4 tailles.
 
+## 34. Détail d'une ouverture jouée (16/11)
+
+Demande : dans « Mes ouvertures », cliquer sur une ouverture pour la détailler (usage dans le temps, stats, lignes jouées). Le tableau n'était pas cliquable.
+
+- Chaque ligne du tableau ouvre `#monouv/<w|b>/<famille>` (`viewMonOuv`, `mountMonOuv`).
+- Contenu : échiquier sur le tronc commun à toutes les parties, score et barre victoires/nulles/défaites, verdict ; « En chiffres » (part des parties de la couleur, première et dernière fois, classement moyen des adversaires, évaluation après 10 coups, précision, fautes avant le 12e coup) ; courbe « Dans le temps » (par semaine, mois ou trimestre selon la durée, survol : score et part des parties) ; suites jouées au moins deux fois, chacune ouvre l'explorateur sur ses coups ; variantes ; dernières fautes de l'ouverture avec « Rejouer » ; 6 dernières parties ; lien vers la fiche du catalogue quand l'ouverture y figure.
+- Calcul pur dans `stats.famDetail`, testé dans `tests/stats.test.mjs` ; parcours et audit (écran `mon-ouverture`) étendus.
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |

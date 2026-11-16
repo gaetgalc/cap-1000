@@ -83,6 +83,11 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   check(/Tes erreurs et la pendule/.test(await bar('#view')), 'la page Stats montre les erreurs selon la pendule');
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#ouvertures`); await sleep(400);
   check(/Ouvertures/.test(await bar('#view')), 'la page Ouvertures s’affiche avec le bloc des erreurs qui reviennent');
+  await page.click('tr[data-act="opfam"]'); await sleep(600);
+  check(/^#monouv\//.test(await page.evaluate(() => location.hash)) && /En chiffres/.test(await bar('#view')) && /Dernières parties/.test(await bar('#view')), 'une ligne du tableau des ouvertures ouvre son détail');
+  check(await page.evaluate(() => !!document.querySelector('#mob cg-board') && !!document.querySelector('#moc svg, #moc p')), 'détail d’ouverture : échiquier et courbe dans le temps');
+  const exSan = await page.evaluate(() => { const b = document.querySelector('tr[data-act="exline"]') || document.querySelector('[data-act="exline"]'); b.click(); return b.dataset.san; }); await sleep(500);
+  check(await page.evaluate((san) => location.hash === '#ouvertures' && window.__cap.path.join(' ') === san, exSan), 'une suite du détail ouvre l’explorateur sur ses coups');
 
   // ---- Relecture d'une partie : meilleur coup affiché par défaut ----
   const g0 = await S(() => { const s = window.__cap, g = s.data.games.find((x) => s.an[x.id] && !s.an[x.id].bad); return { t: g.t, id: g.id }; });

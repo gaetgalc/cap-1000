@@ -650,6 +650,12 @@ body.fit .cap { max-width: none; overflow-y: auto; }
 .ophero { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 14px; align-items: center; }
 .ophero h1 { font-size: var(--t-l); }
 #opb { width: 120px; height: 120px; }
+/* Détail d'une ouverture jouée (#monouv) : même en-tête que la fiche, deux colonnes de cartes sur ordinateur */
+#mob { width: 120px; height: 120px; }
+.mogrid { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 860px) { .mogrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ophero:has(#mob) { grid-template-columns: 180px minmax(0, 1fr); } #mob { width: 180px; height: 180px; } }
+td .chev { display: inline; }
+.mowdl { max-width: 360px; }
 .opmoves { font: 600 var(--t-s) var(--display); color: var(--accent-ink); margin: 0; }
 .ophero .sub { margin: 0; }
 .lnrow { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 14px; border-top: 1px solid var(--line); }
@@ -711,7 +717,7 @@ body.imm .toasts { bottom: calc(84px + var(--s-3) + env(safe-area-inset-bottom))
 a { --sec: var(--ink3); }
 a[href^="#accueil"] { --sec: var(--c-jour); }
 a:is([href^="#entrainer"], [href^="#puzzles"], [href^="#erreur"], [href^="#inedits"], [href^="#historique"], [href^="#exos"], [href^="#drill"], [href^="#gagner"]) { --sec: var(--c-train); }
-a:is([href^="#partie"], [href^="#mesouvertures"], [href="#ouvertures"]) { --sec: var(--c-games); }
+a:is([href^="#partie"], [href^="#mesouvertures"], [href^="#monouv"], [href="#ouvertures"]) { --sec: var(--c-games); }
 a:is([href^="#cours"], [href^="#apprendre"], [href^="#ligne"], [href^="#ouvertures/"]) { --sec: var(--c-learn); }
 a:is([href^="#bilan"], [href^="#stats"], [href^="#plan"], [href^="#plus"]) { --sec: var(--c-prog); }
 /* Entrée inactive : teinte atténuée mais reconnaissable ; entrée active : pleine couleur et fond légèrement teinté */
