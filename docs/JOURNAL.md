@@ -306,6 +306,24 @@ Vérifié : 5 contrôles ajoutés au test de bout en bout, captures en 390 × 66
 
 Fait : sur tous les échiquiers (relecture, puzzles, suites commentées), une flèche de saut de cavalier est tracée en L, grande branche puis petite, avec la couleur et l'épaisseur des autres flèches. Les flèches tracées soi-même au clic droit restent droites (chessground).
 
+## 29. Plan d'agrément : 8 lots en parallèle (16/11)
+
+> fais un plan pour rendre le site plus agréable niveau front end. inspire toi des meilleures pratiques lichess et chess.com pour ça
+> sons coupés par défaut, vert adouci, lance tous les lots en parrallèl
+
+Plan dans `docs/PLAN-AGREMENT.md`. Cinq agents en parallèle (copies isolées du dépôt), puis fusion :
+
+- **Échiquier** : vert adouci propre au site (`#e7ead5` / `#7b9c63`), coordonnées dans les coins (corrige le chevauchement sur l'échiquier retourné), coins arrondis et ombre, dernier coup en jaune léger, points de destination discrets, halo d'échec, poignée de redimensionnement sur ordinateur.
+- **Apparence** (Plan et réglages) : 3 palettes, 3 jeux de pièces libres, coordonnées, vitesse de lecture des suites (`js/look.js`, `cap1000:look`).
+- **Retour immédiat** : pastille ✓ / ✗ sur la case, pièce qui revient en glissant après un coup faux, bandeau teinté, rond de l'objectif qui rebondit, « N d'affilée » (`progress.run`).
+- **Sons** synthétisés (`js/sound.js`), coupés par défaut, bouton dans la barre du haut (téléphone) ou la colonne d'icônes (ordinateur).
+- **Relecture façon Game Review** : barre d'évaluation, courbe cliquable avec les fautes, symboles `??` `?` `?!` `!` sur la case, coups en 2 colonnes (ordinateur) ou en bande (téléphone), erreur précédente / suivante. Fusionnée avec la relecture jouable (§27) : la liste `#gvm` remplace l'ancienne carte « Coups » ; le clavier passe par l'écouteur global (variante comprise, plus Début / Fin).
+- **Mouvement** : fondu de 150 ms entre les pages, blocs gris de chargement, barre d'avancement de l'analyse, messages éphémères (`js/toast.js`).
+- **Fin de séance** : anneau qui se ferme, quatre chiffres, un seul bouton vers l'étape suivante.
+- **Accueil ordinateur** calé en haut, mini-échiquier de la pire faute.
+
+Vérifié : 49 tests unitaires, parcours complet, audit sans écart sur 23 écrans aux 4 tailles, captures relues. Non vérifié : sons à l'oreille, rendu sur iPhone, site en ligne.
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |

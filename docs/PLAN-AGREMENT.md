@@ -1,5 +1,7 @@
 # Plan : rendre le site plus agréable (16/11)
 
+**État : les 8 lots sont faits (16/11), voir `docs/JOURNAL.md` §29.** Décisions de Gaëtan : sons coupés par défaut, vert actuel adouci, tous les lots en parallèle.
+
 Suite de `docs/REFONTE.md`. La refonte a réglé la structure (jetons, navigation, contraste, cibles de 44 px). Ce plan porte sur la **sensation** : échiquier, retour immédiat, sons, relecture, récompense. Inspiré des pratiques de Lichess et Chess.com, sans reprendre leurs pièces, sons, logos ni couleurs exactes.
 
 Constat sur les captures de l'audit du 16/11 (`node tests/audit-ui.js`, 22 écrans sans écart) :

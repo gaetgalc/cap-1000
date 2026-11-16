@@ -67,3 +67,11 @@ Les captures « avant » ne sont pas versionnées (poids). Pour les refaire : `g
 - **Relief du bouton principal** : choix de Gaëtan du 15/11.
 - **Cibles de 44 px seulement sur téléphone** : le skill les exige aux largeurs tactiles ; à la souris, les boutons restent à 44 px mais les petits liens et les coups de la relecture gardent leur taille.
 - Pas de lien d'évitement (« aller au contenu ») : le routage par `#` le transformerait en changement de page.
+
+## Plan d'agrément (16/11)
+
+Suite de la refonte, détail dans `docs/PLAN-AGREMENT.md`. Écarts assumés en plus de ceux ci-dessus :
+
+- **Coordonnées de l'échiquier en 12 px** (`--t-coord`), sous le minimum de 13 px : elles sont dans le coin des cases, comme sur Lichess et Chess.com. L'audit ne les compte pas (elles sont dans `cg-container`).
+- **Anneau du bilan de fin de séance en 700 ms** (`--m-ring`, `stroke-dashoffset`), au-delà des 240 ms : en 240 ms la fermeture ne se voit pas. Coupé par `prefers-reduced-motion`.
+- **Relecture sur téléphone** : échiquier de 273 px en 390 × 664 (et non bord à bord) pour garder visibles la bande de coups et la courbe d'avantage sans défilement ; les boutons Début et Fin sont masqués (touches du clavier, bande de coups).
