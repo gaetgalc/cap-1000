@@ -75,3 +75,34 @@ test('synthèse de la liste : bilan, adversaire moyen, performance, Elo de débu
   assert.equal(listSummary([]).n, 0);
   assert.equal(listSummary([{ tc: 'rapid', rated: true, r: 800, or: 800, out: 'W', t: 1 }, { tc: 'blitz', rated: true, r: 600, or: 600, out: 'W', t: 2 }]).from, null); // cadences mêlées : pas d'Elo de période
 });
+
+test('détail d’une ouverture : tronc commun, suites jouées, variantes, usage dans le temps', async () => {
+  const { famDetail } = await import('../js/stats.js');
+  const ts = (y, m) => Date.UTC(y, m, 15) / 1000;
+  const mk = (t, san, out, w = true, fam = 'Italian Game', op = 'Italian Game') => ({ t, san: san.split(' '), out, w, fam, op });
+  const base = 'e4 e5 Nf3 Nc6 Bc4';
+  const gs = [
+    mk(ts(2025, 11), base + ' Bc5 c3 Nf6 d3 d6', 'W'),
+    mk(ts(2025, 11), base + ' Bc5 c3 Nf6 d3 d6', 'L'),
+    mk(ts(2026, 2), base + ' Nf6 d3 Be7 O-O O-O', 'W', true, 'Italian Game', 'Italian Game Two Knights'),
+    mk(ts(2026, 2), 'd4 d5 c4 e6', 'D', true, 'Queens Gambit'),
+    mk(ts(2026, 2), base + ' Bc5', 'L', false), // Noirs : autre couleur, ignorée
+  ];
+  const d = famDetail(gs, 'Italian Game', true);
+  assert.equal(d.games.length, 3);
+  assert.deepEqual([d.tally.n, d.tally.w, d.tally.l], [3, 2, 1]);
+  assert.deepEqual(d.prefix, base.split(' '), 'les coups communs à toutes les parties');
+  assert.equal(d.lines.length, 1, 'une suite jouée au moins deux fois');
+  assert.equal(d.lines[0].n, 2);
+  assert.deepEqual(d.lines[0].san.slice(5), ['Bc5', 'c3', 'Nf6', 'd3']);
+  assert.deepEqual(d.vars.map((v) => [v.op, v.n]), [['Italian Game', 2], ['Italian Game Two Knights', 1]]);
+  assert.equal(d.periods.unit, 'mois', 'trois mois : par mois');
+  const mar = d.periods.list.find((p) => p.k === 2026 * 12 + 2);
+  assert.deepEqual([mar.n, mar.all], [1, 2], 'mars : 1 italienne sur 2 parties avec les Blancs');
+  assert.equal(d.periods.list.length, 4, 'décembre à mars, mois vides compris');
+  const court = famDetail(gs.slice(2), 'Italian Game', true);
+  assert.equal(court.periods.unit, 'semaine', 'parties sur quelques jours : par semaine');
+  const year = famDetail([gs[0], mk(ts(2027, 6), base, 'W')], 'Italian Game', true);
+  assert.equal(year.periods.unit, 'trimestre', 'plus d’un an : par trimestre');
+  assert.equal(famDetail(gs, 'Inconnue', true).games.length, 0);
+});

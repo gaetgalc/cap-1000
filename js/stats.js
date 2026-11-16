@@ -41,6 +41,31 @@ export function tree(games, white) {
   return root;
 }
 
+// Détail d'une ouverture jouée (famille Chess.com, une couleur) : tronc commun à toutes ses parties, suites jouées
+// au moins deux fois (4 demi-coups après le tronc), variantes, usage dans le temps (par semaine sur moins de 10 semaines, par mois sur moins d'un an, sinon par trimestre).
+export function famDetail(games, fam, white) {
+  const mine = games.filter((g) => g.w === white).sort((a, b) => a.t - b.t);
+  const gs = mine.filter((g) => g.fam === fam);
+  const prefix = [];
+  for (let i = 0; gs.length && i < 12; i++) { const s = gs[0].san[i]; if (!s || !gs.every((g) => g.san[i] === s)) break; prefix.push(s); }
+  const n = Math.min(14, Math.max(6, prefix.length + 4)), m = new Map();
+  for (const g of gs) { if (g.san.length < n) continue; const k = g.san.slice(0, n).join(' '); const r = m.get(k) || { san: g.san.slice(0, n), ...blank() }; add(r, g); m.set(k, r); }
+  const lines = [...m.values()].filter((r) => r.n >= 2).sort((a, b) => b.n - a.n).slice(0, 5);
+  const vars = [...(openings(gs, white)[0]?.vars.values() || [])].sort((a, b) => b.n - a.n);
+  const mo = (t) => { const d = new Date(t * 1000); return d.getUTCFullYear() * 12 + d.getUTCMonth(); };
+  const periods = { unit: 'mois', list: [] };
+  if (gs.length) {
+    const t0 = gs[0].t, t1 = mine[mine.length - 1].t, days = (t1 - t0) / 86400;
+    periods.unit = days < 70 ? 'semaine' : days < 400 ? 'mois' : 'trimestre';
+    // k : numéro de semaine (lundi) depuis 1970, ou numéro de mois (multiple de 3 pour un trimestre)
+    const key = periods.unit === 'semaine' ? (t) => Math.floor((t / 86400 + 3) / 7) : periods.unit === 'mois' ? mo : (t) => mo(t) - (mo(t) % 3);
+    const step = periods.unit === 'trimestre' ? 3 : 1, by = new Map();
+    for (const g of mine) { const k = key(g.t); if (k < key(t0)) continue; const p = by.get(k) || { k, all: 0, ...blank() }; p.all++; if (g.fam === fam) add(p, g); by.set(k, p); }
+    for (let k = key(t0); k <= key(t1); k += step) periods.list.push(by.get(k) || { k, all: 0, ...blank() });
+  }
+  return { games: gs, tally: tally(gs), prefix, lines, vars, periods };
+}
+
 export function timeStats(games) {
   const losses = games.filter((g) => g.out === 'L');
   const flag = losses.filter((g) => g.how === 'timeout').length;

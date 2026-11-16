@@ -889,10 +889,10 @@ function filtersHtml() {
     <select data-f="days" aria-label="Période"><option value="0">Depuis le début</option><option value="90" ${S.f.days === 90 ? 'selected' : ''}>90 derniers jours</option><option value="30" ${S.f.days === 30 ? 'selected' : ''}>30 derniers jours</option></select>
     <button class="btn sm" data-act="refresh" title="Récupérer les nouvelles parties de ${esc(S.user)}">Mettre à jour</button>`;
 }
-const TITLES = { ouvertures: 'Ouverture', ligne: 'Ouverture', puzzles: 'Puzzles', erreur: 'Comprendre', partie: 'Partie', cours: 'Cours', drill: 'Échauffement', inedits: 'Positions inédites', gagner: 'Gagner' };
+const TITLES = { ouvertures: 'Ouverture', ligne: 'Ouverture', puzzles: 'Puzzles', erreur: 'Comprendre', partie: 'Partie', cours: 'Cours', drill: 'Échauffement', inedits: 'Positions inédites', gagner: 'Gagner', monouv: 'Mon ouverture' };
 function header() {
   const t = $('#tools'), [r, a] = route();
-  const imm = !!S.data && (!!exo.current() || r === 'erreur' || (r === 'cours' && !!a) || (r === 'ouvertures' && !!a && a !== 'apprendre')); // écran d'exercice ou page de cours : barre du haut avec retour
+  const imm = !!S.data && (!!exo.current() || r === 'erreur' || (r === 'cours' && !!a) || (r === 'ouvertures' && !!a && a !== 'apprendre') || r === 'monouv'); // écran d'exercice ou page de cours : barre du haut avec retour
   document.body.classList.toggle('imm', imm);
   document.body.classList.toggle('homefit', !!S.data && r === 'accueil');
   $('#ttl').textContent = imm ? TITLES[r] : '';
@@ -1309,9 +1309,9 @@ function viewOuvertures() {
   ${repCard}
   <div class="card"><h2>Tes ouvertures avec les ${S.white ? 'Blancs' : 'Noirs'} <span class="small">${side.n} parties, ${st.score(side)} % de score</span></h2>
     ${ops.length ? `<div class="scroll"><table><thead><tr><th>Ouverture</th><th class="r">Parties</th><th>Résultats</th><th class="r">Score</th><th class="r" title="Évaluation moyenne du moteur après 10 coups, de ton point de vue">Après 10 coups</th><th>Verdict</th></tr></thead><tbody>
-    ${ops.slice(0, 12).map((o) => `<tr><td><b>${esc(o.fam)}</b>${o.vars.size > 1 ? `<br><span class="small">${[...o.vars.values()].sort((a, b) => b.n - a.n).slice(0, 2).map((v) => esc(v.op.replace(o.fam, '').trim() || 'ligne principale') + ' (' + v.n + ')').join(', ')}</span>` : ''}</td>
+    ${ops.slice(0, 12).map((o) => `<tr class="click" data-act="opfam" data-fam="${esc(o.fam)}" title="Détail de cette ouverture"><td><b>${esc(o.fam)}</b> <span class="chev" aria-hidden="true">›</span>${o.vars.size > 1 ? `<br><span class="small">${[...o.vars.values()].sort((a, b) => b.n - a.n).slice(0, 2).map((v) => esc(v.op.replace(o.fam, '').trim() || 'ligne principale') + ' (' + v.n + ')').join(', ')}</span>` : ''}</td>
       <td class="r">${o.n}</td><td style="min-width:110px">${wdl(o)}</td><td class="r"><b>${st.score(o)} %</b></td><td class="r">${exitEval(o.fam)}</td><td>${verdict(o)}</td></tr>`).join('')}
-    </tbody></table></div>${WDL_LEGEND}` : '<p class="sub">Aucune partie avec cette couleur pour ce filtre.</p>'}</div>
+    </tbody></table></div>${WDL_LEGEND}<p class="small">Touche une ouverture pour son détail : usage dans le temps, suites jouées, erreurs, dernières parties.</p>` : '<p class="sub">Aucune partie avec cette couleur pour ce filtre.</p>'}</div>
   <div class="split"><div class="board" id="exb"></div>
     <div class="card"><h2>Explorateur de tes parties</h2>
       <div class="row"><button class="btn sm" data-act="expath" data-n="0">Début</button>${crumbs}</div>
@@ -1352,6 +1352,64 @@ function partieRow(g, fx, allTc) {
       <span class="gl-c gl-f">${fau}</span><span class="gl-c num">${fx.left != null ? `<b>${mmss(fx.left)}</b><span class="vh"> restant à la pendule</span>` : '<span class="small">–</span>'}</span>
       <span class="gl-d small num">${dfmt(g.t)} ${hh}${allTc ? ` · ${TC[g.tc] || g.tc}` : ''}</span></span></a>`;
 }
+// Détail d'une ouverture jouée (#monouv/<w|b>/<famille>) : chiffres, usage dans le temps, suites, variantes, erreurs, parties.
+const famHref = (fam, w) => `#monouv/${w ? 'w' : 'b'}/${encodeURIComponent(fam)}`;
+const perName = (k, unit) => (unit === 'semaine' ? 'sem. du ' + new Date(((k * 7) - 3) * 86400000).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', timeZone: 'UTC' }) : unit === 'mois' ? new Date(Date.UTC(Math.floor(k / 12), k % 12, 1)).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric', timeZone: 'UTC' }) : `T${(k % 12) / 3 + 1} ${Math.floor(k / 12)}`);
+const scoreChip = (s) => { const sc = st.score(s); return `<span class="chip ${s.n >= 2 && sc >= 55 ? 'good' : s.n >= 2 && sc <= 42 ? 'bad' : ''}">${sc} %</span>`; };
+const resChip = (g) => `<span class="chip ${g.out === 'W' ? 'good' : g.out === 'L' ? 'bad' : ''}">${g.out === 'W' ? 'Victoire' : g.out === 'L' ? 'Défaite' : 'Nulle'}</span>`;
+function viewMonOuv(c, enc) {
+  let fam; try { fam = decodeURIComponent(enc || ''); } catch { fam = ''; }
+  const white = c === 'w', d = st.famDetail(games(), fam, white), gs = d.games;
+  const back = '<p class="small"><a href="#ouvertures">‹ Mes ouvertures</a></p>';
+  if (!gs.length) return `${back}<h1>${esc(fam || 'Ouverture')}</h1><p class="sub">Aucune partie dans cette ouverture avec les ${white ? 'Blancs' : 'Noirs'} pour le filtre choisi.</p>`;
+  const ch = new Chess(); for (const m of d.prefix) ch.move(m);
+  S.mo = { fen: ch.fen(), white, d };
+  const an = gs.map((g) => S.an[g.id]).filter((a) => a && !a.bad);
+  const avg = (v) => (v.length ? v.reduce((a, b) => a + b, 0) / v.length : null);
+  const acc = avg(an.filter((a) => a.acc != null).map((a) => a.acc));
+  const ev10 = gs.filter((g) => S.an[g.id]?.ev?.length > 20).map((g) => (white ? 1 : -1) * S.an[g.id].ev[20]);
+  const opErrs = gs.flatMap((g) => { const a = S.an[g.id]; return a && !a.bad ? a.errs.filter((e) => e.ply < 24 && e.kind !== 'imprecision').map((e) => ({ g, e })) : []; });
+  const themes = new Map(); for (const x of opErrs) themes.set(x.e.theme, (themes.get(x.e.theme) || 0) + 1);
+  const topTh = [...themes.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).filter(([t]) => st.THEMES[t]);
+  const cat = OPENINGS.find((o) => (o.group === 'w') === white && gs.filter((g) => matchGame(o, g)).length * 2 >= gs.length);
+  const recent = gs.slice(-6).reverse();
+  const elo = Math.round(avg(gs.map((g) => g.or).filter(Boolean)) || 0);
+  const exBtn = (san, label, cls = 'btn sm') => `<button class="${cls}" data-act="exline" data-w="${white ? 1 : 0}" data-san="${esc(san.join(' '))}">${label}</button>`;
+  return `${back}
+  <div class="ophero"><div class="board" id="mob"></div><div class="stack">
+    <h1>${esc(fam)}</h1>
+    <p class="opmoves">${d.prefix.length ? esc(st.lineText(d.prefix)) : 'Premiers coups variables'}</p>
+    <div class="row"><span class="chip"><i class="dot ${white ? 'w' : 'b'}"></i>${white ? 'Blancs' : 'Noirs'}</span><span class="chip">${pl(gs.length, 'partie')}</span>${verdict(d.tally)}</div>
+    <div class="mowdl">${wdl(d.tally)}</div>
+    <div class="row">${exBtn(d.prefix, 'Explorer mes coups', 'btn pri sm')}${cat ? `<a class="btn sm" href="#ouvertures/${cat.id}">Fiche : ${esc(cat.nom)}</a>` : ''}</div></div></div>
+  <div class="mogrid">
+  <div class="card"><h2>En chiffres</h2><dl class="kv">
+    <dt>Score</dt><dd>${st.score(d.tally)} % (${d.tally.w} V · ${d.tally.d} N · ${d.tally.l} D)</dd>
+    <dt>Part de tes parties ${white ? 'avec les Blancs' : 'avec les Noirs'}</dt><dd>${st.pct(gs.length, games().filter((g) => g.w === white).length)} %</dd>
+    <dt>Première et dernière fois</dt><dd>${dfmt(gs[0].t)} · ${dfmt(gs[gs.length - 1].t)}</dd>
+    ${elo ? `<dt>Classement moyen des adversaires</dt><dd>${elo}</dd>` : ''}
+    ${ev10.length >= 2 ? `<dt>Évaluation après 10 coups (moyenne)</dt><dd>${fmtEval(Math.round(avg(ev10)))}</dd>` : ''}
+    ${acc != null ? `<dt>Précision moyenne</dt><dd>${acc.toFixed(0)} %</dd>` : ''}
+    ${an.length ? `<dt>Fautes avant le 12e coup</dt><dd>${f1(opErrs.length / an.length)} par partie</dd>` : ''}
+  </dl>${an.length < gs.length ? `<p class="small">${an.length} partie${an.length > 1 ? 's' : ''} analysée${an.length > 1 ? 's' : ''} sur ${gs.length} : précision et fautes portent sur celles-là.</p>` : ''}</div>
+  <div class="card"><h2>Dans le temps <span class="small">par ${d.periods.unit}</span></h2><div class="chart" id="moc"></div>
+    <p class="small">Nombre de parties dans cette ouverture. Survole un point pour le score et la part de tes parties.</p></div>
+  </div>
+  ${d.lines.length ? `<div class="card"><h2>Tes suites les plus jouées</h2><table><tbody>${d.lines.map((l) => `<tr class="click" data-act="exline" data-w="${white ? 1 : 0}" data-san="${esc(l.san.join(' '))}" title="Ouvrir dans l’explorateur"><td>${esc(st.lineText(l.san, d.prefix.length))}</td><td class="r">${l.n}</td><td style="width:28%">${wdl(l)}</td><td class="r">${scoreChip(l)}</td></tr>`).join('')}</tbody></table>
+    <p class="small">Après ${d.prefix.length ? esc(st.lineText(d.prefix)) : 'le début'}. Touche une suite pour la suivre coup par coup dans l’explorateur.</p></div>` : ''}
+  ${d.vars.length > 1 ? `<div class="card"><h2>Variantes</h2><table><tbody>${d.vars.map((v) => `<tr><td>${esc(v.op.replace(fam, '').trim() || 'Ligne principale')}</td><td class="r">${v.n}</td><td style="width:28%">${wdl(v)}</td><td class="r">${scoreChip(v)}</td></tr>`).join('')}</tbody></table></div>` : ''}
+  ${opErrs.length ? `<div class="card"><h2>Tes fautes dans l’ouverture</h2>${topTh.length ? `<p class="small">Le plus souvent : ${topTh.map(([t, n]) => `${st.THEMES[t]} (${n})`).join(', ')}.</p>` : ''}
+    ${opErrs.slice(-4).reverse().map(({ g, e }) => `<div class="hrow"><i class="hres ${e.kind === 'gaffe' ? 'r0' : 'r1'}"></i><span class="stepc"><b>Coup ${moveNo(e)} : ${fr(e.played)} au lieu de ${fr(e.bestSan)}</b><span>${dfmt(g.t)} contre ${esc(g.opp)}${st.THEMES[e.theme] ? ' · ' + st.THEMES[e.theme] : ''}</span></span><a class="btn sm" href="#erreur/${g.t}/${e.ply}">Rejouer</a></div>`).join('')}</div>` : ''}
+  <div class="card"><h2>Dernières parties</h2><div class="stack">${recent.map((g) => `<a class="row" href="#partie/${g.t}" style="justify-content:space-between"><span>${dfmt(g.t)} contre ${esc(g.opp)} (${g.or}) · ${Math.ceil(g.san.length / 2)} coups</span>${resChip(g)}</a>`).join('')}</div></div>`;
+}
+function mountMonOuv() {
+  const P = S.mo; if (!P || !$('#mob')) return;
+  board($('#mob'), { fen: P.fen, orientation: P.white ? 'white' : 'black', viewOnly: true, coordinates: false });
+  const el = $('#moc'), { unit, list } = P.d.periods;
+  if (el) lineChart(el, list.map((p, i) => ({ x: i, y: p.n, tip: `${perName(p.k, unit)} : ${pl(p.n, 'partie')}${p.n ? `, ${st.score(p)} % de score` : ''}${p.all ? ` (${st.pct(p.n, p.all)} % de tes parties)` : ''}` })),
+    { h: 130, min: 0, label: 'Tes parties dans cette ouverture, par ' + unit, x0: perName(list[0].k, unit), x1: perName(list[list.length - 1].k, unit), yfmt: (v) => String(Math.round(v)) });
+}
+
 function viewParties() {
   const gs = games().slice().reverse(), fx = st.gameFacts(S.data?.games || []), allTc = S.f.tc === 'all';
   S.listN ||= 50;
@@ -1787,13 +1845,14 @@ function render(keepScroll) {
   if (!S.data) { v.innerHTML = viewWelcome(); exo.attach(); header(); const f = $('#wf'); f.onsubmit = (ev) => { ev.preventDefault(); const u = $('#wu').value.trim(); if (u) doImport(u); }; return; }
   if (r !== 'partie') S.gv = null;
   if (r !== 'drill' && S.dr && S.dr.i >= S.dr.items.length) S.dr = null; // une série en cours se reprend, une série finie repart de zéro
-  const html = r === 'puzzles' ? viewPuzzles() : r === 'erreur' ? viewPuzzles([a, b]) : r === 'entrainer' ? viewEntrainer() : r === 'historique' ? viewHistory() : r === 'exos' ? viewExos() : r === 'inedits' ? viewInedits() : r === 'drill' ? viewDrill(a) : r === 'cours' ? (a ? viewLecon(a, b) : viewCours()) : r === 'ouvertures' ? (a === 'apprendre' ? viewApprendre() : a ? viewOpening(a) : viewOuvertures()) : r === 'ligne' ? viewLigne(a, b, c) : r === 'parties' ? viewParties() : r === 'partie' ? viewPartie(a, b) : r === 'plan' ? viewPlan() : r === 'bilan' ? viewBilan() : r === 'stats' ? viewStats(S) : r === 'gagner' ? viewGagner(a) : viewAccueil();
+  const html = r === 'puzzles' ? viewPuzzles() : r === 'erreur' ? viewPuzzles([a, b]) : r === 'entrainer' ? viewEntrainer() : r === 'historique' ? viewHistory() : r === 'exos' ? viewExos() : r === 'inedits' ? viewInedits() : r === 'drill' ? viewDrill(a) : r === 'cours' ? (a ? viewLecon(a, b) : viewCours()) : r === 'ouvertures' ? (a === 'apprendre' ? viewApprendre() : a ? viewOpening(a) : viewOuvertures()) : r === 'monouv' ? viewMonOuv(a, b) : r === 'ligne' ? viewLigne(a, b, c) : r === 'parties' ? viewParties() : r === 'partie' ? viewPartie(a, b) : r === 'plan' ? viewPlan() : r === 'bilan' ? viewBilan() : r === 'stats' ? viewStats(S) : r === 'gagner' ? viewGagner(a) : viewAccueil();
   v.innerHTML = html;
   exo.attach(); // avant de créer les échiquiers : ils naissent à leur taille définitive
   if (r === 'puzzles' || r === 'erreur') { mountPuzzle(); const s = $('#pzt'); if (s) s.onchange = () => { S.pz.theme = s.value; S.pz.cur = null; S.pz.show = null; render(); }; }
   else if (r === 'cours' && a) mountLecon();
   else if (r === 'ouvertures' && !a) board($('#exb'), { fen: S.exFen, orientation: S.white ? 'white' : 'black', viewOnly: true });
   else if (r === 'ouvertures' && a !== 'apprendre') mountOpening();
+  else if (r === 'monouv') mountMonOuv();
   else if (r === 'ligne') mountLigne();
   else if (r === 'partie') mountPartie();
   else if (r === 'drill') mountDrill();
@@ -1903,6 +1962,7 @@ document.addEventListener('click', (ev) => {
     else if (r === 'gagner') location.hash = route()[1] ? '#gagner' : '#exos';
     else if (r === 'ligne') location.hash = '#ouvertures/' + route()[1];
     else if (r === 'ouvertures') location.hash = '#ouvertures/apprendre';
+    else if (r === 'monouv') location.hash = '#ouvertures';
     else location.hash = { partie: '#parties', cours: '#cours', drill: '#exos', inedits: '#puzzles' }[r] || '#accueil';
   }
   else if (act === 'linext') liLoad();
@@ -1953,6 +2013,8 @@ document.addEventListener('click', (ev) => {
   else if (act === 'keydel') { ls.del('key'); render(true); }
   else if (act === 'color') { S.white = el.dataset.w === '1'; S.path = []; render(true); }
   else if (act === 'exmove') { S.path.push(el.dataset.san); render(true); }
+  else if (act === 'opfam') location.hash = famHref(el.dataset.fam, S.white);
+  else if (act === 'exline') { S.white = el.dataset.w === '1'; S.path = el.dataset.san ? el.dataset.san.split(' ') : []; location.hash = '#ouvertures'; }
   else if (act === 'expath') { S.path = S.path.slice(0, +el.dataset.n); render(true); }
   else if (act === 'open') location.hash = '#partie/' + el.dataset.t;
   else if (act === 'more') { S.listN += 50; render(true); }
