@@ -82,3 +82,10 @@ Suite de la refonte, détail dans `docs/PLAN-AGREMENT.md`. Écarts assumés en p
 
 - **Navigation à 4 entrées** (Aujourd'hui, S'entraîner, Parties, Progrès), chacune avec un menu déroulant. Écart assumé avec la règle « pas de volet au survol », étendu à toutes les entrées à la demande de Gaëtan.
 - **Icônes de section colorées** : 5 teintes douces (vert, ambre, bleu, violet, corail), seule l'icône est colorée, jamais le texte ; inactive à 72 %, active en pleine couleur avec un fond teinté à 12 %. Écart assumé avec « une seule couleur d'accent », limité aux icônes.
+
+## Fonds et alignement (16/11, demande de Gaëtan)
+
+> intègre la couleur plus claire comme sur Chess.com ; centre uniquement quand ça fait sens
+
+- **Fonds inversés, comme Chess.com** : page en gris chaud clair (`--bg` #2b2926), colonne de navigation, barres et cartes plus sombres posées dessus (`--surface` #22211e), encarts, champs et onglets choisis plus clairs que la carte (`--sunken`, `--raised`). Boutons secondaires pleins gris clair sans bord visible (`--btn2`, `--btn2-hover`). Contraste revérifié par l'audit.
+- **Centrage** : une seule colonne de contenu (`.view`, 1 120 px au plus), centrée dans l'espace à droite de la navigation ; l'accueil n'a plus sa propre largeur (1 040 px), donc le bord gauche du contenu ne bouge plus d'une page à l'autre. Le texte reste aligné à gauche ; on ne centre que les éléments autonomes (icônes dans leur pastille, compteurs, anneau du bilan, libellés des onglets et des boutons, échiquier dans sa zone).

@@ -7,11 +7,14 @@
 /* Thème unique sombre : gris anthracite chaud, vert d'échiquier en accent. */
 :root {
   /* Refonte du 16/11 (docs/REFONTE.md) : toute couleur, taille, rayon et durée de l'interface vient d'ici. */
-  --bg: #1c1b19; --surface: #262522; --sunken: #302e2a; --raised: #211f1d; --line: #3d3a35;
+  /* Fonds (16/11, demande de Gaëtan, « comme Chess.com ») : page en gris chaud clair, colonne de navigation et cartes
+     plus sombres posées dessus, encarts et boutons secondaires plus clairs que la carte qui les porte. */
+  --bg: #2b2926; --surface: #22211e; --sunken: #34322e; --raised: #3a3834; --line: #3a3733;
+  --btn2: #3a3834; --btn2-hover: #46433f; /* boutons secondaires */
   --ink: #f2f1ed; --ink2: #c9c6be; --ink3: #a19e96; --on-btn: #fff; --black: #000;
   --accent: #7fc44f; --accent-ink: #a6e07a; --accent-soft: #2d4022; --btn: #3a8020; --btn-edge: #265713;
   --good: #8fdd5e; --good-soft: #2c4524; --warn: #ffb534; --warn-soft: #4a3a17; --bad: #ff7a6e; --bad-ink: #ff9a90; --bad-soft: #522522;
-  --hover: #3b3934; --hover-line: #6b665d; /* survol à la souris : fond et bord */
+  --hover: #3d3b37; --hover-line: #6b665d; /* survol à la souris : fond et bord */
   --menu-shadow: 0 12px 32px rgba(0, 0, 0, .5); /* volets de la navigation */
   --logo-a: var(--accent); --logo-b: var(--sq-light); /* logo : anneau et pointe verte, pointe claire */
   --neutral: #8a877f;
@@ -106,9 +109,9 @@ body.fit .brand-mark { width: 26px; height: 26px; }
   .nav a:hover { background: var(--sunken); }
   .tools { margin: auto 0 0; flex-direction: column; align-items: stretch; }
 }
-select, input[type=text], input[type=number], input[type=date] { font: inherit; font-size: var(--t-s); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-s); min-height: 40px; padding: 0 10px; }
-.btn { font: 500 var(--t-m) var(--body); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); min-height: var(--hit); padding: 0 var(--s-4); justify-content: center; transition: transform var(--m-press) var(--ease), background-color var(--m-in) var(--ease); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
-@media (hover: hover) and (pointer: fine) { .btn:hover { background: var(--sunken); } }
+select, input[type=text], input[type=number], input[type=date] { font: inherit; font-size: var(--t-s); color: var(--ink); background: var(--sunken); border: 1px solid var(--line); border-radius: var(--r-s); min-height: 40px; padding: 0 10px; }
+.btn { font: 500 var(--t-m) var(--body); color: var(--ink); background: var(--btn2); border: 1px solid var(--btn2); border-radius: var(--r); min-height: var(--hit); padding: 0 var(--s-4); justify-content: center; transition: transform var(--m-press) var(--ease), background-color var(--m-in) var(--ease); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+@media (hover: hover) and (pointer: fine) { .btn:hover { background: var(--btn2-hover); border-color: var(--btn2-hover); } }
 .btn.pri { background: var(--btn); border-color: var(--btn); color: var(--on-btn); font-weight: 600; box-shadow: 0 3px 0 var(--btn-edge); }
 .btn.pri:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--btn-edge); }
 .btn.lg { min-height: 48px; padding: 0 var(--s-5); font-size: var(--t-m); border-radius: var(--r); }
@@ -373,9 +376,9 @@ textarea { font: var(--t-xs)/1.4 ui-monospace, Menlo, monospace; color: var(--in
 .capn { font: 600 var(--t-m) var(--display); display: inline-flex; align-items: center; gap: 6px; }
 .verdict { font-size: var(--t-s); color: var(--ink2); }
 .card.ghost { background: none; border-style: dashed; }
-.seg2 { display: flex; background: var(--sunken); border-radius: var(--r); padding: 3px; gap: 3px; }
+.seg2 { display: flex; background: var(--surface); border-radius: var(--r); padding: 3px; gap: 3px; }
 .seg2 button { flex: 1; font: 600 var(--t-s) var(--body); color: var(--ink2); background: none; border: 0; border-radius: var(--r-s); padding: 9px 8px; cursor: pointer; }
-.seg2 button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+.seg2 button.on { background: var(--raised); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.3); }
 ol.line { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 ol.line li { display: grid; grid-template-columns: 74px 1fr; gap: 10px; padding: 9px 10px; border-radius: var(--r-s); cursor: pointer; font-size: var(--t-s); border-left: 3px solid transparent; }
 ol.line li b { font-family: var(--display); font-size: var(--t-m); white-space: nowrap; } ol.line li span { color: var(--ink2); }
@@ -396,7 +399,8 @@ ol.line li.cur { background: var(--sunken); border-left-color: var(--accent); } 
 /* Accueil sans défilement (body.homefit) : objectif, séance à gauche, chantier et dernière partie à droite */
 body.homefit { height: 100vh; height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
 body.homefit .view { flex: 1; min-height: 0; width: 100%; padding-bottom: 16px; }
-.home { flex: 1; min-height: 0; width: 100%; max-width: 1040px; margin: 0 auto; display: grid; gap: 12px; grid-template-rows: auto auto auto; align-content: start; }
+/* Même colonne que les autres pages (.view) : le bord gauche du contenu ne bouge pas d'une page à l'autre */
+.home { flex: 1; min-height: 0; width: 100%; display: grid; gap: 12px; grid-template-rows: auto auto auto; align-content: start; }
 .hside { display: grid; gap: 12px; align-content: start; }
 .hlab { display: flex; align-items: center; gap: 8px; font-size: var(--t-xs); color: var(--ink2); }
 .hlab .chev, .hlab .small { margin-left: auto; font-size: var(--t-xs); }
@@ -544,7 +548,7 @@ cg-board square.selected { background-color: var(--sq-sel) !important; }
 @media (max-width: 859px) { body.solved .pzhead { display: none; } }
 
 .seg2 a { flex: 1; text-align: center; font: 600 var(--t-s) var(--body); color: var(--ink2); text-decoration: none; border-radius: var(--r-s); padding: 9px 8px; }
-.seg2 a.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+.seg2 a.on { background: var(--raised); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.3); }
 @media (max-width: 859px) { body.solved .pztabs { display: none; } }
 
 /* Cases où la pièce choisie peut aller : point sur une case libre, anneau sur une pièce à prendre */
@@ -783,7 +787,7 @@ a:is([href^="#bilan"], [href^="#stats"], [href^="#plan"], [href^="#plus"]) { --s
   transition: background-color var(--m-in) var(--ease), border-color var(--m-in) var(--ease), color var(--m-in) var(--ease), filter var(--m-in) var(--ease), transform var(--m-press) var(--ease);
 }
 @media (hover: hover) and (pointer: fine) {
-  .btn:not(.pri):not([disabled]):hover { background: var(--hover); border-color: var(--hover-line); color: var(--ink); }
+  .btn:not(.pri):not([disabled]):hover { background: var(--btn2-hover); border-color: var(--hover-line); color: var(--ink); }
   .btn.pri:not([disabled]):hover { filter: brightness(1.15); }
   .seg2 button:not(.on):hover, .seg2 a:not(.on):hover { background: var(--hover); color: var(--ink); }
   .nav a:not(.on):hover, .grp:hover .grp-h:not(.on) { background: var(--hover); color: var(--ink); }
