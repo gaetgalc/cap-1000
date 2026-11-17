@@ -46,7 +46,8 @@ const S = {
 // ---------- Données ----------
 const goal = () => ls.get('goal', { elo: 1000, date: new Date().getFullYear() + '-12-31' });
 const rapidAll = () => (S.data ? S.data.games.filter((g) => g.tc === 'rapid') : []);
-const games = () => (S.data ? st.filterGames(S.data.games, S.f) : []);
+const games = () => (S.data ? st.filterGames(S.data.games, S.f) : []); // cadence suivie ET période : seulement dans les vues qui montrent le sélecteur de période
+const cadenceGames = () => (S.data ? st.filterGames(S.data.games, { ...S.f, days: 0 }) : []); // cadence suivie, toute la période (cours, priorités)
 const targetTc = () => (S.f.tc === 'all' ? 'rapid' : S.f.tc);
 
 async function load() {
@@ -1220,7 +1221,7 @@ function goalBlock() {
 }
 
 function priorityLessons() {
-  const gs = games(), es = st.engineStats(gs, S.an), sig = st.signals(gs, S.an);
+  const gs = cadenceGames(), es = st.engineStats(gs, S.an), sig = st.signals(gs, S.an);
   const ids = es.themes.map((t) => t.id);
   for (const w of sig.faiblesses) if (w.lesson && LESSONS[w.lesson] && !ids.includes(w.lesson)) ids.push(w.lesson);
   return { ids, es, sig };
@@ -1234,7 +1235,7 @@ function nextLesson(ids) {
 function focus(es) {
   let f = ls.get('focus', null);
   if (f && st.THEMES[f.id]) return f;
-  const all = S.f.days ? st.engineStats(S.data.games.filter((g) => g.tc === targetTc()), S.an) : es;
+  const all = es;
   const top = all.themes[0]?.id;
   if (!top) return null;
   f = { id: top, since: Math.floor(Date.now() / 1000) };
@@ -1547,7 +1548,7 @@ function lessonNumbers(id, gs) {
   return '';
 }
 function lessonExamples(id) {
-  const gs = games().slice().sort((a, b) => b.t - a.t), out = [];
+  const gs = cadenceGames().slice().sort((a, b) => b.t - a.t), out = [];
   for (const g of gs) {
     const a = S.an[g.id]; if (!a) continue;
     for (const e of a.errs) if (e.theme === id) out.push({ g, e });
@@ -1557,7 +1558,7 @@ function lessonExamples(id) {
 }
 function lessonArgs(id) {
   const ex = ENGINE_LESSONS.includes(id) ? lessonExamples(id) : [];
-  const numbers = lessonNumbers(id, games()).replace(/<\/dd>/g, '\n').replace(/<[^>]+>/g, ' ').trim();
+  const numbers = lessonNumbers(id, cadenceGames()).replace(/<\/dd>/g, '\n').replace(/<[^>]+>/g, ' ').trim();
   return { ex, args: { theme: st.THEMES[id] || LESSONS[id].titre, base: LESSONS[id], elo: st.trend(rapidAll())?.cur, goal: goal().elo, numbers, examples: ex.map((x) => facts(x.g, x.e)) } };
 }
 // Sans clé API : le brief part dans une conversation Claude (abonnement), la réponse revient par copier-coller.
@@ -1638,7 +1639,7 @@ function viewLecon(id, mode) {
   const L = LESSONS[id];
   if (!L) return viewCours();
   if (S.ai[id] && mode !== 'fiche' && !(S.gen && S.gen.id === id && !S.gen.err)) return viewCoachLesson(id, S.ai[id]);
-  const gs = games(), ex = ENGINE_LESSONS.includes(id) ? lessonExamples(id) : [];
+  const gs = cadenceGames(), ex = ENGINE_LESSONS.includes(id) ? lessonExamples(id) : [];
   const nums = lessonNumbers(id, gs);
   const blown = id === 'conversion' ? gs.filter((g) => S.an[g.id]?.maxAdv >= 500 && g.out !== 'W').slice(-6).reverse() : [];
   const read = progress.lessonsRead();
@@ -1695,7 +1696,7 @@ function viewOuvertures() {
   const reps = st.repeatedErrors(gs, S.an).slice(0, 6);
   const repCard = reps.length ? `<div class="card"><h2>Tes erreurs qui reviennent</h2><p class="small">Même position, même faute, dans plusieurs parties. Une position travaillée ici, c’est une erreur de moins dans toutes les parties qui y passent.</p>
     ${reps.map((r) => `<div class="hrow"><i class="dot ${r.w ? 'w' : 'b'}"></i><span class="stepc"><b>${esc(st.lineText(r.line, Math.max(0, r.line.length - 6)))}</b><span>${r.games} parties : ${esc(st.repText(r))}</span></span><a class="btn sm" href="#erreur/${r.last.g.t}/${r.last.e.ply}">Travailler</a></div>`).join('')}</div>` : '';
-  return `${GAMES_TABS('ouv')}<div class="row" style="justify-content:space-between"><h1>Ouvertures</h1><div class="row" role="group" aria-label="Couleur">
+  return `${GAMES_TABS('ouv')}<div class="vhead"><h1>Ouvertures</h1>${periodSeg()}</div><div class="row" style="justify-content:flex-end"><div class="row" role="group" aria-label="Couleur">
     <button class="btn ${S.white ? 'on' : ''}" aria-pressed="${!!S.white}" data-act="color" data-w="1"><i class="dot w"></i>Blancs</button><button class="btn ${S.white ? '' : 'on'}" aria-pressed="${!S.white}" data-act="color" data-w="0"><i class="dot b"></i>Noirs</button></div></div>
   ${repCard}
   <div class="card"><h2>Tes ouvertures avec les ${S.white ? 'Blancs' : 'Noirs'} <span class="small">${side.n} parties, ${st.score(side)} % de score</span></h2>
@@ -1767,7 +1768,7 @@ function viewMonOuv(c, enc) {
   let fam; try { fam = decodeURIComponent(enc || ''); } catch { fam = ''; }
   const white = c === 'w', d = st.famDetail(games(), fam, white), gs = d.games;
   const back = '<p class="small"><a href="#ouvertures">‹ Mes ouvertures</a></p>';
-  if (!gs.length) return `${back}<h1>${esc(fam || 'Ouverture')}</h1><p class="sub">Aucune partie dans cette ouverture avec les ${white ? 'Blancs' : 'Noirs'} pour le filtre choisi.</p>`;
+  if (!gs.length) return `${back}<div class="vhead"><h1>${esc(fam || 'Ouverture')}</h1>${periodSeg()}</div><p class="sub">Aucune partie dans cette ouverture avec les ${white ? 'Blancs' : 'Noirs'} pour le filtre choisi.</p>`;
   const ch = new Chess(); for (const m of d.prefix) ch.move(m);
   S.mo = { fen: ch.fen(), white, d };
   const an = gs.map((g) => S.an[g.id]).filter((a) => a && !a.bad);
@@ -1783,7 +1784,7 @@ function viewMonOuv(c, enc) {
   const exBtn = (san, label, cls = 'btn sm') => `<button class="${cls}" data-act="exline" data-w="${white ? 1 : 0}" data-san="${esc(san.join(' '))}">${label}</button>`;
   return `${back}
   <div class="ophero"><div class="board" id="mob"></div><div class="stack">
-    <h1>${esc(fam)}</h1>
+    <div class="vhead"><h1>${esc(fam)}</h1>${periodSeg()}</div>
     <p class="opmoves">${d.prefix.length ? esc(st.lineText(d.prefix)) : 'Premiers coups variables'}</p>
     <div class="row"><span class="chip"><i class="dot ${white ? 'w' : 'b'}"></i>${white ? 'Blancs' : 'Noirs'}</span><span class="chip">${pl(gs.length, 'partie')}</span>${verdict(d.tally)}</div>
     <div class="mowdl">${wdl(d.tally)}</div>

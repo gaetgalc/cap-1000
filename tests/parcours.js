@@ -314,6 +314,16 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   await S(() => { document.querySelector('#xb').dataset.keep = '1'; window.__cap.data.fetchedAt = 0; document.dispatchEvent(new Event('visibilitychange')); });
   await page.waitForFunction(() => window.__cap.data.fetchedAt > 0 && !window.__cap.importing, null, { timeout: 60000 }); await sleep(500);
   check(await S(() => document.querySelector('#xb')?.dataset.keep === '1'), 'retour sur l’onglet : la mise à jour automatique laisse l’échiquier en place');
+  // Règle : la période ne filtre que les vues qui montrent son sélecteur (pas les cours)
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#ouvertures`); await sleep(800);
+  check(await S(() => !!document.querySelector('#view .seg2.mini [data-f="days"]')), 'Mes ouvertures : sélecteur de période');
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#cours/en_prise_pose`); await sleep(800);
+  const leçon0 = await bar('#view');
+  await S(() => { const s = window.__cap; s.data.games.forEach((g, i) => { if (i % 2) g.t -= 60 * 86400; }); s.f.days = 30; }); // la moitié des parties passe hors période
+  await S(() => { location.hash = '#cours'; }); await sleep(300); await S(() => { location.hash = '#cours/en_prise_pose'; }); await sleep(800);
+  const leçon30 = await bar('#view'), sansDate = (t) => t.replace(/\d\d\/\d\d\/\d\d/g, ''); // le test décale les dates des parties
+  check(leçon0.length > 50 && sansDate(leçon0) === sansDate(leçon30), 'cours : la période de 30 j ne change ni les exemples ni les chiffres');
+  await S(() => { window.__cap.f.days = 0; });
   check(errs.length === 0, 'aucune erreur JavaScript' + (errs.length ? ' : ' + errs.join(' | ') : ''));
   await browser.close(); stopServer();
   console.log(failed ? `\n${failed} échec(s)` : '\nTout passe.');
