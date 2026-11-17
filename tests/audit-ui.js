@@ -19,6 +19,8 @@ const TOUTES_TAILLES = [
   { id: '1280x860', width: 1280, height: 860 },
   // 390 × 664 au zoom 125 % de Safari : 312 × 531 pixels CSS (revue HIG, texte agrandi).
   { id: '312x531', width: 312, height: 531, mobile: true, zoom: true },
+  // 390 × 664 avec le réglage « Augmenter le contraste » (prefers-contrast: more) : texte à 7:1, bord de carte à 3:1.
+  { id: '390x664-hc', width: 390, height: 664, mobile: true, hc: true },
 ];
 // Audit ciblé : SIZES=390x664,1366x768 et ONLY=accueil,bilan (noms d'écrans) ; sans variable, tout tourne.
 const liste = (v) => (v || '').split(',').map((x) => x.trim()).filter(Boolean);
@@ -62,7 +64,7 @@ if (inconnus.length || !SIZES.length || !SCREENS.length) {
 }
 
 // Exécuté dans la page : mesures sur tout ce qui est visible.
-function measure(touch) {
+function measure([touch, hc]) {
   const vis = (el) => { const r = el.getBoundingClientRect(), cs = getComputedStyle(el); return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.opacity !== '0'; };
   const rgba = (s) => { const m = s.match(/[\d.]+/g); return m ? [+m[0], +m[1], +m[2], m[3] === undefined ? 1 : +m[3]] : [0, 0, 0, 0]; };
   const lum = ([r, g, b]) => { const f = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
@@ -94,8 +96,16 @@ function measure(touch) {
     const { b, imgs } = bgOf(el);
     if (imgs) continue;
     const fg = over(rgba(cs.color), b), l1 = lum(fg), l2 = lum(b), ratio = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
-    const big = fsz >= 24 || (fsz >= 18.66 && +cs.fontWeight >= 700), need = big ? 3 : 4.5;
+    const big = fsz >= 24 || (fsz >= 18.66 && +cs.fontWeight >= 700), need = big ? 3 : hc ? 7 : 4.5;
     if (ratio < need) out.contrast.push(ratio.toFixed(2) + ' < ' + need + ' « ' + t.slice(0, 30) + ' »');
+  }
+  // Contraste renforcé : le bord de chaque carte visible atteint 3:1 contre le fond de la page.
+  out.edges = [];
+  for (const el of hc ? document.querySelectorAll('.card') : []) {
+    if (!vis(el) || el.closest('[hidden]')) continue;
+    const cs = getComputedStyle(el), page = bgOf(el.parentElement).b, edge = over(rgba(cs.borderTopColor), page);
+    const l1 = lum(edge), l2 = lum(page), ratio = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+    if (!parseFloat(cs.borderTopWidth) || ratio < 3) out.edges.push(ratio.toFixed(2) + ' < 3 « ' + label(el) + ' »');
   }
   // Cibles tactiles : sur téléphone seulement (le skill les exige aux largeurs tactiles ; à la souris, 36 px suffisent).
   for (const el of touch ? document.querySelectorAll('a[href], button, select, input, [data-act], [data-x], [data-f], [role=button]') : []) {
@@ -150,6 +160,7 @@ function measure(touch) {
 
 async function visit(ctx, size, report) {
   const page = await ctx.newPage(), errs = [];
+  if (size.hc) await page.emulateMedia({ contrast: 'more' });
   page.on('pageerror', (e) => errs.push(e.message));
   const base = `http://localhost:${PORT}/?u=${USER}&debug`;
   await page.goto(base + '#accueil');
@@ -159,7 +170,7 @@ async function visit(ctx, size, report) {
     if (opt.mobileOnly && !size.mobile) continue;
     const hash = typeof route === 'function' ? await page.evaluate(route) : route;
     await page.goto(base + '#' + hash); await sleep(900);
-    const m = await page.evaluate(measure, !!size.mobile);
+    const m = await page.evaluate(measure, [!!size.mobile, !!size.hc]);
     m.route = hash; m.errors = errs.splice(0);
     await page.screenshot({ path: path.join(OUT, size.id, name + '.png') });
     report[size.id][name] = m;
@@ -197,6 +208,7 @@ async function visit(ctx, size, report) {
       if (m.primaries > 1) pb.push(m.primaries + ' boutons pleins');
       if (m.small.length) pb.push(m.small.length + ' textes < 13 px');
       if (m.contrast.length) pb.push(m.contrast.length + ' contrastes faibles');
+      if (m.edges.length) pb.push(m.edges.length + ' bords de carte < 3:1 (' + m.edges[0] + ')');
       if (m.taps.length) pb.push(m.taps.length + ' cibles < 44 px');
       if (m.coords.length) pb.push('coordonnées : ' + m.coords.slice(0, 3).join(', '));
       if (m.wide && sid.startsWith('390x') && m.board < 360) pb.push('échiquier de ' + m.board + ' px (360 au moins)');

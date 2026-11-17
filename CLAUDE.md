@@ -61,7 +61,7 @@ Site statique sans build, servi par GitHub Pages depuis `main` (racine). Tout to
 | `js/store.js` | IndexedDB (`data:<user>`, `an:<user>`, `ai:<user>`) et localStorage (préfixe `cap1000:` ; clés principales : `pz` répétition espacée, `hist` journal d'entraînement, `ui` état de l'écran à reprendre, `act` activité par jour, `focus` chantier, `bak` date de la dernière sauvegarde, `why` cause donnée à chaque erreur, `self` réponse à « As-tu appliqué ta règle ? » par partie) |
 | `tests/fixture.js` | Parties simulées au format Chess.com, serveur local, interception de `api.chess.com` : commun aux tests navigateur |
 | `tests/parcours.js` | Test de bout en bout (Playwright, parties simulées, `api.chess.com` intercepté) |
-| `tests/audit-ui.js` | Audit de l'interface : 32 écrans aux 5 tailles (dont 312 × 531, Safari à 125 %), captures et mesures (coordonnées sans chevauchement, échiquier ≥ 360 px sur les écrans `.xwide` en 390 de large, défilement, tailles de texte, contraste, cibles de 44 px, boutons pleins, arrondis, libellés sur une ligne, échiquier ≥ 240 px à 312 × 531) |
+| `tests/audit-ui.js` | Audit de l'interface : 32 écrans aux 5 tailles (dont 312 × 531, Safari à 125 %) et une passe `390x664-hc` en contraste renforcé (texte 7:1, bord de carte 3:1), captures et mesures (coordonnées sans chevauchement, échiquier ≥ 360 px sur les écrans `.xwide` en 390 de large, défilement, tailles de texte, contraste, cibles de 44 px, boutons pleins, arrondis, libellés sur une ligne, échiquier ≥ 240 px à 312 × 531) |
 | `tests/*.test.mjs` | Tests unitaires sans navigateur : légalité de chaque ligne de `openings.js`, règles de `progress.js`, positions de référence de `explain.js`, classement de `classify.js` sur des évaluations enregistrées, pendule et erreurs répétées de `stats.js`, format de `backup.js`, intentions de `plan.js`, brief de `brief.js`, moments de `debrief.js`, idées de `ideas.js`, programme de `program.js`, portrait de `portrait.js`, sortie de théorie de `theory.js`, prompt de position de `coach.js`, regards croisés et Elo estimé de `insights.js`, finales de `endgames.js`, lecture de l'explorateur de `explorer.js`, accolades équilibrées de `css/app.css` (`css.test.mjs`) |
 | `vendor/` | chess.js 0.10.3, chessground 9, pièces Merida (GPLv2+), Chessnut (Apache 2.0), Maestro et Cardinal (CC BY-NC-SA 4.0, usage non commercial) dans `vendor/pieces/` (licences jointes), Stockfish 19 lite single-thread (WASM), polices Geist, Geist Mono et Source Serif 4 600 pour les titres (`vendor/fonts/`, licence OFL ; Sora et IBM Plex Sans ne sont plus chargées) |
 
@@ -157,7 +157,7 @@ python3 -m http.server 8000   # puis http://localhost:8000/?u=gaetcc
 ```bash
 node --test tests/*.test.mjs  # règles de planification et explications ; moins d'une seconde
 node tests/parcours.js        # parcours puzzles, journal, reprise, échauffement ; 1 à 2 minutes
-node tests/audit-ui.js        # captures et mesures de chaque écran aux 5 tailles (tests/out/audit) ; 4 à 5 minutes
+node tests/audit-ui.js        # captures et mesures de chaque écran aux 6 passes (5 tailles + contraste renforcé) (tests/out/audit) ; 4 à 5 minutes
 ONLY=accueil,bilan SIZES=390x664 node tests/audit-ui.js  # audit ciblé : écrans (noms de SCREENS) et tailles au choix, moins d'une minute
 ```
 

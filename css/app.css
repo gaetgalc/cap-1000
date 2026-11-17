@@ -963,3 +963,13 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
   .ent-grid > .ent-tile:last-child:nth-child(odd) { grid-column: 1 / -1; } /* nombre impair : la dernière tuile prend la ligne */
   .ent-tag { top: var(--s-3); right: var(--s-3); }
 }
+
+/* Contraste renforcé (réglage « Augmenter le contraste », revue HIG) : texte à 7:1 au moins, bord de carte et anneau de focus nets. Valeurs revérifiées par la passe 390x664-hc de l'audit. */
+@media (prefers-contrast: more) {
+  :root {
+    --ink2: #e4e1da; --ink3: #d8d5cd; --bad: #ffc4bc; --bad-ink: #ffc4bc; --warn: #ffcc70; --good: #b4e68e; --accent-ink: #b4e68e; --line: #8a877f;
+    --btn: #2b6318; --btn-edge: #1c4210; /* bouton plein : blanc à 7:1 */
+  }
+  .card { border-color: var(--line); }
+  :focus-visible { outline-width: 3px; }
+}
