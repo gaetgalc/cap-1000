@@ -19,7 +19,7 @@ Coach d'échecs personnel, 100 % dans le navigateur.
 2. Dans le dépôt : Settings > Pages > Source « Deploy from a branch », branche `main`, dossier `/ (root)`.
 3. Ouvre `https://<ton-compte>.github.io/<depot>/?u=<pseudo-chess.com>`.
 
-En local : `python3 -m http.server` dans ce dossier, puis http://localhost:8000. Tests : `node --test tests/*.test.mjs` (règles, sans navigateur) et `node tests/parcours.js` (bout en bout, Playwright).
+En local : `python3 -m http.server` dans ce dossier, puis http://localhost:8000. Tests : `node --test tests/*.test.mjs` (règles, sans navigateur), `node tests/parcours.js` (bout en bout, Playwright), `node tests/audit-ui.js` (audit de l'interface), `node tests/perf.js` (fluidité sur 5 000 parties simulées) et `node tests/shots-diff.js` (comparaison pixel de deux audits).
 
 ## Données
 
@@ -35,4 +35,4 @@ Les polices sont embarquées dans `vendor/fonts/` : l'affichage ne dépend d'auc
 ## Licences
 
 Code de l'application sous GPL-3.0-or-later (texte dans `LICENSE`). Bibliothèques incluses dans `vendor/` :
-chessground (GPL-3.0-or-later, pièces cburnett), Stockfish.js (GPL-3.0, voir `vendor/STOCKFISH-COPYING.txt`), chess.js 0.10.3 (BSD-2-Clause), polices Sora et IBM Plex Sans (SIL Open Font License 1.1).
+chessground (GPL-3.0-or-later, pièces cburnett), jeux de pièces de `vendor/pieces/` (Merida GPLv2+, Chessnut Apache 2.0, Maestro et Cardinal CC BY-NC-SA 4.0, voir `vendor/pieces/LICENSES.txt`), Stockfish.js (GPL-3.0, voir `vendor/STOCKFISH-COPYING.txt`), chess.js 0.10.3 (BSD-2-Clause), polices Geist, Geist Mono et Source Serif 4 (SIL Open Font License 1.1).
