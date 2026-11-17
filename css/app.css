@@ -557,9 +557,8 @@ details.gd summary { cursor: pointer; font-size: var(--t-s); color: var(--accent
   .nav { padding-bottom: env(safe-area-inset-bottom); }
   .nav a { padding: 8px 2px 8px; font-size: var(--t-xs); font-weight: 600; gap: 3px; }
   .nav a svg { width: 23px; height: 23px; }
-  /* Volet au-dessus de la barre du bas, sur toute la largeur ; l'entrée ouverte est marquée comme active */
-  .nav .fly { position: absolute; left: 8px; right: 8px; bottom: calc(100% + 8px); max-height: calc(100dvh - 140px); overflow-y: auto; }
-  .nav .grp.open .grp-h { color: var(--ink); border-top-color: var(--ink3); }
+  /* Téléphone : un onglet mène à une page, sans volet (menus au survol : ordinateur seulement) */
+  .fly { display: none !important; }
   .view { padding: 14px 14px 24px; gap: 14px; }
   h1 { font-size: var(--t-l); } h2 { font-size: var(--t-m); }
   .card { border-radius: var(--r); padding: 16px; }

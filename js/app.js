@@ -27,6 +27,7 @@ import { intent } from './plan.js';
 import * as backup from './backup.js';
 import { toast } from './toast.js';
 import * as sound from './sound.js';
+import { sectionOf, tabTarget } from './nav.js';
 import * as look from './look.js';
 import { ENDGAMES, egById, GOAL_TXT } from './endgames.js';
 import { phaseStats, pieceStats, hourStats, sessionStats, perfRef, gameRating, insightText } from './insights.js';
@@ -640,6 +641,7 @@ function mountPuzzle() {
 const tabs = (on, items) => `<div class="seg2 pztabs">${items.map(([k, href, t]) => `<a class="${on === k ? 'on' : ''}" href="${href}">${t}</a>`).join('')}</div>`;
 const LEARN_TABS = (on) => tabs(on, [['cours', '#cours', 'Cours'], ['ouv', '#ouvertures/apprendre', 'Ouvertures']]);
 const GAMES_TABS = (on) => tabs(on, [['parties', '#parties', 'Parties'], ['ouv', '#ouvertures', 'Mes ouvertures']]);
+const PRO_TABS = (on) => tabs(on, [['bilan', '#bilan', 'Mon jeu'], ['stats', '#stats', 'Stats'], ['plan', '#plan', 'Plan']]);
 const allLineKeys = () => OPENINGS.flatMap((o) => o.lines.map((_, k) => lineKey(o, k)));
 const lineHref = (key, voir) => '#ligne/' + key.replace(':', '/') + (voir ? '/voir' : '');
 const opGames = (o) => (S.data ? S.data.games.filter((g) => matchGame(o, g)) : []);
@@ -1474,7 +1476,7 @@ function viewBilan() {
   const { es, sig, fc } = session();
   const sigHtml = (arr, c, empty) => (arr.length ? arr.slice(0, 4).map((x) => `<div class="sig" style="--c:var(--${c})"><b>${esc(x.t)}</b><span>${esc(x.d)}</span>${x.lesson ? `<a href="#${x.lesson === 'ouvertures' ? 'ouvertures' : 'cours/' + x.lesson}">${x.lesson === 'ouvertures' ? 'Voir tes ouvertures' : 'Ouvrir le cours'}</a>` : ''}</div>`).join('') : `<p class="sub">${empty}</p>`);
   const all = st.tally(gs);
-  return `<div class="vhead"><h1>Mon jeu</h1>${periodSeg()}</div>
+  return `${PRO_TABS('bilan')}<div class="vhead"><h1>Mon jeu</h1>${periodSeg()}</div>
   <div class="hero">${gb.html}
     <div class="card"><h2>Ton classement ${S.f.tc === 'all' ? 'Rapide' : TC[S.f.tc]}</h2><div class="chart" id="rc"></div></div></div>
   ${portraitCard()}
@@ -2322,7 +2324,7 @@ function viewPlan() {
     weakOp ? ['op', `Explorer ton ouverture la plus fragile : ${weakOp}`, '#ouvertures'] : null,
   ].filter(Boolean);
   const g = goal();
-  return `<h1>Plan et réglages</h1>
+  return `${PRO_TABS('plan')}<h1>Plan et réglages</h1>
   <div class="card stack"><h2>Tes données</h2><p class="sub">Compte ${esc(S.user)}. Les nouvelles parties sont récupérées toutes seules.</p><div class="row">${cadenceField()}</div><div class="row"><button class="btn" data-act="refresh" ${S.importing && !S.importing.err ? 'aria-busy="true"' : ''}>Mettre à jour</button><span class="sub">${S.data.fetchedAt ? `À jour : ${agoFr(Date.now() - S.data.fetchedAt)}` : 'Pas encore mis à jour'}</span></div></div>
   <div class="card"><h2>Semaine du ${new Date(wk + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}</h2>
       <div class="row"><label for="hrs" class="sub">Temps disponible</label><select id="hrs">${[3, 4, 5, 6, 8, 10].map((h) => `<option value="${h}" ${h === hours ? 'selected' : ''}>${h} h par semaine</option>`).join('')}</select></div>
@@ -2383,6 +2385,7 @@ async function restoreFrom(file) {
 
 // ---------- Routage et événements ----------
 const route = () => (location.hash.slice(1) || 'accueil').split('/');
+const navLast = {}; // section -> dernière page vue (en mémoire, pas de stockage)
 function render(keepScroll) {
   const y = scrollY;
   destroyBoards();
@@ -2391,15 +2394,15 @@ function render(keepScroll) {
   const v = $('#view'), [r, a, b, c] = route();
   paintJob();
   $('#nav').hidden = !S.data;
-  const navKey = r === 'ouvertures' ? (a ? 'apprendre' : 'mesouvertures') : r; // les 4 sections : data-grp de index.html
-  const here = '#' + route().join('/');
-  // Entrée de section : d'après data-grp ; page d'un volet : son adresse exacte, ou sa route pour une page à une seule partie (#cours/x allume « Cours »)
-  document.querySelectorAll('#nav a').forEach((x) => { const h = x.getAttribute('href'); x.classList.toggle('on', x.dataset.grp ? x.dataset.grp.split(' ').includes(navKey) : h === here || (h === '#' + r && r !== 'ouvertures' && !x.dataset.fill)); });
+  const here = '#' + route().join('/'), sec = sectionOf(here);
+  if (sec) navLast[sec] = here; // dernière page vue de chaque section : l'onglet du téléphone y revient
+  // Entrée de section : sa section (js/nav.js) ; page d'un volet : son adresse exacte, ou sa route pour une page à une seule partie (#cours/x allume « Cours »)
+  document.querySelectorAll('#nav a').forEach((x) => { const h = x.getAttribute('href'); x.classList.toggle('on', x.classList.contains('grp-h') ? x.closest('.grp').dataset.menu === sec : h === here || (h === '#' + r && r !== 'ouvertures' && !x.dataset.fill)); });
   if (!S.data) { v.innerHTML = viewWelcome(); exo.attach(); header(); const f = $('#wf'); f.onsubmit = (ev) => { ev.preventDefault(); const u = $('#wu').value.trim(); if (u) doImport(u); }; return; }
   if (r !== 'partie') S.gv = null;
   if (r !== 'rush') clearInterval(rushTimer);
   if (r !== 'drill' && S.dr && S.dr.i >= S.dr.items.length) S.dr = null; // une série en cours se reprend, une série finie repart de zéro
-  const html = r === 'idees' ? viewIdees() : r === 'avantpartie' ? viewAvant() : r === 'puzzles' ? viewPuzzles() : r === 'erreur' ? viewPuzzles([a, b]) : r === 'entrainer' ? viewEntrainer() : r === 'historique' ? viewHistory() : r === 'exos' ? viewExos() : r === 'inedits' ? viewInedits() : r === 'drill' ? viewDrill(a) : r === 'cours' ? (a ? viewLecon(a, b) : viewCours()) : r === 'ouvertures' ? (a === 'apprendre' ? viewApprendre() : a ? viewOpening(a) : viewOuvertures()) : r === 'monouv' ? viewMonOuv(a, b) : r === 'ligne' ? viewLigne(a, b, c) : r === 'parties' ? viewParties() : r === 'partie' ? viewPartie(a, b) : r === 'plan' ? viewPlan() : r === 'bilan' ? viewBilan() : r === 'stats' ? viewStats(S) : r === 'gagner' ? viewGagner(a) : r === 'jouer' ? viewJouer(a, b) : r === 'finales' ? viewFinales() : r === 'finale' ? viewFinale(a) : r === 'rush' ? viewRush(a) : viewAccueil();
+  const html = r === 'idees' ? viewIdees() : r === 'avantpartie' ? viewAvant() : r === 'puzzles' ? viewPuzzles() : r === 'erreur' ? viewPuzzles([a, b]) : r === 'entrainer' ? viewEntrainer() : r === 'historique' ? viewHistory() : r === 'exos' ? viewExos() : r === 'inedits' ? viewInedits() : r === 'drill' ? viewDrill(a) : r === 'cours' ? (a ? viewLecon(a, b) : viewCours()) : r === 'ouvertures' ? (a === 'apprendre' ? viewApprendre() : a ? viewOpening(a) : viewOuvertures()) : r === 'monouv' ? viewMonOuv(a, b) : r === 'ligne' ? viewLigne(a, b, c) : r === 'parties' ? viewParties() : r === 'partie' ? viewPartie(a, b) : r === 'plan' ? viewPlan() : r === 'bilan' ? viewBilan() : r === 'stats' ? PRO_TABS('stats') + viewStats(S) : r === 'gagner' ? viewGagner(a) : r === 'jouer' ? viewJouer(a, b) : r === 'finales' ? viewFinales() : r === 'finale' ? viewFinale(a) : r === 'rush' ? viewRush(a) : viewAccueil();
   v.innerHTML = html;
   exo.attach(); // avant de créer les échiquiers : ils naissent à leur taille définitive
   if (r === 'puzzles' || r === 'erreur') { mountPuzzle(); const s = $('#pzt'); if (s) s.onchange = () => { S.pz.theme = s.value; S.pz.cur = null; S.pz.show = null; render(); }; }
@@ -2433,13 +2436,21 @@ function render(keepScroll) {
 }
 // Volets de la navigation (16/11) : chaque entrée ouvre la liste de ses pages.
 // Ordinateur (souris) : survol, focus clavier ou flèche bas ; le clic sur l'entrée mène à la page principale de la section.
-// Téléphone : le premier appui ouvre le volet au-dessus de la barre du bas, un second appui ou un appui ailleurs le ferme.
+// Téléphone (revue HIG, tâche 4) : pas de volet, l'onglet mène à la dernière page vue de sa section, ou à son entrée si l'on y est déjà (tabTarget).
 const phoneNav = matchMedia('(max-width: 859px)');
 const navGroups = () => [...document.querySelectorAll('#nav .grp')];
 function navOpen(g, on) {
   if (on) { navFill(g); navGroups().forEach((o) => o !== g && navOpen(o, false)); }
   g.classList.toggle('open', on);
-  g.querySelector('.grp-h').setAttribute('aria-expanded', on);
+  if (!phoneNav.matches) g.querySelector('.grp-h').setAttribute('aria-expanded', on);
+}
+// Menus d'ordinateur seulement : aria-haspopup et aria-expanded n'existent pas sur un onglet du téléphone
+function navAria() {
+  navGroups().forEach((g) => {
+    const h = g.querySelector('.grp-h');
+    if (phoneNav.matches) { navOpen(g, false); h.removeAttribute('aria-haspopup'); h.removeAttribute('aria-expanded'); }
+    else { h.setAttribute('aria-haspopup', 'true'); h.setAttribute('aria-expanded', g.classList.contains('open')); }
+  });
 }
 function navClose() { navGroups().forEach((g) => navOpen(g, false)); }
 // Pastilles « reste à faire » (16/11) : étapes de la séance du jour sur Aujourd'hui, lignes d'ouverture à réviser sur S'entraîner ;
@@ -2467,6 +2478,7 @@ function navFill(g) {
   if (g.dataset.menu === 'acc') { const { steps } = session(); for (const x of steps) { if (x.k === 'dr') set('drill', x.cta[1]); if (x.k === 'les') set('cours', x.cta[1]); } }
   if (g.dataset.menu === 'ent') { const due = progress.linesDue(allLineKeys()); set('lignes', due.length ? lineHref(due[0]) : '#ouvertures/apprendre'); }
 }
+navAria(); phoneNav.addEventListener('change', navAria);
 const navItems = (g) => [...g.querySelectorAll('.fly a')];
 navGroups().forEach((g) => {
   const h = g.querySelector('.grp-h');
@@ -2478,7 +2490,10 @@ navGroups().forEach((g) => {
   // Appui au doigt (téléphone, ou tablette en grand) : l'entrée ouvre et ferme le volet ; souris et Entrée mènent à la page principale
   let pt = 'mouse';
   h.addEventListener('pointerdown', (ev) => { pt = ev.pointerType; });
-  h.addEventListener('click', (ev) => { if (phoneNav.matches || (ev.detail > 0 && pt !== 'mouse')) { ev.preventDefault(); navOpen(g, !g.classList.contains('open')); } });
+  h.addEventListener('click', (ev) => {
+    if (phoneNav.matches) { ev.preventDefault(); const to = tabTarget(g.dataset.menu, location.hash, navLast); if (location.hash === to) scrollTo(0, 0); else location.hash = to; }
+    else if (ev.detail > 0 && pt !== 'mouse') { ev.preventDefault(); navOpen(g, !g.classList.contains('open')); }
+  });
   g.addEventListener('click', (ev) => { if (ev.target.closest('.fly a')) { navOpen(g, false); document.activeElement?.blur(); } });
   g.addEventListener('keydown', (ev) => {
     const items = navItems(g), i = items.indexOf(document.activeElement);

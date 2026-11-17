@@ -38,13 +38,20 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   await page.setViewportSize({ width: 390, height: 664 }); await sleep(300);
   check(await S(() => document.querySelector('.lgbtn').getBoundingClientRect().bottom <= document.querySelector('#nav').getBoundingClientRect().top), 'accueil en 390 × 664 : les boutons de la dernière partie restent au-dessus de la barre du bas');
   await page.setViewportSize({ width: 390, height: 760 }); await sleep(300);
-  check(await S(() => document.querySelectorAll('#nav .grp-h').length === 4 && document.querySelector('#nh-ent').dataset.grp.split(' ').includes('cours')), 'navigation : 4 entrées, S’entraîner couvre aussi les cours');
-  await page.tap('#nh-ent'); await sleep(250);
-  check(await S(() => location.hash === '#accueil' && document.querySelector('#nh-ent').getAttribute('aria-expanded') === 'true' && [...document.querySelectorAll('#fly-ent a')].every((a) => a.getBoundingClientRect().height >= 44) && document.querySelector('#fly-ent').getBoundingClientRect().bottom <= document.querySelector('#nh-ent').getBoundingClientRect().top), 'navigation : un appui ouvre le volet au-dessus de la barre, cibles de 44 px, sans changer de page');
-  await page.tap('#nh-ent'); await sleep(200);
-  check(await S(() => document.querySelector('#nh-ent').getAttribute('aria-expanded') === 'false' && !document.querySelector('#fly-ent a').offsetParent), 'navigation : un second appui ferme le volet');
-  await page.tap('#nh-pro'); await sleep(250); await page.tap('#fly-pro a[href="#stats"]'); await sleep(600);
-  check(await S(() => location.hash === '#stats' && document.querySelector('#nh-pro').classList.contains('on') && document.querySelector('#nh-pro').getAttribute('aria-expanded') === 'false'), 'navigation : un lien du volet mène à sa page et referme le volet');
+  // Onglets du téléphone (revue HIG, tâche 4) : un appui mène à la dernière page de la section, sans volet ; un second appui, à son entrée
+  check(await S(() => document.querySelectorAll('#nav .grp-h').length === 4 && !document.querySelector('#nh-ent').hasAttribute('aria-haspopup') && !document.querySelector('#nh-ent').hasAttribute('aria-expanded')), 'navigation : 4 onglets, sans menu (ni aria-haspopup) sur téléphone');
+  await page.setViewportSize({ width: 390, height: 664 }); await sleep(300);
+  await page.tap('#nh-ent'); await sleep(500);
+  check(await S(() => location.hash === '#entrainer' && !document.querySelector('#fly-ent a').offsetParent && document.querySelector('#nh-ent').classList.contains('on')), 'onglet S’entraîner : mène à sa page, sans volet');
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#stats`); await sleep(800);
+  check(await S(() => document.querySelectorAll('#view .seg2.pztabs a').length === 3 && document.querySelector('#view .seg2.pztabs a.on').textContent === 'Stats' && document.documentElement.scrollWidth <= innerWidth), 'Stats : onglets Mon jeu · Stats · Plan, dans la largeur');
+  await page.tap('#nh-par'); await sleep(500);
+  check(await S(() => location.hash === '#parties'), 'onglet Parties : mène à la liste');
+  await page.tap('#nh-pro'); await sleep(500);
+  check(await S(() => location.hash === '#stats' && document.querySelector('#nh-pro').classList.contains('on')), 'onglet Progrès : revient à la dernière page vue (Stats)');
+  await page.tap('#nh-pro'); await sleep(500);
+  check(await S(() => location.hash === '#bilan'), 'onglet Progrès, second appui : mène à l’entrée de la section');
+  await page.setViewportSize({ width: 390, height: 760 }); await sleep(300);
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#bilan`); await sleep(600);
   check(await S(() => !!document.querySelector('#rc svg') && !!document.querySelector('.focus') && !!document.querySelector('.sig')), 'Mon jeu : classement, chantier détaillé, points forts et faibles');
 
