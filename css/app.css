@@ -973,3 +973,8 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
   .card { border-color: var(--line); }
   :focus-visible { outline-width: 3px; }
 }
+
+/* Bord estompé des panneaux qui défilent (watchEdges, js/ui.js) : le texte coupé s'efface au lieu d'être tranché. */
+.edge-t, .edge-b { --ft: 0px; --fb: 0px; -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--ft), #000 calc(100% - var(--fb)), transparent 100%); mask-image: linear-gradient(to bottom, transparent 0, #000 var(--ft), #000 calc(100% - var(--fb)), transparent 100%); }
+.edge-t { --ft: var(--s-5); }
+.edge-b { --fb: var(--s-5); }

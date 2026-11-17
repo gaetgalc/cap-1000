@@ -150,6 +150,13 @@ function measure([touch, hc]) {
     const h = rg.getBoundingClientRect().height;
     if (h > lh * 1.6) out.wraps.push('« ' + label(el) + ' » sur deux lignes');
   }
+  // Panneaux qui défilent : tant qu'il reste du contenu dessous, le bord du bas est estompé (classe edge-b).
+  out.noEdge = [];
+  for (const el of document.querySelectorAll('body *')) {
+    if (el.closest('cg-container, svg') || /^(TEXTAREA|SELECT|INPUT)$/.test(el.tagName) || !vis(el)) continue;
+    if (!/auto|scroll/.test(getComputedStyle(el).overflowY)) continue;
+    if (el.scrollHeight - el.scrollTop - el.clientHeight > 4 && !el.classList.contains('edge-b')) out.noEdge.push('« ' + label(el) + ' »');
+  }
   for (const el of document.querySelectorAll('body *')) {
     if (el.closest('cg-container, svg') || !vis(el)) continue;
     const rr = getComputedStyle(el).borderTopLeftRadius;
@@ -172,6 +179,16 @@ async function visit(ctx, size, report) {
     await page.goto(base + '#' + hash); await sleep(900);
     const m = await page.evaluate(measure, [!!size.mobile, !!size.hc]);
     m.route = hash; m.errors = errs.splice(0);
+    // Défilés jusqu'en bas : plus de bord estompé sur la dernière ligne.
+    m.edgeEnd = await page.evaluate(async () => {
+      const bad = [], fr = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      for (const el of document.querySelectorAll('[data-edge]')) {
+        if (!el.getBoundingClientRect().height) continue;
+        el.scrollTop = el.scrollHeight; await fr();
+        if (el.classList.contains('edge-b')) bad.push('« ' + (el.id || el.className) + ' »');
+      }
+      return bad;
+    });
     await page.screenshot({ path: path.join(OUT, size.id, name + '.png') });
     report[size.id][name] = m;
   }
@@ -214,6 +231,8 @@ async function visit(ctx, size, report) {
       if (m.wide && sid.startsWith('390x') && m.board < 360) pb.push('échiquier de ' + m.board + ' px (360 au moins)');
       if (m.wraps.length) pb.push('libellé sur deux lignes : ' + m.wraps.slice(0, 3).join(', '));
       if (sid === '312x531' && m.fit && m.board && m.board < (name.startsWith('partie') ? 200 : 240)) pb.push('échiquier de ' + m.board + ' px (' + (name.startsWith('partie') ? 200 : 240) + ' au moins)');
+      if (m.noEdge.length) pb.push('panneau qui défile sans bord : ' + m.noEdge.slice(0, 3).join(', '));
+      if (m.edgeEnd.length) pb.push('bord estompé gardé en bas du défilement : ' + m.edgeEnd.join(', '));
       if (m.errors.length) pb.push('erreurs JS : ' + m.errors.join(' | '));
       console.log(`${sid.padEnd(9)} ${name.padEnd(21)} ${pb.join(' · ') || 'rien à signaler'}`);
     }
