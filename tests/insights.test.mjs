@@ -92,6 +92,15 @@ test('calcul par phase en tranches : même résultat que d’un coup, au moins u
   while (!job.step(15, now)) slices++;
   assert.ok(slices >= 2, 'plusieurs tranches');
   assert.equal(job.done, true);
-  assert.deepEqual(job.result(), phaseStats(games, an));
+  assert.deepEqual(job.result(), phaseStats(games, structuredClone(an)), 'référence calculée sur des analyses neuves, pas sur le cache du job');
   assert.equal(phaseJob(games, an).step(0, () => 0), false, 'une tranche de 0 ms traite quand même une partie, sans finir');
+});
+
+test('cache par analyse : même objet réutilisé, analyse remplacée recalculée', () => {
+  const g = { id: 'g', w: true, san: SAN, out: 'L', t: 1 }, a = { ev: [...ev] };
+  const total = (an) => phaseStats([g], an).reduce((s, x) => s + x.bad, 0);
+  assert.equal(total({ g: a }), 1);
+  a.ev = ev.map(() => 0); // modifiée sur place : le cache garde l'ancien résultat (une analyse n'est jamais modifiée ainsi)
+  assert.equal(total({ g: a }), 1, 'même objet : réutilisé');
+  assert.equal(total({ g: { ev: ev.map(() => 0) } }), 0, 'objet neuf : recalculé');
 });

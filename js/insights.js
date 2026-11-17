@@ -12,6 +12,8 @@ export const PHASES = [['ouverture', 'Ouverture'], ['milieu', 'Milieu de partie'
 // Précision (100 moins la perte moyenne de chances de gain) et fautes graves (10 points ou plus), par phase de jeu.
 // Contribution d'une partie (par phase : coups, perte, fautes graves), gardée sur l'objet analyse : une reprise du calcul
 // après un changement de données ne refait que les parties dont l'analyse a changé.
+// La clé est l'objet analyse : valable parce qu'une analyse correspond à une seule partie et n'est jamais modifiée sur place
+// (une nouvelle analyse remplace l'objet).
 const PH = new WeakMap();
 function tally(g, a) {
   const r = replay(g); if (!r) return null;

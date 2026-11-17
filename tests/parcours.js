@@ -345,10 +345,12 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   await S(() => { window.__cap.f.days = 0; });
   // Calcul différé de « Quand et comment tu perds » interrompu par un changement de données : il doit reprendre et remplir la carte.
   await S(() => { location.hash = '#accueil'; }); await sleep(500);
-  await S(() => new Promise((res) => { // touch() dès que la carte grise apparaît, avant la première tranche
-    const mo = new MutationObserver(() => { if (document.querySelector('#ins .skel')) { mo.disconnect(); window.__cap.rev++; res(); } });
+  const touched = await S(() => new Promise((res) => { // touch() dès que la carte grise apparaît, avant la première tranche
+    const mo = new MutationObserver(() => { if (document.querySelector('#ins .skel')) { mo.disconnect(); window.__cap.rev++; res(true); } });
     mo.observe(document.querySelector('#view'), { childList: true, subtree: true }); location.hash = '#bilan';
+    setTimeout(() => { mo.disconnect(); res(false); }, 10000);
   }));
+  check(touched, 'Mon jeu : la carte grise apparaît (changement de données provoqué pendant le calcul)');
   await sleep(2500);
   check(await S(() => !!document.querySelector('#ins') && !document.querySelector('#ins .skel') && document.querySelectorAll('#ins table').length === 4), 'Mon jeu : un changement de données pendant le calcul des phases ne laisse pas la carte grise');
   check(errs.length === 0, 'aucune erreur JavaScript' + (errs.length ? ' : ' + errs.join(' | ') : ''));

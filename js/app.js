@@ -32,6 +32,7 @@ import { ENDGAMES, egById, GOAL_TXT } from './endgames.js';
 import { phaseJob, pieceStats, hourStats, sessionStats, perfRef, gameRating, insightText } from './insights.js';
 import { fetchExplorer, explorerRows, LEVEL } from './explorer.js';
 import { makeMemo, viewKey } from './memo.js';
+import { makeIdle } from './idle.js';
 
 // Formats de date : un Intl.DateTimeFormat par jeu d'options (datef), les mêmes options qu'avec toLocale…String('fr-FR', …).
 const F_HM = datef({ hour: '2-digit', minute: '2-digit' }), F_WDLONG = datef({ weekday: 'long', day: 'numeric', month: 'long' }), F_DSHORT = datef({ day: 'numeric', month: 'short' });
@@ -124,8 +125,8 @@ function reclassify() {
 }
 // Parties rejouées d'avance, par tranches de 10 ms quand le navigateur est libre (17/11) : « Mon jeu » et la relecture
 // trouvent alors leurs positions déjà calculées (replay garde chaque partie), au lieu de figer l'écran à l'ouverture.
-// Sans requestIdleCallback (Safari) : tranches d'environ 10 ms enchaînées par setTimeout(0), sous le seuil de 50 ms d'une tâche longue.
-const idle = (f) => (window.requestIdleCallback || ((g) => setTimeout(() => g({ timeRemaining: () => 12 }), 0)))(f);
+// idle (js/idle.js) : sans requestIdleCallback, tranches décomptées d'environ 10 ms.
+const idle = makeIdle(window);
 function warmReplays() {
   if (!S.data) return;
   const user = S.user, todo = S.data.games.filter((g) => S.an[g.id] && !S.an[g.id].bad).reverse();
@@ -1481,17 +1482,19 @@ function runPhases(I) {
   if (phasesRun) return;
   phasesRun = I;
   idle(function step(dl) {
-    const here = S.data && route()[0] === 'bilan' && $('#ins');
-    if (!here) { phasesRun = null; return; } // on a quitté Mon jeu : le prochain mountBilan relancera
-    const cur = insightsOf();
-    if (cur !== phasesRun) phasesRun = cur;
-    cur.job.step(Math.max(0, dl.timeRemaining() - 2));
-    if (!cur.job.done) { idle(step); return; }
-    phasesRun = null;
-    if (!exo.live()) $('#ins').outerHTML = insightsCard(games());
+    let more = false;
+    try {
+      const here = S.data && route()[0] === 'bilan' && $('#ins');
+      if (!here) return; // on a quitté Mon jeu : le prochain mountBilan relancera
+      phasesRun = insightsOf();
+      phasesRun.job.step(Math.max(0, dl.timeRemaining() - 2));
+      more = !phasesRun.job.done;
+      if (!more && !exo.live()) $('#ins').outerHTML = insightsCard();
+    } finally { if (!more) phasesRun = null; } // libérée même si une tranche lève une exception
+    if (more) idle(step);
   });
 }
-function insightsCard(gs) {
+function insightsCard() {
   const J = insightsOf(), I = { ...J, phases: J.job.done ? J.job.result() : null }, lines = insightText({ ...I, phases: I.phases || [] }), every = (r) => (r ? `1 tous les ${Math.round(1 / r)} coups` : 'aucune');
   const row = (label, n, val, cls = '') => `<tr><td>${label}</td><td class="r small">${n}</td><td class="r ${cls}"><b>${val}</b></td></tr>`;
   const sc = (x) => (x.n >= 5 ? (x.score >= 55 ? 'ok' : x.score <= 42 ? 'ko' : '') : '');
@@ -1531,7 +1534,7 @@ function viewBilan() {
       <dl class="kv">${es.n ? `<dt>Précision moyenne</dt><dd>${es.acc.toFixed(1)} %</dd><dt>Gaffes par partie</dt><dd>${(es.gaffes / es.n).toFixed(1)}</dd>` : ''}<dt>Parties analysées</dt><dd>${es.n} sur ${gs.length}</dd></dl>
       ${S.job.running ? '' : '<div><button class="btn sm" data-act="analyse">Analyser 20 parties de plus</button></div>'}</div>
   </div>
-  ${insightsCard(gs)}` : `<div class="card"><p class="sub">Aucune partie pour ce filtre (${TC[S.f.tc]}). Change la cadence ou la période.</p></div>`}`;
+  ${insightsCard()}` : `<div class="card"><p class="sub">Aucune partie pour ce filtre (${TC[S.f.tc]}). Change la cadence ou la période.</p></div>`}`;
 }
 function mountBilan() {
   const I = S.data && games().length ? insightsOf() : null;
