@@ -1761,6 +1761,7 @@ const sgn = (x) => (x > 0 ? '+' : x < 0 ? '−' : '±') + Math.abs(x);
 const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 function partiesSummary(gs) {
   const s = st.listSummary(gs); if (!s.n) return '';
+  // Encart propre à la synthèse, pas tile() de ui.js : sous-titre en chiffres alignés (small num)
   const tile = (lab, v, sub = '') => `<div class="glt"><span class="small">${lab}</span><b class="num">${v}</b>${sub ? `<span class="small num">${sub}</span>` : ''}</div>`;
   return `<div class="glsum">${tile('Parties', s.n, `${s.w} V · ${s.d} N · ${s.l} D`)}${tile('Score', s.score + ' %')}
     ${s.from != null ? tile('Mon Elo', `${s.to} <span class="${s.to > s.from ? 'up' : s.to < s.from ? 'dn' : ''}">${sgn(s.to - s.from)}</span>`, `depuis ${s.from}`) : ''}
