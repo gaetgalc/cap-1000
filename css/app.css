@@ -204,18 +204,22 @@ td.r, th.r { text-align: right; font-variant-numeric: tabular-nums; white-space:
 .gl-meta b { color: var(--ink); font-weight: 500; }
 .gl-op { flex: 1 1 0; min-width: 0; order: -2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
 .gl-f { display: inline-flex; gap: var(--s-1); }
+.flt { display: inline-flex; align-items: baseline; justify-content: center; gap: 2px; min-width: 44px; padding: 2px var(--s-2); border-radius: var(--r-s); background: var(--sunken); color: var(--ink3); font-size: var(--t-xs); font-weight: 600; }
+.flt b { font-size: var(--t-s); color: inherit; }
+.flt.bad { background: var(--bad-soft); color: var(--bad-ink); } .flt.warn { background: var(--warn-soft); color: var(--warn); }
 .gl-d { order: -1; }
 .gl-leg { margin: var(--s-2) 0; }
 .gl-f { order: 1; }
 @media (max-width: 859px) { .gl-meta::after { content: ""; order: -1; flex-basis: 100%; } }
 @media (min-width: 860px) {
-  .gl { grid-template-columns: minmax(170px, 1.3fr) 104px minmax(130px, 1.2fr) 56px 82px 92px 66px 116px; grid-template-areas: none; padding: var(--s-2) 0; }
+  .gl { grid-template-columns: minmax(170px, 1.3fr) 104px minmax(130px, 1.2fr) 56px 82px 100px 66px 116px; grid-template-areas: none; padding: var(--s-2) 0; }
   .gl:not(.head) { padding-left: var(--s-3); }
   .gl.head { display: grid; color: var(--ink3); font-size: var(--t-xs); font-weight: 500; padding: var(--s-2) 0 var(--s-2) calc(var(--s-3) + 3px); border-left: 0; }
   .gl-pl, .gl-res, .gl-meta { grid-area: auto; }
   .gl-meta { display: contents; }
   .gl-op, .gl-d, .gl-f { order: 0; }
-  .gl-c, .gl-d { text-align: right; justify-content: flex-end; }
+  .gl-c { text-align: center; justify-content: center; } /* colonnes chiffrées centrées sous leur titre (17/11) */
+  .gl-d { text-align: right; justify-content: flex-end; }
   .gl-u, .gl-leg { display: none; }
   .gl-res { align-items: flex-start; }
 }

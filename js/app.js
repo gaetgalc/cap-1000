@@ -1715,7 +1715,9 @@ function partieRow(g, fx, allTc) {
   const nG = ok ? a.errs.filter((e) => e.kind === 'gaffe').length : null, nE = ok ? a.errs.filter((e) => e.kind === 'erreur').length : null;
   const res = g.out === 'W' ? ['good', 'Victoire'] : g.out === 'L' ? ['bad', 'Défaite'] : ['', 'Nulle'];
   const d = new Date(g.t * 1000), hh = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-  const fau = !ok ? '<span class="small">non analysée</span>' : nG + nE ? `${nG ? `<span class="chip bad">${nG} ??</span>` : ''}${nE ? `<span class="chip warn">${nE} ?</span>` : ''}` : '<span class="chip good">0</span>';
+  // Fautes (17/11) : deux pastilles de largeur fixe, toujours présentes (0 en gris), pour qu'elles s'alignent d'une ligne à l'autre
+  const flt = (n, sym, cls, lab) => `<span class="flt ${n ? cls : ''}" title="${pl(n, lab)}"><b>${n}</b>${sym}</span>`;
+  const fau = !ok ? '<span class="small">non analysée</span>' : flt(nG, '??', 'bad', 'gaffe') + flt(nE, '?', 'warn', 'erreur');
   return `<a class="gl ${g.out}" href="#partie/${g.t}" aria-label="${res[1]} contre ${esc(g.opp)}, ${dfmt(g.t)}">
     <span class="gl-pl"><span class="gl-p"><i class="dot ${g.w ? 'b' : 'w'}"></i><span class="gl-n">${esc(g.opp)}</span><b class="num">${g.or || '?'}</b>${fx.gap != null ? `<span class="small num" title="Écart avec ton Elo">${sgn(fx.gap)}</span>` : ''}</span>
       <span class="gl-p me"><i class="dot ${g.w ? 'w' : 'b'}"></i><span class="gl-n">Moi</span><b class="num">${g.r || '?'}</b>${fx.d != null ? `<span class="num ${fx.d > 0 ? 'up' : fx.d < 0 ? 'dn' : ''}" title="Variation de ton Elo sur cette partie">${sgn(fx.d)}</span>` : g.rated ? '' : '<span class="small">amicale</span>'}</span></span>

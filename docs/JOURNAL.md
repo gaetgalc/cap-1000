@@ -473,6 +473,13 @@ Suite (« oui mets les joueurs autour de l'échiquier comme chess.com […] essa
 - **Commentaire dans la colonne de droite** sur ordinateur (`capSide`, hauteur fixe de 112 px pour que rien ne saute d'un coup à l'autre) : l'échiquier grandit (environ 450 px au lieu de 400 en 1366 × 768) malgré les deux bandeaux. Sur téléphone, le bandeau reste sous l'échiquier ; au passage d'une largeur à l'autre, la relecture se reconstruit.
 - En-tête réduit à une ligne (ouverture, date, cadence, Débrief, Chess.com), légende de la courbe passée en info-bulle : la liste des coups gagne environ 4 lignes.
 
+## 43. Liste des parties plus claire (17/11)
+
+> je veux que ça soit plus clair au niveau des infos. par exemple je trouve que les erreurs « flottent » un peu trop et ne sont pas assez claires et encadrées. aussi centre mieux les éléments
+
+- Fautes : deux pastilles de largeur fixe et fond teinté (`.flt` : gaffes en rouge, erreurs en orange), toujours présentes, 0 en gris ; elles s'alignent d'une ligne à l'autre. Nombre au survol (« 2 gaffes »).
+- Colonnes chiffrées (coups, précision, fautes, pendule) centrées sous leur titre ; la date reste à droite.
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |
