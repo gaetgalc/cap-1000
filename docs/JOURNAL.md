@@ -497,6 +497,15 @@ Suite (« oui mets les joueurs autour de l'échiquier comme chess.com […] essa
 - **Révisions** (sixième encart, cliquable, `nextReview`) : lignes d'ouverture et finales dues aujourd'hui, sinon la prochaine à venir, sinon un lien vers les ouvertures.
 - Écart assumé avec la règle « pas de bloc d'analyse sur l'accueil » : demande explicite. Téléphone inchangé.
 
+## 46. Pièces : ombre et jeu Maestro (17/11)
+
+> dis moi si on peut ajouter une sorte d'ombre dans les pièces de l'échiquier comme sur chess com · inspire toi des pièces chess com, à choisir je veux exactement la même chose · Maestro par défaut avec l'ombre, publie
+
+- Les pièces de Chess.com ne peuvent pas être reprises (dessins protégés, règle du projet) : comparaison des jeux libres de Lichess, les deux plus proches de leur style ajoutés, Maestro (blancs crème, noirs gris ombrés, gros contour) et Cardinal. Licence CC BY-NC-SA 4.0 (non commercial), notée dans `vendor/pieces/LICENSES.txt`.
+- **Maestro par défaut** (`look.DEFAULT.pc`). Un réglage déjà enregistré dans Apparence garde son jeu.
+- **Ombre portée** sur toutes les pièces (`--piece-shadow`), plus marquée sur la pièce saisie (`--piece-lift`, elle paraît soulevée).
+- Corrigé au passage : avec 5 jeux, la rangée « Pièces » des réglages débordait sur téléphone (410 px pour 390) et bloquait le bouton de sauvegarde ; elle passe à la ligne. Une transition de page annulée par le navigateur (fenêtre redimensionnée) n'est plus signalée comme erreur.
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |

@@ -5,9 +5,10 @@ import { ls } from './store.js';
 
 export const PALETTES = [['vert', 'Vert'], ['bois', 'Bois'], ['bleu', 'Bleu-gris']];
 // Pièces servies depuis vendor/pieces (licences dans vendor/pieces/LICENSES.txt) ; cburnett est celle de chessground.
+// Maestro par défaut (17/11, demande de Gaëtan : le plus proche des pièces de Chess.com parmi les jeux libres).
 export const PIECES = [['cburnett', 'Classiques'], ['maestro', 'Maestro'], ['cardinal', 'Cardinal'], ['merida', 'Merida'], ['chessnut', 'Chessnut']];
 export const SPEEDS = [['lent', 'Lente', 1.6], ['normal', 'Normale', 1], ['rapide', 'Rapide', 0.6]];
-export const DEFAULT = Object.freeze({ pal: 'vert', pc: 'cburnett', coords: true, speed: 'normal', size: null });
+export const DEFAULT = Object.freeze({ pal: 'vert', pc: 'maestro', coords: true, speed: 'normal', size: null });
 const MIN = 320, MAX = 1000; // taille de l'échiquier réglée à la poignée, en pixels
 
 const has = (list, v) => list.some(([k]) => k === v);

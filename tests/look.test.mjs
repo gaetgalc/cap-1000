@@ -9,12 +9,13 @@ test('apparence : valeurs par défaut, et toute valeur inconnue ou abîmée revi
   assert.deepEqual(normalize('n’importe quoi'), DEFAULT);
   assert.deepEqual(normalize({ pal: 'rose', pc: 'xkcd', coords: 'oui', speed: 'turbo', size: 'grand' }), DEFAULT);
   assert.deepEqual(normalize({ pal: 'bois', pc: 'merida', coords: false, speed: 'lent', size: 600 }), { pal: 'bois', pc: 'merida', coords: false, speed: 'lent', size: 600 });
-  assert.equal(DEFAULT.pal, 'vert'); assert.equal(DEFAULT.pc, 'cburnett'); assert.equal(DEFAULT.coords, true); assert.equal(DEFAULT.speed, 'normal'); assert.equal(DEFAULT.size, null);
+  assert.equal(DEFAULT.pal, 'vert'); assert.equal(DEFAULT.pc, 'maestro'); // Maestro par défaut depuis le 17/11 assert.equal(DEFAULT.coords, true); assert.equal(DEFAULT.speed, 'normal'); assert.equal(DEFAULT.size, null);
   assert.equal(PALETTES.length, 3); assert.ok(PIECES.length >= 1); assert.equal(SPEEDS.length, 3);
 });
 
-test('apparence : une classe par réglage qui s’écarte du défaut, rien pour le défaut', () => {
-  assert.deepEqual(classesOf(DEFAULT), []);
+test('apparence : une classe par réglage qui s’écarte de chessground (pièces cburnett, palette verte, coordonnées)', () => {
+  assert.deepEqual(classesOf(DEFAULT), ['pc-maestro']);
+  assert.deepEqual(classesOf({ ...DEFAULT, pc: 'cburnett' }), []);
   assert.deepEqual(classesOf({ ...DEFAULT, pal: 'bleu', pc: 'chessnut', coords: false }).sort(), ['nocoords', 'pal-bleu', 'pc-chessnut']);
 });
 

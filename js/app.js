@@ -2639,7 +2639,7 @@ const calm = matchMedia('(prefers-reduced-motion: reduce)');
 addEventListener('hashchange', () => {
   navClose(); // un rendu d'arrière-plan laisse le volet ouvert, un changement de page le ferme
   if (!document.startViewTransition || calm.matches || document.hidden) render();
-  else document.startViewTransition(() => render());
+  else { const t = document.startViewTransition(() => render()); t.ready.catch(() => {}); t.finished.catch(() => {}); } // une transition annulée (fenêtre redimensionnée) n'est pas une erreur
 });
 document.addEventListener('pointerover', (ev) => {
   const el = ev.target.closest?.('[data-tip]'), tip = $('#tip');
