@@ -6,7 +6,7 @@ Site : https://gaetgalc.github.io/cap-1000/?u=gaetcc
 
 Le journal complet des échanges et des décisions est dans `docs/JOURNAL.md`. Le lire avant toute évolution.
 
-Refonte de l'interface en cours (depuis le 15/11) : décisions, état des lieux et étapes dans `docs/REFONTE.md`. Toute retouche visuelle suit ses règles (Geist, titres en Source Serif 4, cartes sans contour, jetons de `:root`, un bouton plein par vue, cibles de 44 px sur téléphone) et se vérifie avec `node tests/audit-ui.js`, qui doit rester sans écart.
+Refonte de l'interface en cours (depuis le 15/11) : décisions, état des lieux et étapes dans `docs/REFONTE.md`. Toute retouche visuelle suit ses règles (Geist, titres en Source Serif 4, cartes sans contour, jetons de `:root`, un bouton plein par vue, cibles de 44 px sur téléphone) et se vérifie avec `node tests/audit-ui.js`, qui doit rester sans écart. Suite prévue, en attente de 3 décisions de Gaëtan : `docs/PLAN-HIG.md` (revue selon les règles d'interface d'Apple, 17/11).
 
 ## Ce que veut l'utilisateur
 
