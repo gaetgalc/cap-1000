@@ -1187,13 +1187,12 @@ function cadenceField() {
 const periodSeg = () => `<div class="seg2 mini" role="group" aria-label="Période">${[[0, 'Tout'], [90, '90 j'], [30, '30 j']].map(([v, l]) => `<button data-f="days" data-v="${v}" aria-pressed="${(S.f.days || 0) === v}" class="${(S.f.days || 0) === v ? 'on' : ''}">${l}</button>`).join('')}</div>`;
 const upToDate = () => (S.data?.fetchedAt ? `À jour, ${agoFr(Date.now() - S.data.fetchedAt)}` : 'Pas encore mis à jour');
 const refreshBtn = () => `<button class="btn ico" data-act="refresh" aria-label="Mettre à jour" title="Récupérer les nouvelles parties de ${esc(S.user)}" ${S.importing && !S.importing.err ? 'aria-busy="true"' : ''}>${ico('refresh')}</button>`;
-const TITLES = { idees: 'Idées de plan', avantpartie: 'Avant de jouer', ouvertures: 'Ouverture', ligne: 'Ouverture', puzzles: 'Puzzles', erreur: 'Comprendre', partie: 'Partie', cours: 'Cours', drill: 'Échauffement', inedits: 'Positions inédites', gagner: 'Gagner', monouv: 'Mon ouverture', rush: 'Rush', finale: 'Finale', jouer: 'Jouer' };
 function header() {
   const t = $('#tools'), [r, a] = route();
   const imm = !!S.data && (!!exo.current() || r === 'erreur' || (r === 'cours' && !!a) || (r === 'ouvertures' && !!a && a !== 'apprendre') || r === 'monouv' || r === 'avantpartie'); // écran d'exercice ou page de cours : barre du haut avec retour
   document.body.classList.toggle('imm', imm);
   document.body.classList.toggle('homefit', !!S.data && r === 'accueil');
-  $('#ttl').textContent = imm ? TITLES[r] : '';
+  $('#ttl').textContent = imm ? ROUTES[r]?.title : '';
   if (!S.data) { t.innerHTML = ''; return; }
   const tr = st.trend(rapidAll()), stk = streak();
   // Sur téléphone, pendant un exercice, la barre du haut montre l'avancée (puzzles du jour, position de la série).
@@ -2365,6 +2364,14 @@ function viewPlan() {
       <div><button class="btn sm" data-act="keydel">Supprimer la clé de cet appareil</button></div>` : keyForm()}</div>
   </div>`;
 }
+function mountPlan() {
+  $('#hrs').onchange = (e) => { ls.set('hours', +e.target.value); render(true); toast('Temps par semaine enregistré'); };
+  const save = () => { const elo = +$('#gelo').value, date = $('#gdate').value; if (elo >= 100 && date) { ls.set('goal', { elo, date }); render(true); toast('Objectif enregistré'); } };
+  $('#gelo').onchange = save; $('#gdate').onchange = save;
+  const cm = $('#cmodel'); if (cm) cm.onchange = () => ls.set('model', cm.value);
+  board($('#lookb'), { fen: LOOK_FEN, viewOnly: true, lastMove: ['h5', 'f7'] });
+  document.querySelectorAll('[data-plan]').forEach((c) => { c.onchange = () => { const k = 'plan:' + weekKey(), d = ls.get(k, {}); d[c.dataset.plan] = c.checked; ls.set(k, d); c.closest('.check').classList.toggle('done', c.checked); }; });
+}
 
 // ---------- État de l'écran, conservé quand on quitte ou recharge la page ----------
 function keepUi() {
@@ -2403,6 +2410,43 @@ async function restoreFrom(file) {
 
 // ---------- Routage et événements ----------
 const route = () => (location.hash.slice(1) || 'accueil').split('/');
+// Table des routes (#route/a/b/c) : view rend le HTML de la vue ; mount monte échiquiers, courbes et écouteurs juste après ;
+// resize redessine au redimensionnement ; title nomme l'écran dans la barre du haut (exercice, page de cours) ; back est la cible
+// du bouton Retour (adresse, ou fonction qui la rend ; #accueil sinon). Sans prototype : #constructor n'est pas une route.
+const pzMount = () => { mountPuzzle(); const s = $('#pzt'); if (s) s.onchange = () => { S.pz.theme = s.value; S.pz.cur = null; S.pz.show = null; render(); }; };
+const ROUTES = {
+  __proto__: null,
+  accueil: { view: viewAccueil, mount: mountAccueil, resize: mountAccueil },
+  avantpartie: { view: viewAvant, title: 'Avant de jouer' },
+  entrainer: { view: viewEntrainer, mount: mountEntrainer, resize: mountEntrainer },
+  puzzles: { view: () => viewPuzzles(), mount: pzMount, title: 'Puzzles' },
+  erreur: { view: (a, b) => viewPuzzles([a, b]), mount: pzMount, title: 'Comprendre', back: () => (history.length > 1 ? history.back() : '#puzzles') },
+  historique: { view: viewHistory },
+  exos: { view: viewExos },
+  inedits: { view: viewInedits, mount: mountInedits, title: 'Positions inédites', back: '#puzzles' },
+  drill: { view: viewDrill, mount: mountDrill, title: 'Échauffement', back: '#exos' },
+  idees: { view: viewIdees, mount: mountIdees, title: 'Idées de plan' },
+  gagner: { view: viewGagner, mount: mountGagner, title: 'Gagner', back: (a) => (a ? '#gagner' : '#exos') },
+  rush: { view: viewRush, mount: mountRush, title: 'Rush', back: (a) => (a ? '#rush' : '#entrainer') },
+  finales: { view: viewFinales },
+  finale: { view: viewFinale, mount: mountFinale, title: 'Finale', back: '#finales' },
+  cours: { view: (a, b) => (a ? viewLecon(a, b) : viewCours()), mount: (a) => a && mountLecon(), title: 'Cours', back: '#cours' }, // liste, ou leçon #cours/<id>[/fiche]
+  // Mes ouvertures (échiquier de l'explorateur), catalogue #ouvertures/apprendre, ou fiche #ouvertures/<id>
+  ouvertures: {
+    view: (a) => (a === 'apprendre' ? viewApprendre() : a ? viewOpening(a) : viewOuvertures()),
+    mount: (a) => { if (!a) { board($('#exb'), { fen: S.exFen, orientation: S.white ? 'white' : 'black', viewOnly: true }); lexpLoad(S.exFen); } else if (a !== 'apprendre') mountOpening(); },
+    title: 'Ouverture', back: '#ouvertures/apprendre',
+  },
+  ligne: { view: viewLigne, mount: mountLigne, title: 'Ouverture', back: (a) => '#ouvertures/' + a },
+  monouv: { view: viewMonOuv, mount: mountMonOuv, title: 'Mon ouverture', back: '#ouvertures' },
+  parties: { view: viewParties },
+  // Relecture : au passage ordinateur / téléphone, le bandeau change de colonne (vue reconstruite), sinon mise à jour sur place
+  partie: { view: viewPartie, mount: mountPartie, title: 'Partie', back: '#parties', resize: () => { if (S.gv?.cg) { if (!!$('.fitside #xcap') !== exo.wide()) render(true); else gvSync(); } } },
+  jouer: { view: viewJouer, mount: mountJouer, title: 'Jouer', back: (a) => '#partie/' + a },
+  bilan: { view: viewBilan, mount: mountBilan, resize: mountBilan },
+  stats: { view: () => viewStats(S), mount: () => mountStats(S), resize: () => mountStats(S) },
+  plan: { view: viewPlan, mount: mountPlan },
+};
 function render(keepScroll) {
   const y = scrollY;
   destroyBoards();
@@ -2419,34 +2463,10 @@ function render(keepScroll) {
   if (r !== 'partie') S.gv = null;
   if (r !== 'rush') clearInterval(rushTimer);
   if (r !== 'drill' && S.dr && S.dr.i >= S.dr.items.length) S.dr = null; // une série en cours se reprend, une série finie repart de zéro
-  const html = r === 'idees' ? viewIdees() : r === 'avantpartie' ? viewAvant() : r === 'puzzles' ? viewPuzzles() : r === 'erreur' ? viewPuzzles([a, b]) : r === 'entrainer' ? viewEntrainer() : r === 'historique' ? viewHistory() : r === 'exos' ? viewExos() : r === 'inedits' ? viewInedits() : r === 'drill' ? viewDrill(a) : r === 'cours' ? (a ? viewLecon(a, b) : viewCours()) : r === 'ouvertures' ? (a === 'apprendre' ? viewApprendre() : a ? viewOpening(a) : viewOuvertures()) : r === 'monouv' ? viewMonOuv(a, b) : r === 'ligne' ? viewLigne(a, b, c) : r === 'parties' ? viewParties() : r === 'partie' ? viewPartie(a, b) : r === 'plan' ? viewPlan() : r === 'bilan' ? viewBilan() : r === 'stats' ? viewStats(S) : r === 'gagner' ? viewGagner(a) : r === 'jouer' ? viewJouer(a, b) : r === 'finales' ? viewFinales() : r === 'finale' ? viewFinale(a) : r === 'rush' ? viewRush(a) : viewAccueil();
-  v.innerHTML = html;
+  const R = ROUTES[r] || { view: viewAccueil }; // adresse inconnue : la vue de l'accueil, sans montage
+  v.innerHTML = R.view(a, b, c);
   exo.attach(); // avant de créer les échiquiers : ils naissent à leur taille définitive
-  if (r === 'puzzles' || r === 'erreur') { mountPuzzle(); const s = $('#pzt'); if (s) s.onchange = () => { S.pz.theme = s.value; S.pz.cur = null; S.pz.show = null; render(); }; }
-  else if (r === 'cours' && a) mountLecon();
-  else if (r === 'ouvertures' && !a) { board($('#exb'), { fen: S.exFen, orientation: S.white ? 'white' : 'black', viewOnly: true }); lexpLoad(S.exFen); }
-  else if (r === 'ouvertures' && a !== 'apprendre') mountOpening();
-  else if (r === 'monouv') mountMonOuv();
-  else if (r === 'ligne') mountLigne();
-  else if (r === 'partie') mountPartie();
-  else if (r === 'drill') mountDrill();
-  else if (r === 'inedits') mountInedits();
-  else if (r === 'gagner') mountGagner();
-  else if (r === 'jouer') mountJouer();
-  else if (r === 'finale') mountFinale();
-  else if (r === 'rush') mountRush();
-  else if (r === 'idees') mountIdees();
-  else if (r === 'stats') mountStats(S);
-  else if (r === 'plan') {
-    $('#hrs').onchange = (e) => { ls.set('hours', +e.target.value); render(true); toast('Temps par semaine enregistré'); };
-    const save = () => { const elo = +$('#gelo').value, date = $('#gdate').value; if (elo >= 100 && date) { ls.set('goal', { elo, date }); render(true); toast('Objectif enregistré'); } };
-    $('#gelo').onchange = save; $('#gdate').onchange = save;
-    const cm = $('#cmodel'); if (cm) cm.onchange = () => ls.set('model', cm.value);
-    board($('#lookb'), { fen: LOOK_FEN, viewOnly: true, lastMove: ['h5', 'f7'] });
-    document.querySelectorAll('[data-plan]').forEach((c) => { c.onchange = () => { const k = 'plan:' + weekKey(), d = ls.get(k, {}); d[c.dataset.plan] = c.checked; ls.set(k, d); c.closest('.check').classList.toggle('done', c.checked); }; });
-  } else if (r === 'bilan') mountBilan();
-  else if (r === 'accueil') mountAccueil();
-  else if (r === 'entrainer') mountEntrainer();
+  R.mount?.(a, b, c);
   header();
   keepUi();
   if (keepScroll) scrollTo(0, y); else scrollTo(0, 0);
@@ -2540,18 +2560,7 @@ document.addEventListener('click', (ev) => {
     if (v.var) { const w = v.var, m = w.mv[w.i - 1] || v.mv[w.k0 - 1]; S.jp = { t: v.g.t, k: 'v', from: w.k0 + w.i, fen: w.fens[w.i], last: m ? [m.from, m.to] : undefined, moves: [], over: null }; location.hash = `#jouer/${v.g.t}/v`; }
     else { S.jp = null; location.hash = `#jouer/${v.g.t}/${v.k}`; }
   }
-  else if (act === 'back') {
-    const r = route()[0];
-    if (r === 'erreur') { if (history.length > 1) history.back(); else location.hash = '#puzzles'; }
-    else if (r === 'gagner') location.hash = route()[1] ? '#gagner' : '#exos';
-    else if (r === 'jouer') location.hash = '#partie/' + route()[1];
-    else if (r === 'finale') location.hash = '#finales';
-    else if (r === 'rush') location.hash = route()[1] ? '#rush' : '#entrainer';
-    else if (r === 'ligne') location.hash = '#ouvertures/' + route()[1];
-    else if (r === 'ouvertures') location.hash = '#ouvertures/apprendre';
-    else if (r === 'monouv') location.hash = '#ouvertures';
-    else location.hash = { partie: '#parties', cours: '#cours', drill: '#exos', inedits: '#puzzles' }[r] || '#accueil';
-  }
+  else if (act === 'back') { const [r, a] = route(), to = ROUTES[r]?.back, h = typeof to === 'function' ? to(a) : to || '#accueil'; if (h) location.hash = h; }
   else if (act === 'linext') liLoad();
   else if (act === 'lireplay') {
     const x = progress.hist().find((h) => String(h.t) === el.dataset.t); if (!x?.p) return;
@@ -2679,7 +2688,7 @@ document.addEventListener('pointerover', (ev) => {
   tip.style.left = Math.max(4, Math.min(innerWidth - tw - 4, r.left + r.width / 2 - tw / 2)) + 'px'; tip.style.top = Math.max(4, r.top - 34) + 'px';
 });
 document.addEventListener('pointerout', (ev) => { if (ev.target.closest?.('[data-tip]')) $('#tip').hidden = true; });
-let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { const r = route()[0]; if (r === 'bilan') mountBilan(); else if (r === 'accueil' && S.data) mountAccueil(); else if (r === 'entrainer' && S.data) mountEntrainer(); else if (r === 'stats') mountStats(S); else if (r === 'partie' && S.gv?.cg) { if (!!$('.fitside #xcap') !== exo.wide()) render(true); else gvSync(); } }, 200); }); // relecture : le bandeau change de colonne au passage ordinateur / téléphone
+let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => S.data && ROUTES[route()[0]]?.resize?.(), 200); });
 
 if (new URLSearchParams(location.search).has('debug')) window.__cap = S; // accès à l'état pour les tests
 // Mise à jour automatique : au chargement et au retour sur l'onglet, si les données ont plus de 10 minutes.
