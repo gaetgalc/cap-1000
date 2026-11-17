@@ -98,3 +98,7 @@ Suite de la refonte, détail dans `docs/PLAN-AGREMENT.md`. Écarts assumés en p
 - **Pastilles** : texte simple, couleur d'état portée par un point de 6 px ; jamais de fond coloré.
 - **Serif** (`--serif`) réservée aux titres h1 / h2, au logo et aux grands chiffres ; tout texte de lecture, bouton ou chiffre de tableau reste en Geist.
 - **Transitions** : la navigation garde son `view-transition-name` (`side` sur ordinateur, `tabs` sur téléphone) ; un nouvel élément fixe de la coquille en reçoit un aussi pour ne pas fondre avec la page. Un calcul de vue de plus de 50 ms se garde en mémoire ou se prépare quand le navigateur est libre.
+
+## Revue HIG (17/11)
+
+Règles ajoutées par la revue selon les règles d'interface d'Apple : voir `docs/PLAN-HIG.md`.

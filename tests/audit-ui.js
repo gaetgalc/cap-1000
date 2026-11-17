@@ -12,15 +12,18 @@ const { USER, GAMES, startServer, stopServer, routeChessCom } = require('./fixtu
 const PORT = +process.env.PORT || 8766, OUT = path.resolve(process.argv[2] || path.join(__dirname, 'out/audit'));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-const SIZES = [
+const TOUTES_TAILLES = [
   { id: '390x664', width: 390, height: 664, mobile: true },
   { id: '390x760', width: 390, height: 760, mobile: true },
   { id: '1366x768', width: 1366, height: 768 },
   { id: '1280x860', width: 1280, height: 860 },
 ];
+// Audit ciblé : SIZES=390x664,1366x768 et ONLY=accueil,bilan (noms d'écrans) ; sans variable, tout tourne.
+const liste = (v) => (v || '').split(',').map((x) => x.trim()).filter(Boolean);
+const SIZES = liste(process.env.SIZES).length ? TOUTES_TAILLES.filter((z) => liste(process.env.SIZES).includes(z.id)) : TOUTES_TAILLES;
 
 // Écrans : route fixe, ou fonction qui la calcule sur l'état chargé (window.__cap).
-const SCREENS = [
+const TOUS_ECRANS = [
   ['accueil'], ['bilan'], ['plan'], ['puzzles'], ['historique'], ['exos'], ['drill-sur', 'drill/sur'], ['drill-compte', 'drill/compte'],
   ['cours'], ['cours-fiche', 'cours/en_prise_pose/fiche'], ['cours-prive', 'cours/en_prise_pose'],
   ['gagner'], ['ouvertures'], ['ouvertures-apprendre', 'ouvertures/apprendre'], ['ouverture-fiche', 'ouvertures/italienne'],
@@ -45,6 +48,7 @@ const SCREENS = [
     return 'cours';
   }],
 ];
+const SCREENS = liste(process.env.ONLY).length ? TOUS_ECRANS.filter(([n]) => liste(process.env.ONLY).includes(n)) : TOUS_ECRANS;
 
 // Exécuté dans la page : mesures sur tout ce qui est visible.
 function measure(touch) {

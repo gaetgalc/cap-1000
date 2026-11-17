@@ -158,6 +158,7 @@ python3 -m http.server 8000   # puis http://localhost:8000/?u=gaetcc
 node --test tests/*.test.mjs  # règles de planification et explications ; moins d'une seconde
 node tests/parcours.js        # parcours puzzles, journal, reprise, échauffement ; 1 à 2 minutes
 node tests/audit-ui.js        # captures et mesures de chaque écran aux 4 tailles (tests/out/audit) ; 3 à 4 minutes
+ONLY=accueil,bilan SIZES=390x664 node tests/audit-ui.js  # audit ciblé : écrans (noms de SCREENS) et tailles au choix, moins d'une minute
 ```
 
 Le test génère des parties par coups semi-aléatoires au format Chess.com, intercepte `api.chess.com` et pilote Chromium avec Playwright. Ajouter `&debug` à l'URL expose l'état `S` dans `window.__cap`. Pour un cours privé, injecter un cours dans `S.ai` ; pour Lichess, intercepter `lichess.org`. Toujours vérifier le rendu par captures en 390 × 664 (iPhone avec les barres de Safari), 390 × 760, 1366 × 768 et 1280 × 860 : la page ne doit jamais défiler sur un écran d'échiquier.
