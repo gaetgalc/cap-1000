@@ -15,12 +15,16 @@ let pending = null, cur = null;
 //   bar       boutons de la barre d'actions : data-x="nom" pour une action de l'exercice, data-act pour la navigation
 //   top       () => HTML : avancée montrée dans la barre du haut sur téléphone
 //   rail      HTML placé dans le cadre de l'échiquier, avant lui (barre d'évaluation de la relecture) ; wrap : classe du cadre
+//   above, below  HTML au-dessus et au-dessous de l'échiquier, dans son cadre (joueurs de la relecture, ordinateur)
+//   capSide   true : sur ordinateur, le bandeau passe en tête de la colonne de droite (relecture, comme Chess.com)
 //   live      true si un rendu d'arrière-plan ne doit pas reconstruire l'écran (exercice en cours)
 //   autres champs : libres, retrouvés au montage dans X.spec
+export const wide = () => matchMedia('(min-width: 860px)').matches;
 export function screen(spec) {
   pending = spec;
-  return `<div class="bwrap ${spec.wrap || ''}">${spec.rail || ''}<div class="board" id="xb"></div><div class="cap ${spec.capClass || ''}" id="xcap">${spec.cap || ''}</div></div>
-    <div class="fitside"><div class="fithead">${spec.head || ''}</div><div class="stack fitpanel" id="xpanel">${spec.panel || ''}</div><div class="actbar" id="xbar">${spec.bar || ''}</div></div>`;
+  const cap = `<div class="cap ${spec.capClass || ''}" id="xcap">${spec.cap || ''}</div>`, side = spec.capSide && wide();
+  return `<div class="bwrap ${spec.wrap || ''}">${spec.rail || ''}${spec.above || ''}<div class="board" id="xb"></div>${spec.below || ''}${side ? '' : cap}</div>
+    <div class="fitside"><div class="fithead">${spec.head || ''}</div>${side ? cap : ''}<div class="stack fitpanel" id="xpanel">${spec.panel || ''}</div><div class="actbar" id="xbar">${spec.bar || ''}</div></div>`;
 }
 
 // Après l'écriture de la vue et avant la création de l'échiquier : il naît ainsi à sa taille définitive.

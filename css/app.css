@@ -263,19 +263,24 @@ cg-board { background-color: var(--sq-light); background-image: repeating-conic-
 .evbar::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 2px; margin-top: -1px; background: var(--neutral); opacity: .7; }
 @media (min-width: 860px) {
   body.fit .bwrap.gv { position: relative; }
-  .bwrap.gv .evbar { position: absolute; left: -16px; top: 0; width: 8px; height: var(--bs); }
+  .bwrap.gv .evbar { position: absolute; left: -16px; top: calc(var(--hit) + var(--s-2)); width: 8px; height: var(--bsr, var(--bs)); }
   /* Le panneau ne défile pas : seule la liste de coups défile, sous le bilan et la courbe */
   body.fit .bwrap.gv + .fitside .fitpanel { overflow: hidden; gap: 12px; }
   .gvsum, .gvch { flex: none; }
   .gvch { display: flex; flex-direction: column; gap: 4px; padding: 10px 16px 6px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); }
   /* Relecture (17/11, « comme Chess.com ») : en-tête des joueurs, encarts du bilan, coups en lignes pleine largeur */
-  .gvhead { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s-2) var(--s-3); padding: var(--s-3) var(--s-4); background: var(--surface); border-radius: var(--r); }
-  .gvpl { display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
-  .gvp { display: flex; align-items: center; gap: var(--s-2); font-size: var(--t-m); min-width: 0; }
-  .gvp b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .gvp .num { color: var(--ink3); }
-  .gvp .chip { margin-left: var(--s-2); }
-  .gvact { display: flex; gap: var(--s-2); align-items: flex-start; }
-  .gvmeta { grid-column: 1 / -1; }
+  .gvhead { display: flex; justify-content: space-between; gap: var(--s-3); }
+  .gvhead { align-items: center; }
+  .gvmeta { display: flex; align-items: baseline; gap: var(--s-2); min-width: 0; white-space: nowrap; } .gvmeta .small { overflow: hidden; text-overflow: ellipsis; } .gvmeta b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .gvact { display: flex; gap: var(--s-2); }
+  /* Joueurs autour de l'échiquier, pendule du coup affiché (celle du camp au trait en clair, comme Chess.com) */
+  body.fit:has(.bwrap.gv) { --capmin: calc(2 * (var(--hit) + var(--s-2))); }
+  .gvbar { display: flex; align-items: center; gap: var(--s-2); min-height: var(--hit); font-size: var(--t-m); min-width: 0; }
+  .gvbar b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .gvbar .num { color: var(--ink3); }
+  .gvclk { margin-left: auto; min-width: 96px; padding: var(--s-1) var(--s-3); border-radius: var(--r-s); background: var(--surface); color: var(--ink2); font: 600 var(--t-l) var(--mono); text-align: right; }
+  .gvclk.on { background: var(--ink); color: var(--bg); }
+  body.fit .fitside > .cap { flex: none; height: 112px; }
+  .gvch > .small { display: none; } /* légende dans l'info-bulle de la courbe */
   .gvm { flex: 1 1 auto; min-height: 96px; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; padding: var(--s-1) 0; background: var(--surface); border: 1px solid transparent; border-radius: var(--r); }
   .gvr { display: grid; grid-template-columns: 52px minmax(0, 1fr) minmax(0, 1fr) minmax(96px, 180px); align-items: center; gap: var(--s-1); padding: 2px var(--s-3); }
   .gvr:nth-of-type(even) { background: color-mix(in srgb, var(--surface), var(--ink) 3%); }
@@ -300,7 +305,7 @@ cg-board { background-color: var(--sq-light); background-image: repeating-conic-
   .bwrap.gv .evbar.flip i { transform-origin: right; }
   .bwrap.gv .evbar::after { left: 50%; right: auto; top: 0; bottom: 0; width: 2px; height: auto; margin: 0 0 0 -1px; }
   /* Sous le bandeau : bande de coups et courbe compacte, toujours visibles ; bilan et moments clés en défilant */
-  body.fit .gvhead { display: none; }
+  body.fit .gvhead, .gvbar { display: none; }
   body.fit .bwrap.gv + .fitside .fitpanel { max-height: 100px; gap: 8px; }
   .gvm { order: -2; flex: none; display: flex; flex-wrap: nowrap; align-items: center; gap: 2px; overflow-x: auto; overscroll-behavior: contain; scrollbar-width: none; }
   .gvm::-webkit-scrollbar { display: none; }

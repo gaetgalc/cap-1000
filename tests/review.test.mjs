@@ -77,3 +77,12 @@ test('moveTimes : temps passé sur chaque coup, d’après la pendule restante, 
   assert.equal(clockFmt(4), '4 s');
   assert.equal(clockFmt(75), '1:15');
 });
+
+test('clocksAt : pendule de chaque camp après k demi-coups (cadence de base avant son premier coup)', async () => {
+  const { clocksAt } = await import('../js/review.js');
+  const g = { base: 600, inc: 0, san: ['e4', 'e5', 'Nf3', 'Nc6'], clk: [598, 590, 570, 560] };
+  assert.deepEqual(clocksAt(g, 0), { w: 600, b: 600 });
+  assert.deepEqual(clocksAt(g, 1), { w: 598, b: 600 });
+  assert.deepEqual(clocksAt(g, 4), { w: 570, b: 560 });
+  assert.equal(clocksAt({ base: 600, san: ['e4'], clk: [] }, 1), null);
+});

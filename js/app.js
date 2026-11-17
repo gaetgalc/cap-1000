@@ -11,7 +11,7 @@ import { $, esc, dfmt, TC, HOW, coach, txt, pl, f1, ico, wdl, WDL_LEGEND, setHtm
 import { lineChart } from './charts.js';
 import { progress, DAY } from './progress.js';
 import { board, destroyBoards, destsOf, arrow, errShapes, REDUCED } from './board.js';
-import { moveMark, evalShare, errStep, gaffeTrail, moveTimes, clockFmt } from './review.js';
+import { moveMark, evalShare, errStep, gaffeTrail, moveTimes, clockFmt, clocksAt } from './review.js';
 import * as exo from './exercise.js';
 import { LI_ANGLES, LI_FOR, LI_DIFF, fetchPuzzle } from './lichess.js';
 import { DRILLS, DRILL_FOR, makeRound } from './drills.js';
@@ -1989,16 +1989,17 @@ function viewPartie(t, plyArg) {
     top: perf ? () => perf : undefined,
     // En-tête (17/11, « comme Chess.com ») : les deux joueurs l'un sous l'autre, adversaire en haut comme sur l'échiquier,
     // résultat sur ta ligne ; ouverture, date et cadence en dessous ; Débrief et Chess.com à droite.
+    // Ordinateur (17/11, « comme Chess.com ») : les joueurs encadrent l'échiquier (adversaire en haut, toi en bas, pendule
+    // au coup affiché), le commentaire passe en tête de la colonne de droite ; l'en-tête ne garde que l'ouverture et les liens.
+    above: gvPlayer(v, false), below: gvPlayer(v, true), capSide: true,
     head: `<div class="gvhead"><h1 class="sr">${g.w ? 'Blancs' : 'Noirs'} contre ${esc(g.opp)}</h1>
-      <div class="gvpl"><span class="gvp"><i class="dot ${g.w ? 'b' : 'w'}"></i><b>${esc(g.opp)}</b><span class="num">${g.or}</span></span>
-      <span class="gvp me"><i class="dot ${g.w ? 'w' : 'b'}"></i><b>Toi</b><span class="num">${g.r}</span>${res}</span></div>
-      <div class="gvact">${a ? '<button class="btn sm" data-act="dbgo" data-i="0">Débrief</button>' : ''}${link}</div>
-      <p class="gvmeta small">${esc(g.fam)} · ${dfmt(g.t)}${TC[g.tc] ? ' · ' + TC[g.tc] : ''}</p></div>`,
+      <p class="gvmeta"><b>${esc(g.fam)}</b><span class="small">· ${dfmt(g.t)}${TC[g.tc] ? ' · ' + TC[g.tc] : ''}</span></p>
+      <div class="gvact">${a ? '<button class="btn sm" data-act="dbgo" data-i="0">Débrief</button>' : ''}${link}</div></div>`,
     wrap: 'gv',
     rail: a ? `<div class="evbar ${g.w ? '' : 'flip'}" id="gvev" aria-hidden="true" style="--ev:${evalShare(a.ev[v.k])}"><i></i></div>` : '',
     cap: cap.html, capClass: cap.cls,
     panel: `${a ? `${gvTiles(g, a)}
-      <div class="gvch"><p class="small">Tes chances de gain. Points rouges : gaffes, orange : erreurs. Touche la courbe pour aller au coup.</p><div class="chart" id="evc"></div></div>`
+      <div class="gvch" title="Tes chances de gain. Points rouges : gaffes, orange : erreurs. Touche la courbe pour aller au coup."><p class="small">Tes chances de gain. Points rouges : gaffes, orange : erreurs. Touche la courbe pour aller au coup.</p><div class="chart" id="evc"></div></div>`
     : `<div class="card"><p class="sub">Cette partie n’est pas encore analysée.</p><div><button class="btn pri" data-act="analyse1" ${S.job.running ? 'disabled' : ''}>${S.job.running ? 'Analyse en cours' : 'Analyser cette partie'}</button></div></div>`}
       <div class="gvm" id="gvm">${gvMoves(v)}</div>
       <div class="gvmore stack"><div class="row">${res}<span class="chip">${dfmt(g.t)}</span>${link}</div>
@@ -2006,6 +2007,16 @@ function viewPartie(t, plyArg) {
       ${serious.length ? `<div class="card"><h2>Moments clés</h2>${serious.map((x) => `<a class="row" href="#" data-act="goto" data-k="${x.ply}" style="justify-content:space-between;text-decoration:none"><span>Coup ${moveNo(x)} : ${fr(x.played)}, mieux ${fr(x.bestSan)}</span><span class="chip ${x.kind === 'gaffe' ? 'bad' : 'warn'}">${st.THEMES[x.theme]}</span></a>`).join('')}</div>` : ''}</div>`,
     bar: gvBar(v),
   });
+}
+// Bandeau d'un joueur au-dessus ou au-dessous de l'échiquier (ordinateur) : couleur, nom, Elo, résultat, pendule au coup affiché.
+function gvPlayer(v, me) {
+  const g = v.g, white = me === g.w, res = g.out === 'D' ? 'Nulle' : (g.out === 'W') === me ? 'Victoire' : 'Défaite';
+  const cls = g.out === 'D' ? '' : (g.out === 'W') === me ? 'good' : 'bad';
+  return `<div class="gvbar ${me ? 'me' : ''}"><i class="dot ${white ? 'w' : 'b'}"></i><b>${me ? 'Toi' : esc(g.opp)}</b><span class="num">${me ? g.r : g.or}</span>${me ? `<span class="chip ${cls}">${res}${me && HOW[g.how] ? ' (' + HOW[g.how] + ')' : ''}</span>` : ''}<span class="gvclk num" data-side="${white ? 'w' : 'b'}"></span></div>`;
+}
+function gvClocks(v) {
+  const c = clocksAt(v.g, v.var ? v.var.k0 : v.k), turn = (v.var ? v.var.k0 : v.k) % 2 ? 'b' : 'w';
+  document.querySelectorAll('.gvclk').forEach((el) => { el.textContent = c ? mmss(c[el.dataset.side]) : ''; el.hidden = !c; el.classList.toggle('on', el.dataset.side === turn); });
 }
 // Bilan de la partie en encarts (17/11) : précision, Elo estimé, puis les fautes par gravité avec leur symbole.
 function gvTiles(g, a) {
@@ -2071,6 +2082,7 @@ function gvVarBar(v) {
 // Met à jour l'écran de relecture sans le reconstruire : les pièces s'animent d'un coup à l'autre.
 function gvSync() {
   const v = S.gv, k = v.k, w = v.var;
+  gvClocks(v);
   if (w) {
     const e = w.ev[w.i], last = w.i > 0 ? w.mv[w.i - 1] : (k > 0 ? v.mv[k - 1] : null), cap = gvVarCap(v);
     v.cg.set({ fen: gvFen(v), turnColor: gvFen(v).split(' ')[1] === 'w' ? 'white' : 'black', lastMove: last ? [last.from, last.to] : undefined, movable: gvMov(v), drawable: { autoShapes: e?.best ? [arrow(e.best, 'green')] : [] } });
@@ -2609,7 +2621,7 @@ document.addEventListener('pointerover', (ev) => {
   tip.style.left = Math.max(4, Math.min(innerWidth - tw - 4, r.left + r.width / 2 - tw / 2)) + 'px'; tip.style.top = Math.max(4, r.top - 34) + 'px';
 });
 document.addEventListener('pointerout', (ev) => { if (ev.target.closest?.('[data-tip]')) $('#tip').hidden = true; });
-let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { const r = route()[0]; if (r === 'bilan') mountBilan(); else if (r === 'accueil' && S.data) mountAccueil(); else if (r === 'entrainer' && S.data) mountEntrainer(); else if (r === 'stats') mountStats(S); else if (r === 'partie' && S.gv?.cg) gvSync(); }, 200); });
+let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { const r = route()[0]; if (r === 'bilan') mountBilan(); else if (r === 'accueil' && S.data) mountAccueil(); else if (r === 'entrainer' && S.data) mountEntrainer(); else if (r === 'stats') mountStats(S); else if (r === 'partie' && S.gv?.cg) { if (!!$('.fitside #xcap') !== exo.wide()) render(true); else gvSync(); } }, 200); }); // relecture : le bandeau change de colonne au passage ordinateur / téléphone
 
 if (new URLSearchParams(location.search).has('debug')) window.__cap = S; // accès à l'état pour les tests
 (async function init() {

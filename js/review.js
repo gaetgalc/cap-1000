@@ -50,3 +50,9 @@ export function moveTimes(g) {
   return g.clk.map((c, i) => Math.max(0, (i >= 2 ? g.clk[i - 2] : g.base) + (g.inc || 0) - c));
 }
 export const clockFmt = (s) => (s < 60 ? `${s} s` : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`);
+// Pendule de chaque camp après k demi-coups joués (secondes), comme sous et au-dessus de l'échiquier de Chess.com.
+export function clocksAt(g, k) {
+  if (!g.base || !g.clk || g.clk.length !== g.san.length) return null;
+  const last = (side) => { for (let i = Math.min(k, g.clk.length) - 1; i >= 0; i--) if (i % 2 === side) return g.clk[i]; return g.base; };
+  return { w: last(0), b: last(1) };
+}
