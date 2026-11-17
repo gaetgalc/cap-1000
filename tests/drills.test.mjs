@@ -6,7 +6,7 @@ const require = createRequire(import.meta.url);
 globalThis.Chess = require('../vendor/chess.js').Chess;
 const { bigGames } = require('./fixture.js');
 const { makeRound } = await import('../js/drills.js');
-const { replay } = await import('../js/classify.js');
+const { replay, hasReplay } = await import('../js/classify.js');
 
 // Partie brute au format Chess.com -> partie normalisée minimale (id, w, san), comme js/chesscom.js.
 const norm = (g) => ({
@@ -41,4 +41,20 @@ test('menace : last est le dernier coup adverse et la position suit prevFen', ()
     assert.ok(Array.isArray(x.last) && x.last.length === 2);
     assert.ok(x.text && x.q.includes('vient de jouer'));
   }
+});
+
+test('hasReplay : faux avant replay(g), vrai après', () => {
+  const g = { ...games[0], id: 'hasreplay-test' };
+  assert.equal(hasReplay(g), false);
+  replay(g);
+  assert.equal(hasReplay(g), true);
+});
+
+test('cas froid : 200 parties dont 20 réchauffées, 10 positions en moins de 100 ms', () => {
+  const cold = bigGames(200).map((g, k) => ({ ...norm(g), id: 'froid-' + k }));
+  for (const g of cold.slice(0, 20)) replay(g);
+  let ms = Infinity, n = 0;
+  for (let k = 0; k < 3; k++) { const t0 = performance.now(); n = makeRound('sur', cold, 10).length; ms = Math.min(ms, performance.now() - t0); }
+  assert.equal(n, 10);
+  assert.ok(ms < 100, `${Math.round(ms)} ms (limite 100)`);
 });

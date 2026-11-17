@@ -1,7 +1,7 @@
 // Exercices de vérification rapide, générés à partir de positions réelles des parties du joueur.
 // La bonne réponse est établie par les règles (coups légaux, attaquants, défenseurs), sans moteur.
 /* global Chess */
-import { replay } from './classify.js';
+import { replay, hasReplay } from './classify.js';
 import { attacksFrom } from './geom.js';
 import { hanging, poss, fr, VAL, NOM, cap, fem } from './explain.js';
 
@@ -113,7 +113,9 @@ export function makeRound(type, games, n = 10) {
     }
     return false;
   };
-  for (const g of shuffle(games.filter((x) => x.san.length >= 24))) {
+  // Parties dont le rejeu est en cache d'abord (mélangées) : un rejeu à froid coûte ~20 ms par partie.
+  const pool = games.filter((x) => x.san.length >= 24), warm = shuffle(pool.filter(hasReplay));
+  for (const g of warm.concat(shuffle(pool.filter((x) => !hasReplay(x))))) {
     if (out.length >= n) break;
     const r = replay(g);
     if (!r) continue;

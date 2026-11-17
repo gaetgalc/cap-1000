@@ -56,8 +56,10 @@ function sanLine(fen, pv, n = 4) {
 // Gardé en mémoire par partie (17/11) : « Mon jeu », le classement et les puzzles rejouent les mêmes parties ;
 // chess.js coûte ~20 ms par partie, soit plusieurs secondes sur des centaines. Le résultat ne se modifie pas.
 const REPLAYS = new Map();
+const replayKey = (game) => (game.id ?? '') + '|' + game.san.join(' ');
+export const hasReplay = (game) => REPLAYS.has(replayKey(game));
 export function replay(game) {
-  const key = (game.id ?? '') + '|' + game.san.join(' ');
+  const key = replayKey(game);
   if (REPLAYS.has(key)) return REPLAYS.get(key);
   const ch = new Chess(), fens = [ch.fen()], mv = [];
   for (const s of game.san) {
