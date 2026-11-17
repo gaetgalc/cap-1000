@@ -8,7 +8,7 @@ import { LESSONS, ENGINE_LESSONS, RULES } from './lessons.js';
 import { viewStats, mountStats } from './alltime.js';
 import { fr, settle, buildLine, insight, hintFor, lastMoveText, moveText, material, describeAt, justPlayed, PLAN_RULE } from './explain.js';
 import { $, esc, dfmt, TC, HOW, coach, txt, pl, f1, ico, wdl, WDL_LEGEND, setHtml } from './ui.js';
-import { lineChart } from './charts.js';
+import { lineChart, sparkline } from './charts.js';
 import { progress, DAY } from './progress.js';
 import { board, destroyBoards, destsOf, arrow, errShapes, REDUCED } from './board.js';
 import { moveMark, evalShare, errStep, gaffeTrail, moveTimes, clockFmt, clocksAt } from './review.js';
@@ -1336,9 +1336,31 @@ function goalStrip() {
   // Ordinateur (17/11) : les chiffres de l'objectif dans des encarts sous la barre, comme le bilan de « Parties » ;
   // téléphone : une ligne, la série est dans la barre du haut.
   const tile = (lab, v, sub = '', cls = '', tip = '') => `<div class="glt"${tip ? ` title="${tip}"` : ''}><span class="small">${lab}</span><b class="num ${cls}">${v}</b>${sub ? `<span class="small">${sub}</span>` : ''}</div>`;
-  const tiles = `<div class="glsum gtiles d-only">${tile('Il manque', gap > 0 ? `${gap} pts` : 'Atteint', `pour atteindre ${g.elo}`, gap > 0 ? '' : 'up')}${tile('Échéance', `${days} j`, new Date(g.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }))}${gap > 0 ? tile('Rythme nécessaire', pace.replace(' pts / sem.', ''), 'points par semaine') : ''}${tile('30 derniers jours', tr.delta30 ? `${tr.delta30 > 0 ? '+' : ''}${tr.delta30}` : '0', 'points', tr.delta30 > 0 ? 'up' : tr.delta30 < 0 ? 'dn' : '')}${tile('Série', `${stk} j`, 'puzzle ou cours chaque jour', stk ? 'warn' : '', 'Jours consécutifs avec au moins un puzzle ou un cours')}</div>`;
+  const tiles = `<div class="glsum gtiles d-only">${tile('Il manque', gap > 0 ? `${gap} pts` : 'Atteint', `pour atteindre ${g.elo}`, gap > 0 ? '' : 'up')}${tile('Échéance', `${days} j`, new Date(g.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }))}${gap > 0 ? tile('Rythme nécessaire', pace.replace(' pts / sem.', ''), 'points par semaine') : ''}${tile('30 derniers jours', tr.delta30 ? `${tr.delta30 > 0 ? '+' : ''}${tr.delta30}` : '0', elo30(), tr.delta30 > 0 ? 'up' : tr.delta30 < 0 ? 'dn' : '')}${tile('Série', `${stk} j`, weekDots(), stk ? 'warn' : '', 'Jours consécutifs avec au moins un puzzle ou un cours')}${nextReview()}</div>`;
   return `<section class="gstrip"><a class="gnum" href="#bilan" title="Détail de l’objectif"><b class="num">${tr.cur}</b><span class="goalbar" aria-hidden="true"><i style="width:${Math.max(3, Math.min(100, (100 * tr.cur) / g.elo))}%"></i></span><b class="num">${g.elo}</b></a>
     <span class="gmeta m-only">${gap > 0 ? `<span>Il manque <b class="num">${gap}</b></span><span>${days} j</span>` : ''}<span>${pace}</span>${d30}</span>${tiles}</section>`;
+}
+// Accueil, encarts de l'objectif (17/11) : courbe de l'Elo sur 30 jours et semaine d'entraînement en 7 cases.
+function elo30() {
+  const t0 = Date.now() / 1000 - 30 * 86400, gs = rapidAll().filter((g) => g.rated && g.r).sort((a, b) => a.t - b.t);
+  const before = gs.filter((g) => g.t < t0).pop(), vals = [...(before ? [before] : []), ...gs.filter((g) => g.t >= t0)].map((g) => g.r);
+  return sparkline(vals, 'Ton Elo sur les 30 derniers jours') || 'points';
+}
+function weekDots() {
+  const played = {}; for (const g of S.data?.games || []) { const k = dkey(new Date(g.t * 1000)); played[k] = (played[k] || 0) + 1; }
+  const today = dkey();
+  return `<span class="week">${progress.week().map((x) => { const p = played[x.d] || 0, lab = new Date(x.t).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'short' }); return `<i class="${x.n ? 'on' : p ? 'pl' : ''}${x.d === today ? ' now' : ''}" title="${lab} : ${x.n ? pl(x.n, 'exercice') : 'pas d’entraînement'}${p ? ', ' + pl(p, 'partie') : ''}"></i>`; }).join('')}</span>`;
+}
+// Prochaine révision (accueil, ordinateur) : lignes d'ouverture et finales dues aujourd'hui, sinon la prochaine à venir.
+function nextReview() {
+  const lines = allLineKeys().map((k) => { const [id, i] = k.split(':'), o = byId(id), st0 = progress.lineState(k); return st0 && { due: st0.due, href: lineHref(k), t: `${o.nom} : ${o.lines[+i].n}`, k: 'Ligne' }; });
+  const fins = ENDGAMES.map((e) => { const st0 = progress.endgameState(e.id); return st0 && { due: st0.due, href: '#finale/' + e.id, t: e.t, k: 'Finale' }; });
+  const all = [...lines, ...fins].filter(Boolean).sort((a, b) => a.due - b.due), now = Date.now(), due = all.filter((x) => x.due <= now);
+  // Encart cliquable, sixième de la carte de l'objectif : la page d'accueil n'a pas de place pour une ligne de plus.
+  const box = (lab, v, sub, href, tip, cls = '') => `<a class="glt revue" href="${href}" title="${esc(tip)}"><span class="small">${lab}</span><b class="num ${cls}">${v}</b><span class="small">${esc(sub)}</span></a>`;
+  if (due.length) return box('À réviser', due.length, `${due[0].k} · ${due[0].t}`, due[0].href, due.map((x) => `${x.k} : ${x.t}`).join('\n'), 'warn');
+  if (all.length) { const x = all[0], d = Math.max(1, Math.ceil((x.due - now) / DAY)); return box('Prochaine révision', `${d} j`, `${x.k} · ${x.t}`, x.href, `${x.k} : ${x.t}`); }
+  return box('Révisions', '—', 'Apprends une ligne', '#ouvertures/apprendre', 'Une ligne apprise revient ici le jour où il faut la réviser');
 }
 function sessionCard(steps, nDone) {
   const cur = steps.find((x) => !x.done), all = nDone === steps.length;

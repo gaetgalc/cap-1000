@@ -24,6 +24,12 @@ export function makeProgress(store = ls, now = () => Date.now()) {
     for (const old of keys.slice(0, Math.max(0, keys.length - 370))) delete a[old];
     store.set('act', a);
   }
+  // Les 7 derniers jours (le plus ancien d'abord) : { d: AAAA-MM-JJ, t: début du jour, n: exercices faits }
+  function week() {
+    const a = act(), out = [];
+    for (let i = 6; i >= 0; i--) { const d = new Date(now()); d.setDate(d.getDate() - i); const k = dkey(d), n = Object.values(a[k] || {}).reduce((s, x) => s + x, 0); out.push({ d: k, t: dayStart(d.getTime()), n }); }
+    return out;
+  }
   function streak() {
     const a = act(); let n = 0; const d = new Date(now());
     if (!a[dkey(d)]) d.setDate(d.getDate() - 1);
@@ -202,7 +208,7 @@ export function makeProgress(store = ls, now = () => Date.now()) {
     return { done, due, goal: Math.max(1, Math.min(GOAL, done + due)), t };
   }
 
-  return { dkey, dayStart, act, bump, streak, hist, queue, acquired, recordPuzzle, rateInfo, ratePuzzle, recordLichess, lichessStat, recordDrill, recordConversion, conversions, recordLine, lineState, linesDue, recordEndgame, endgameState, endgamesDue, rushBest, recordRush, recordPlay, drills, lessonsRead, setLessonRead, todayPuzzles, run, failedToday, day, recordCause, causeOf, causes, recordSelf, selfOf, recordIdea };
+  return { dkey, dayStart, act, bump, streak, week, hist, queue, acquired, recordPuzzle, rateInfo, ratePuzzle, recordLichess, lichessStat, recordDrill, recordConversion, conversions, recordLine, lineState, linesDue, recordEndgame, endgameState, endgamesDue, rushBest, recordRush, recordPlay, drills, lessonsRead, setLessonRead, todayPuzzles, run, failedToday, day, recordCause, causeOf, causes, recordSelf, selfOf, recordIdea };
 }
 
 export const progress = makeProgress();

@@ -50,3 +50,10 @@ export function lineChart(el, pts, o = {}) {
   return { cursor(i) { if (!cur || !pts.length) return; const x = sx(pts[Math.max(0, Math.min(i, pts.length - 1))].x); cur.setAttribute('x1', x); cur.setAttribute('x2', x); } };
 }
 function niceStep(raw) { const p = 10 ** Math.floor(Math.log10(Math.max(raw, 1))); const n = raw / p; return (n < 1.5 ? 1 : n < 3.5 ? 2 : n < 7.5 ? 5 : 10) * p; }
+// Mini-courbe sans axes (accueil : Elo des 30 derniers jours). vals : nombres dans l'ordre du temps ; rien sous 2 points.
+export function sparkline(vals, label = '') {
+  if (vals.length < 2) return '';
+  const lo = Math.min(...vals), hi = Math.max(...vals), span = hi - lo || 1;
+  const pts = vals.map((v, i) => `${((100 * i) / (vals.length - 1)).toFixed(1)},${(22 - (20 * (v - lo)) / span).toFixed(1)}`).join(' ');
+  return `<svg class="spark" viewBox="0 0 100 24" preserveAspectRatio="none" role="img" aria-label="${label}"><polyline points="${pts}" fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+}

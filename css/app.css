@@ -483,6 +483,14 @@ body.homefit .view { flex: 1; min-height: 0; width: 100%; padding-bottom: 16px; 
   .home { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; }
   .gstrip { grid-column: 1 / -1; padding: var(--s-3) var(--s-4) var(--s-4); background: var(--surface); border-radius: var(--r); gap: var(--s-3) var(--s-4); }
   .gtiles { flex: 1 1 100%; } /* encarts de l'objectif sous la barre (17/11) */
+  .spark { display: block; width: 100%; height: 20px; margin-top: 2px; color: var(--accent); }
+  .week { display: flex; gap: var(--s-1); margin-top: var(--s-1); }
+  .week i { flex: 1; height: 14px; border-radius: var(--r-s); background: var(--bg); }
+  .week i.pl { background: var(--accent-soft); } .week i.on { background: var(--accent); }
+  .week i.now { box-shadow: inset 0 0 0 2px var(--ink3); } .week i.on.now { box-shadow: none; }
+  .gtiles { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  a.revue { color: var(--ink); text-decoration: none; min-width: 0; }
+  a.revue .small:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .today { padding: 24px; gap: 20px; }
   .now b { font-size: var(--t-xl); }
   .hside { gap: 16px; }
@@ -851,7 +859,7 @@ a:is([href^="#bilan"], [href^="#stats"], [href^="#plan"], [href^="#plus"]) { --s
 }
 
 /* ===== Survol (demande du 16/11) : tout élément cliquable s'éclaire sous la souris, jamais au toucher ===== */
-.btn, .seg2 button, .seg2 a, .mrow, .oprow, .gl, .opdue, .fmini, .check, .gnum, .pzprog, .lgpos, a.card, .nav a, .nav a > svg, .brand, .moves button, .gvm .mv, .gvnote {
+.btn, .seg2 button, .seg2 a, .mrow, a.revue, .oprow, .gl, .opdue, .fmini, .check, .gnum, .pzprog, .lgpos, a.card, .nav a, .nav a > svg, .brand, .moves button, .gvm .mv, .gvnote {
   transition: background-color var(--m-in) var(--ease), border-color var(--m-in) var(--ease), color var(--m-in) var(--ease), filter var(--m-in) var(--ease), transform var(--m-press) var(--ease);
 }
 @media (hover: hover) and (pointer: fine) {
@@ -862,7 +870,7 @@ a:is([href^="#bilan"], [href^="#stats"], [href^="#plan"], [href^="#plus"]) { --s
   .nav a:hover > svg, .grp:hover .grp-h > svg { color: var(--sec); filter: brightness(1.12); } /* icône plus vive sous la souris */
   .mrow:hover, a.card:hover, .fmini:hover { background: var(--hover); border-color: var(--hover-line); }
   .oprow:hover, .check:hover, tr.click:hover td, ol.line li:hover, .gl:not(.head):hover { background: var(--hover); }
-  .opdue:hover, .gnum:hover, .pzprog:hover, .lgpos:hover, .brand:hover { filter: brightness(1.15); }
+  .opdue:hover, .gnum:hover, a.revue:hover, .pzprog:hover, .lgpos:hover, .brand:hover { filter: brightness(1.15); }
   .moves button:not(.cur):hover, .gvm .mv:not(.cur):hover, .gvnote:hover { background: var(--hover); color: var(--ink); }
   a:not(.btn):not(.card):not(.gl):not(.mrow):not(.oprow):not(.opdue):not(.fmini):not(.gnum):not(.pzprog):not(.lgpos):not(.brand):hover { text-decoration-thickness: 2px; }
 }

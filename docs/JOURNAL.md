@@ -487,6 +487,16 @@ Suite (« oui mets les joueurs autour de l'échiquier comme chess.com […] essa
 
 - Ordinateur : l'objectif devient une carte, barre 735 → 1000 en haut, puis 5 encarts (Il manque, Échéance, Rythme nécessaire, 30 derniers jours, Série), comme le bilan de « Parties ». Téléphone inchangé (ligne sous la barre, série dans la barre du haut), la page ne défile toujours pas.
 
+## 45. Accueil : semaine, courbe 30 jours, prochaine révision (17/11)
+
+> fais les 3
+
+- Les trois idées proposées, toutes dans les encarts de la carte de l'objectif (ordinateur), sans hauteur en plus : une ligne de révision sous la séance faisait défiler l'accueil en 1366 × 768.
+- **30 derniers jours** : mini-courbe de l'Elo Rapide (`sparkline`, `charts.js`).
+- **Série** : la semaine en 7 cases (`progress.week`, testée) : vert plein = entraînement fait, vert sombre = partie jouée sans entraînement, contour = aujourd'hui ; détail au survol.
+- **Révisions** (sixième encart, cliquable, `nextReview`) : lignes d'ouverture et finales dues aujourd'hui, sinon la prochaine à venir, sinon un lien vers les ouvertures.
+- Écart assumé avec la règle « pas de bloc d'analyse sur l'accueil » : demande explicite. Téléphone inchangé.
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |

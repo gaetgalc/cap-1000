@@ -249,3 +249,14 @@ test('partie jouée depuis une position de la relecture : notée au journal', ()
   P.recordPlay('123', 30, 'gagne', 14);
   assert.deepEqual((({ k, id, ply, why, n }) => ({ k, id, ply, why, n }))(P.hist().at(-1)), { k: 'j', id: '123', ply: 30, why: 'gagne', n: 14 });
 });
+
+test('week : les 7 derniers jours, du plus ancien à aujourd’hui, avec le nombre d’exercices faits', () => {
+  const { P, clock } = setup();
+  P.bump('pz', 3);
+  clock.t -= 2 * DAY; P.bump('drill');
+  clock.t += 2 * DAY;
+  const w = P.week();
+  assert.equal(w.length, 7);
+  assert.equal(w[6].d, P.dkey());
+  assert.deepEqual(w.map((x) => x.n), [0, 0, 0, 0, 1, 0, 3]);
+});
