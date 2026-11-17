@@ -541,7 +541,6 @@ body.homefit .view { flex: 1; min-height: 0; width: 100%; padding-bottom: 16px; 
 .qlinks a { text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
 details.gd summary { cursor: pointer; font-size: var(--t-s); color: var(--accent-ink); font-weight: 600; margin-bottom: 8px; }
 @media (min-width: 860px) {
-  .filters { display: flex; flex-direction: column; gap: 8px; }
   details.gd summary { display: none; }
 }
 
@@ -748,6 +747,24 @@ body.fit .cap { max-width: none; overflow-y: auto; }
 @media (max-width: 859px) and (max-height: 719px) {
   body.fit:has(.xwide) .fithead .pzhead { display: none; } /* iPhone avec les barres de Safari : l'échiquier d'abord */
 }
+/* Texte agrandi (Safari à 125 % : 312 × 531 px CSS) : sur un écran d'exercice, on retire l'accessoire pour que
+   l'échiquier garde au moins 240 px (200 px en relecture). Les onglets des puzzles sont listés par S'entraîner. */
+@media (max-width: 859px) and (max-height: 560px) {
+  body.fit .seg2.pztabs, body.fit .dots, body.fit .meta { display: none; }
+  #ttl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .tools .chip { white-space: nowrap; } .tools .pzprog { min-width: var(--hit); justify-content: center; }
+  body.fit { padding-bottom: calc(56px + env(safe-area-inset-bottom)); }
+  body.fit .view { gap: 4px; padding-top: 4px; padding-bottom: 4px; }
+  .actbar { padding-top: 6px; padding-bottom: calc(6px + env(safe-area-inset-bottom)); } .actbar .btn { min-height: var(--hit); }
+  body.fit .cap { min-height: var(--hit); padding: 6px 12px; }
+  body.fit .coach { padding: 6px 12px; } body.fit .coach .coach-av { display: none; } body.fit .coach-b { line-height: 1.4; max-height: 68px; overflow-y: auto; } /* trois lignes au plus : un texte plus long défile dans sa boîte, l’échiquier ne rétrécit pas */
+  /* échauffement, Rush : bandeau de deux lignes au plus sous l’échiquier ; 56 px = ses deux lignes (2 × 22 px de texte) + 12 px de marge intérieure */
+  body.fit:not(.solved) .bwrap:not(.gv):not(:has(.m-txt)) .board { width: min(100cqw, 100cqh - 56px); height: min(100cqw, 100cqh - 56px); }
+  body.fit .bwrap.gv + .fitside .fitpanel { max-height: var(--hit); } /* relecture : seule la bande de coups reste visible, le reste défile */
+  body.fit:has(#lnp) .fitpanel { display: none; } /* ligne d'ouverture : le bandeau commente chaque coup */
+  body.fit:has(.ideas) .fitpanel { max-height: 76px; }
+  .seg2 a, .seg2 button { min-width: var(--hit); }
+}
 /* Poignée de redimensionnement de l'échiquier (ordinateur, souris) : taille gardée dans cap1000:look */
 .bgrip { display: none; }
 @media (min-width: 860px) and (hover: hover) and (pointer: fine) {
@@ -945,3 +962,27 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
   .ent-grid > .ent-tile:last-child:nth-child(odd) { grid-column: 1 / -1; } /* nombre impair : la dernière tuile prend la ligne */
   .ent-tag { top: var(--s-3); right: var(--s-3); }
 }
+
+/* Contraste renforcé (réglage « Augmenter le contraste », revue HIG) : texte à 7:1 au moins, bord de carte et anneau de focus nets. Valeurs revérifiées par la passe 390x664-hc de l'audit. */
+@media (prefers-contrast: more) {
+  :root {
+    --ink2: #e4e1da; --ink3: #d8d5cd; --bad: #ffc4bc; --bad-ink: #ffc4bc; --warn: #ffcc70; --good: #b4e68e; --accent-ink: #b4e68e; --line: #8a877f;
+    --btn: #2b6318; --btn-edge: #1c4210; /* bouton plein : blanc à 7:1 */
+  }
+  .card { border-color: var(--line); }
+  :focus-visible { outline-width: 3px; }
+}
+
+/* Bord estompé des panneaux qui défilent (watchEdges, js/ui.js) : le texte coupé s'efface au lieu d'être tranché. */
+.edge-t, .edge-b { --ft: 0px; --fb: 0px; -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--ft), #000 calc(100% - var(--fb)), transparent 100%); mask-image: linear-gradient(to bottom, transparent 0, #000 var(--ft), #000 calc(100% - var(--fb)), transparent 100%); }
+.edge-t { --ft: var(--s-5); }
+.edge-b { --fb: var(--s-5); }
+
+/* Revue HIG : période et mise à jour dans les vues qui les lisent */
+.vhead { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); flex-wrap: wrap; }
+.updrow { justify-content: space-between; flex-wrap: nowrap; }
+.btn.ico { min-width: var(--hit); min-height: var(--hit); padding: 0 var(--s-3); display: inline-flex; align-items: center; justify-content: center; }
+[data-act="refresh"][aria-busy="true"] .ic { animation: spin 900ms linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { [data-act="refresh"][aria-busy="true"] .ic { animation: none; opacity: .5; } }
+.vhead .seg2.mini button { min-width: var(--hit); }

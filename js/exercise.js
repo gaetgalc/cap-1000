@@ -2,7 +2,7 @@
 // Puzzle, erreur précise, position inédite, échauffement, position de cours et relecture de partie passent tous par ici :
 // la structure sans défilement, le bandeau, la barre, les actions et la lecture animée des suites n'existent qu'à cet endroit.
 // Un exercice ne fournit que ses règles : ce qu'il affiche (screen), ce que font ses boutons (on), ses films (player).
-import { $, esc, ico, setHtml } from './ui.js';
+import { $, esc, ico, setHtml, watchEdges } from './ui.js';
 import { board, film, stepShapes, REDUCED } from './board.js';
 import { fr } from './explain.js';
 
@@ -22,9 +22,9 @@ let pending = null, cur = null;
 export const wide = () => matchMedia('(min-width: 860px)').matches;
 export function screen(spec) {
   pending = spec;
-  const cap = `<div class="cap ${spec.capClass || ''}" id="xcap">${spec.cap || ''}</div>`, side = spec.capSide && wide();
+  const cap = `<div class="cap ${spec.capClass || ''}" id="xcap" data-edge>${spec.cap || ''}</div>`, side = spec.capSide && wide();
   return `<div class="bwrap ${spec.wrap || ''}">${spec.rail || ''}${spec.above || ''}<div class="board" id="xb"></div>${spec.below || ''}${side ? '' : cap}</div>
-    <div class="fitside"><div class="fithead">${spec.head || ''}</div>${side ? cap : ''}<div class="stack fitpanel" id="xpanel">${spec.panel || ''}</div><div class="actbar" id="xbar">${spec.bar || ''}</div></div>`;
+    <div class="fitside"><div class="fithead">${spec.head || ''}</div>${side ? cap : ''}<div class="stack fitpanel" id="xpanel" data-edge>${spec.panel || ''}</div><div class="actbar" id="xbar">${spec.bar || ''}</div></div>`;
 }
 
 // Après l'écriture de la vue et avant la création de l'échiquier : il naît ainsi à sa taille définitive.
@@ -34,6 +34,7 @@ export function attach() {
   document.body.classList.remove('solved');
   cur = el && pending ? handle(el, pending) : null;
   pending = null;
+  watchEdges();
   return cur;
 }
 export const current = () => (cur && cur.alive() ? cur : null);

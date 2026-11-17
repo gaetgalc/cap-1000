@@ -6,7 +6,7 @@ Site : https://gaetgalc.github.io/cap-1000/?u=gaetcc
 
 Le journal des échanges et des décisions est dans `docs/JOURNAL.md` : lire la section qui concerne l'écran touché.
 
-Refonte de l'interface en cours (depuis le 15/11) : décisions, état des lieux et étapes dans `docs/REFONTE.md`. Toute retouche visuelle suit ses règles (Geist, titres en Source Serif 4, cartes sans contour, jetons de `:root`, un bouton plein par vue, cibles de 44 px sur téléphone) et se vérifie avec `node tests/audit-ui.js`, qui doit rester sans écart.
+Refonte de l'interface en cours (depuis le 15/11) : décisions, état des lieux et étapes dans `docs/REFONTE.md`. Toute retouche visuelle suit ses règles (Geist, titres en Source Serif 4, cartes sans contour, jetons de `:root`, un bouton plein par vue, cibles de 44 px sur téléphone) et se vérifie avec `node tests/audit-ui.js`, qui doit rester sans écart. Suite prévue, en attente de 3 décisions de Gaëtan : `docs/PLAN-HIG.md` (revue selon les règles d'interface d'Apple, 17/11).
 
 ## Ce que veut l'utilisateur
 
@@ -65,7 +65,8 @@ python3 -m http.server 8000   # puis http://localhost:8000/?u=gaetcc
 ```bash
 node --test tests/*.test.mjs  # règles de planification et explications ; moins d'une seconde
 node tests/parcours.js        # parcours puzzles, journal, reprise, échauffement ; 1 à 2 minutes
-node tests/audit-ui.js        # captures et mesures de chaque écran aux 4 tailles (tests/out/audit) ; 3 à 4 minutes
+node tests/audit-ui.js        # captures et mesures de chaque écran aux 6 passes (5 tailles + contraste renforcé) (tests/out/audit) ; 4 à 5 minutes
+ONLY=accueil,bilan SIZES=390x664 node tests/audit-ui.js  # audit ciblé : écrans (noms de SCREENS) et tailles au choix, moins d'une minute
 ```
 
 Le test génère des parties par coups semi-aléatoires au format Chess.com, intercepte `api.chess.com` et pilote Chromium avec Playwright. Ajouter `&debug` à l'URL expose l'état `S` dans `window.__cap`. Pour un cours privé, injecter un cours dans `S.ai` ; pour Lichess, intercepter `lichess.org`. Toujours vérifier le rendu par captures en 390 × 664 (iPhone avec les barres de Safari), 390 × 760, 1366 × 768 et 1280 × 860 : la page ne doit jamais défiler sur un écran d'échiquier.
@@ -75,6 +76,7 @@ Le test génère des parties par coups semi-aléatoires au format Chess.com, int
 - Publication (demande de Gaëtan du 15/11) : une fois les tests passés, fusionner directement dans `main` et pousser, sans pull request et sans redemander.
 
 - Tout rendu déclenché en arrière-plan (fin d'analyse, import, génération) passe par `bgRender()`, qui ne touche pas à un exercice en cours. `render()` est réservé aux actions de l'utilisateur.
+- Filtres (revue HIG, 17/11) : la colonne de navigation ne porte plus de filtres. La cadence se règle dans Progrès > Plan et réglages (« Cadence suivie », avec « Mettre à jour » et « À jour : … »), la période (`S.f.days`, boutons `data-f="days" data-v="0|90|30"`, `periodSeg()`) dans Mon jeu, Parties, Mes ouvertures et le détail d'une ouverture (`#monouv`) : la période ne filtre que les vues où son sélecteur est visible (`games()`). Cours, priorités et chantier lisent `cadenceGames()` (cadence seule, toute la période). Parties affiche la ligne d'état `#upd` et un bouton `data-act="refresh"`. Mise à jour automatique : au chargement et au retour sur l'onglet si les données ont plus de 10 minutes (`STALE`), par `bgRender()` (jamais pendant un exercice ; rien dans une relecture).
 - `data-act` = actions globales (navigation, analyse…), `data-x` = actions de l'exercice affiché (indice, solution, lecture d'une suite ; enregistrées par `X.on`), `data-f` = filtres et sélecteurs, `data-mini` = mini-échiquiers des fiches.
 - Ne jamais écrire `.bwrap`, `.fitside` ou une barre d'actions à la main dans une vue : passer par `exo.screen`. Ne pas garder de poignée d'écran dans `S` : elle vit dans la fermeture du montage.
 - Les analyses marquées `bad` (partie illisible) sont exclues de toutes les statistiques.

@@ -506,6 +506,15 @@ Suite (« oui mets les joueurs autour de l'échiquier comme chess.com […] essa
 - **Ombre portée** sur toutes les pièces (`--piece-shadow`), plus marquée sur la pièce saisie (`--piece-lift`, elle paraît soulevée).
 - Corrigé au passage : avec 5 jeux, la rangée « Pièces » des réglages débordait sur téléphone (410 px pour 390) et bloquait le bouton de sauvegarde ; elle passe à la ligne. Une transition de page annulée par le navigateur (fenêtre redimensionnée) n'est plus signalée comme erreur.
 
+## 47. Revue selon les règles d'interface d'Apple (17/11)
+
+> https://github.com/dickwu/apple-design-skill fais un plan pour améliorer le repo basé sur ce skill
+
+- Skill lu (relecteur de design fondé sur 123 pages des Human Interface Guidelines, 5 angles : accessibilité, conventions, craft, interaction, écriture). Appliqué à une appli web : principes et fondations, conventions iOS comme principes.
+- Matériau : audit du jour (32 écrans, 4 tailles, aucun écart), captures en plus (menu du téléphone ouvert, zoom 125 % en 312 × 531), contrastes calculés depuis `:root`.
+- Note : « à retravailler » à cause de la coquille. Trois écarts hauts : sur téléphone un onglet ouvre un menu au lieu de naviguer ; Cadence, Période et « Mettre à jour » changent de place selon la largeur (bas de la colonne sur ordinateur, réglages sur téléphone) ; à 125 % de zoom, l'échiquier du puzzle tombe à 160 px et des libellés passent sur deux lignes. Six écarts moyens, dont les couleurs d'icônes trop proches des couleurs d'état (2° et 9° d'écart de teinte).
+- Plan en 10 tâches dans `docs/PLAN-HIG.md`, chacune avec sa mesure ajoutée à l'audit ou son test d'abord. Trois décisions attendues de Gaëtan (onglets du téléphone, couleurs des icônes, barre du haut). Rien n'est codé.
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |

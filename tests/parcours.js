@@ -323,15 +323,45 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   const rev0 = await S(() => window.__cap.rev), nb0 = await S(() => window.__cap.data.games.length);
   const NEW = { ...GAMES[0], url: 'https://www.chess.com/game/live/999999', end_time: Math.floor(Date.now() / 1000) - 120, black: { ...GAMES[0].black, username: 'advNOUVEAU' } };
   await routeChessCom(ctx, { games: [...GAMES, NEW] });
-  await S(() => document.querySelector('[data-act="refresh"]').click());
+  await S(() => { location.hash = '#parties'; }); await sleep(600);
+  await S(() => document.querySelector('#view [data-act="refresh"]').click());
   await page.waitForFunction((n) => window.__cap.data.games.length > n && window.__cap.an[window.__cap.data.games.find((g) => g.opp === 'advNOUVEAU')?.id], nb0, { timeout: 120000 });
   await page.waitForFunction(() => !window.__cap.job.running, null, { timeout: 60000 }); await sleep(600);
   check(await S(() => window.__cap.data.games.length) === nb0 + 1 && await S(() => window.__cap.rev) > rev0, 'nouvelle partie : importée et analysée, la version des données (S.rev) a avancé');
+  await S(() => { location.hash = '#accueil'; }); await sleep(600);
   check(/advNOUVEAU/.test(await bar('.lgame')), 'nouvelle partie : l’accueil montre la nouvelle dernière partie');
   await S(() => { location.hash = '#parties'; }); await sleep(600);
   check(/advNOUVEAU/.test(await bar('#view')), 'nouvelle partie : la liste des parties la compte');
   await S(() => { location.hash = '#bilan'; }); await sleep(600);
   check(await S((n) => [...document.querySelectorAll('#view dt')].some((d) => /Parties analysées/.test(d.textContent) && d.nextElementSibling.textContent.trim() === (n + 1) + ' sur ' + (n + 1)), nb0), 'nouvelle partie : Mon jeu compte une partie de plus, analysée comme les autres (rien de périmé)');
+  // ---- Revue HIG, tâche 5 : filtres, cadence, mise à jour automatique ----
+  await page.setViewportSize({ width: 1366, height: 768 }); await sleep(300);
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#accueil`); await sleep(800);
+  check(await S(() => !document.querySelector('#tools select') && !document.querySelector('#tools [data-act="refresh"]')), 'ordinateur : plus de filtres ni de « Mettre à jour » dans la colonne');
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#plan`); await sleep(800);
+  check(await S(() => [...document.querySelectorAll('#view label')].some((l) => /Cadence suivie/.test(l.textContent) && document.getElementById(l.htmlFor)?.tagName === 'SELECT') && /À jour : /.test(document.querySelector('#view').innerText) && !!document.querySelector('#view [data-act="refresh"]')), 'Plan : « Cadence suivie » avec son libellé, mise à jour et « À jour : »');
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#bilan`); await sleep(800);
+  check(await S(() => document.querySelectorAll('#view .seg2.mini [data-f="days"]').length === 3), 'Mon jeu : sélecteur de période Tout · 90 j · 30 j');
+  await page.click('#view .seg2.mini [data-f="days"][data-v="30"]'); await sleep(500);
+  check(await S(() => window.__cap.f.days === 30 && document.querySelector('#view .seg2.mini [data-v="30"]').getAttribute('aria-pressed') === 'true'), 'Mon jeu : choisir 30 j change la période');
+  await page.click('#view .seg2.mini [data-f="days"][data-v="0"]'); await sleep(400);
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#parties`); await sleep(800);
+  check(await S(() => /^À jour, /.test(document.querySelector('#upd')?.innerText || '') && document.querySelector('#view [data-act="refresh"]')?.getAttribute('aria-label') === 'Mettre à jour'), 'Parties : ligne d’état « À jour, … » et bouton Mettre à jour');
+  // Retour sur l'onglet, données périmées : l'import se fait sans reconstruire l'exercice en cours
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#drill/sur`); await page.waitForSelector('#xb', { timeout: 20000 }); await sleep(500);
+  await S(() => { document.querySelector('#xb').dataset.keep = '1'; window.__cap.data.fetchedAt = 0; document.dispatchEvent(new Event('visibilitychange')); });
+  await page.waitForFunction(() => window.__cap.data.fetchedAt > 0 && !window.__cap.importing, null, { timeout: 60000 }); await sleep(500);
+  check(await S(() => document.querySelector('#xb')?.dataset.keep === '1'), 'retour sur l’onglet : la mise à jour automatique laisse l’échiquier en place');
+  // Règle : la période ne filtre que les vues qui montrent son sélecteur (pas les cours)
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#ouvertures`); await sleep(800);
+  check(await S(() => !!document.querySelector('#view .seg2.mini [data-f="days"]')), 'Mes ouvertures : sélecteur de période');
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#cours/en_prise_pose`); await sleep(800);
+  const leçon0 = await bar('#view');
+  await S(() => { const s = window.__cap; s.data.games.forEach((g, i) => { if (i % 2) g.t -= 60 * 86400; }); s.f.days = 30; }); // la moitié des parties passe hors période
+  await S(() => { location.hash = '#cours'; }); await sleep(300); await S(() => { location.hash = '#cours/en_prise_pose'; }); await sleep(800);
+  const leçon30 = await bar('#view'), sansDate = (t) => t.replace(/\d\d\/\d\d\/\d\d/g, ''); // le test décale les dates des parties
+  check(leçon0.length > 50 && sansDate(leçon0) === sansDate(leçon30), 'cours : la période de 30 j ne change ni les exemples ni les chiffres');
+  await S(() => { window.__cap.f.days = 0; });
   check(errs.length === 0, 'aucune erreur JavaScript' + (errs.length ? ' : ' + errs.join(' | ') : ''));
   await browser.close(); stopServer();
   console.log(failed ? `\n${failed} échec(s)` : '\nTout passe.');

@@ -12,15 +12,22 @@ const { USER, GAMES, startServer, stopServer, routeChessCom } = require('./fixtu
 const PORT = +process.env.PORT || 8766, OUT = path.resolve(process.argv[2] || path.join(__dirname, 'out/audit'));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-const SIZES = [
+const TOUTES_TAILLES = [
   { id: '390x664', width: 390, height: 664, mobile: true },
   { id: '390x760', width: 390, height: 760, mobile: true },
   { id: '1366x768', width: 1366, height: 768 },
   { id: '1280x860', width: 1280, height: 860 },
+  // 390 × 664 au zoom 125 % de Safari : 312 × 531 pixels CSS (revue HIG, texte agrandi).
+  { id: '312x531', width: 312, height: 531, mobile: true, zoom: true },
+  // 390 × 664 avec le réglage « Augmenter le contraste » (prefers-contrast: more) : texte à 7:1, bord de carte à 3:1.
+  { id: '390x664-hc', width: 390, height: 664, mobile: true, hc: true },
 ];
+// Audit ciblé : SIZES=390x664,1366x768 et ONLY=accueil,bilan (noms d'écrans) ; sans variable, tout tourne.
+const liste = (v) => (v || '').split(',').map((x) => x.trim()).filter(Boolean);
+const SIZES = liste(process.env.SIZES).length ? TOUTES_TAILLES.filter((z) => liste(process.env.SIZES).includes(z.id)) : TOUTES_TAILLES;
 
 // Écrans : route fixe, ou fonction qui la calcule sur l'état chargé (window.__cap).
-const SCREENS = [
+const TOUS_ECRANS = [
   ['accueil'], ['bilan'], ['plan'], ['puzzles'], ['historique'], ['exos'], ['drill-sur', 'drill/sur'], ['drill-compte', 'drill/compte'],
   ['cours'], ['cours-fiche', 'cours/en_prise_pose/fiche'], ['cours-prive', 'cours/en_prise_pose'],
   ['gagner'], ['ouvertures'], ['ouvertures-apprendre', 'ouvertures/apprendre'], ['ouverture-fiche', 'ouvertures/italienne'],
@@ -45,9 +52,19 @@ const SCREENS = [
     return 'cours';
   }],
 ];
+const SCREENS = liste(process.env.ONLY).length ? TOUS_ECRANS.filter(([n]) => liste(process.env.ONLY).includes(n)) : TOUS_ECRANS;
+// Un nom inconnu (faute de frappe) ne doit pas donner un « rien à signaler » silencieux.
+const inconnus = [
+  ...liste(process.env.SIZES).filter((x) => !TOUTES_TAILLES.some((z) => z.id === x)).map((x) => 'taille ' + x),
+  ...liste(process.env.ONLY).filter((x) => !TOUS_ECRANS.some(([n]) => n === x)).map((x) => 'écran ' + x),
+];
+if (inconnus.length || !SIZES.length || !SCREENS.length) {
+  console.error('Audit : rien à mesurer, noms inconnus : ' + (inconnus.join(', ') || '(sélection vide)'));
+  process.exit(1);
+}
 
 // Exécuté dans la page : mesures sur tout ce qui est visible.
-function measure(touch) {
+function measure([touch, hc]) {
   const vis = (el) => { const r = el.getBoundingClientRect(), cs = getComputedStyle(el); return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.opacity !== '0'; };
   const rgba = (s) => { const m = s.match(/[\d.]+/g); return m ? [+m[0], +m[1], +m[2], m[3] === undefined ? 1 : +m[3]] : [0, 0, 0, 0]; };
   const lum = ([r, g, b]) => { const f = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
@@ -79,8 +96,16 @@ function measure(touch) {
     const { b, imgs } = bgOf(el);
     if (imgs) continue;
     const fg = over(rgba(cs.color), b), l1 = lum(fg), l2 = lum(b), ratio = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
-    const big = fsz >= 24 || (fsz >= 18.66 && +cs.fontWeight >= 700), need = big ? 3 : 4.5;
+    const big = fsz >= 24 || (fsz >= 18.66 && +cs.fontWeight >= 700), need = big ? 3 : hc ? 7 : 4.5;
     if (ratio < need) out.contrast.push(ratio.toFixed(2) + ' < ' + need + ' « ' + t.slice(0, 30) + ' »');
+  }
+  // Contraste renforcé : le bord de chaque carte visible atteint 3:1 contre le fond de la page.
+  out.edges = [];
+  for (const el of hc ? document.querySelectorAll('.card') : []) {
+    if (!vis(el) || el.closest('[hidden]')) continue;
+    const cs = getComputedStyle(el), page = bgOf(el.parentElement).b, edge = over(rgba(cs.borderTopColor), page);
+    const l1 = lum(edge), l2 = lum(page), ratio = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+    if (!parseFloat(cs.borderTopWidth) || ratio < 3) out.edges.push(ratio.toFixed(2) + ' < 3 « ' + label(el) + ' »');
   }
   // Cibles tactiles : sur téléphone seulement (le skill les exige aux largeurs tactiles ; à la souris, 36 px suffisent).
   for (const el of touch ? document.querySelectorAll('a[href], button, select, input, [data-act], [data-x], [data-f], [role=button]') : []) {
@@ -115,6 +140,23 @@ function measure(touch) {
   const xb = document.querySelector('#xb');
   out.board = xb && vis(xb) ? Math.round(xb.getBoundingClientRect().width) : 0;
   out.wide = !!document.querySelector('.xwide');
+  // Libellés courts : jamais sur deux lignes (plus haut que 1,6 fois la hauteur de ligne).
+  out.wraps = [];
+  for (const el of document.querySelectorAll('#ttl, .tools .chip, .seg2 > *, .actbar .btn, .nav .grp-h span')) {
+    if (!vis(el)) continue;
+    // Hauteur du texte lui-même (pas de la boîte, qui peut avoir une hauteur minimale ou des marges).
+    const cs = getComputedStyle(el), lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2;
+    const rg = document.createRange(); rg.selectNodeContents(el);
+    const h = rg.getBoundingClientRect().height;
+    if (h > lh * 1.6) out.wraps.push('« ' + label(el) + ' » sur deux lignes');
+  }
+  // Panneaux qui défilent : tant qu'il reste du contenu dessous, le bord du bas est estompé (classe edge-b).
+  out.noEdge = [];
+  for (const el of document.querySelectorAll('body *')) {
+    if (el.closest('cg-container, svg') || /^(TEXTAREA|SELECT|INPUT)$/.test(el.tagName) || !vis(el)) continue;
+    if (!/auto|scroll/.test(getComputedStyle(el).overflowY)) continue;
+    if (el.scrollHeight - el.scrollTop - el.clientHeight > 4 && !el.classList.contains('edge-b')) out.noEdge.push('« ' + label(el) + ' »');
+  }
   for (const el of document.querySelectorAll('body *')) {
     if (el.closest('cg-container, svg') || !vis(el)) continue;
     const rr = getComputedStyle(el).borderTopLeftRadius;
@@ -127,6 +169,7 @@ async function visit(ctx, size, report) {
   const page = await ctx.newPage(), errs = [];
   // Captures reproductibles : les positions tirées au hasard (échauffements, Rush) viennent d'un générateur à graine fixe.
   await page.addInitScript(() => { let a = 12345; Math.random = () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; });
+  if (size.hc) await page.emulateMedia({ contrast: 'more' });
   page.on('pageerror', (e) => errs.push(e.message));
   const base = `http://localhost:${PORT}/?u=${USER}&debug`;
   await page.goto(base + '#accueil');
@@ -138,10 +181,20 @@ async function visit(ctx, size, report) {
     await page.goto(base + '#' + hash); await sleep(900);
     // Transition de vue et animations finies avant de mesurer et de photographier (sinon capture à mi-fondu sur une machine chargée).
     await page.evaluate(() => Promise.race([new Promise((r) => setTimeout(r, 4000)), Promise.all([document.activeViewTransition?.finished, ...document.getAnimations().filter((a) => isFinite(a.effect?.getComputedTiming().endTime)).map((a) => a.finished)].map((p) => Promise.resolve(p).catch(() => {})))])).catch(() => {});
-    const m = await page.evaluate(measure, !!size.mobile);
+    const m = await page.evaluate(measure, [!!size.mobile, !!size.hc]);
     m.route = hash; m.errors = errs.splice(0);
-    // Heures qui changent d'une exécution à l'autre (pendule du Rush, dernière mise à jour du Plan) : masquées sur la capture seulement.
-    await page.screenshot({ path: path.join(OUT, size.id, name + '.png'), mask: [page.locator('.rushclk'), page.locator('.card.m-only p.sub')], maskColor: '#ff00ff' });
+    // Heures qui changent d'une exécution à l'autre (pendule du Rush, « À jour, il y a … » de Parties et du Plan) : masquées sur la capture seulement.
+    await page.screenshot({ path: path.join(OUT, size.id, name + '.png'), mask: [page.locator('.rushclk'), page.locator('#upd'), page.getByText(/^À jour : /)], maskColor: '#ff00ff' });
+    // Défilés jusqu'en bas : plus de bord estompé sur la dernière ligne.
+    m.edgeEnd = await page.evaluate(async () => {
+      const bad = [], fr = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      for (const el of document.querySelectorAll('[data-edge]')) {
+        if (!el.getBoundingClientRect().height) continue;
+        el.scrollTop = el.scrollHeight; await fr();
+        if (el.classList.contains('edge-b')) bad.push('« ' + (el.id || el.className) + ' »');
+      }
+      return bad;
+    });
     report[size.id][name] = m;
   }
   await page.close();
@@ -177,9 +230,14 @@ async function visit(ctx, size, report) {
       if (m.primaries > 1) pb.push(m.primaries + ' boutons pleins');
       if (m.small.length) pb.push(m.small.length + ' textes < 13 px');
       if (m.contrast.length) pb.push(m.contrast.length + ' contrastes faibles');
+      if (m.edges.length) pb.push(m.edges.length + ' bords de carte < 3:1 (' + m.edges[0] + ')');
       if (m.taps.length) pb.push(m.taps.length + ' cibles < 44 px');
       if (m.coords.length) pb.push('coordonnées : ' + m.coords.slice(0, 3).join(', '));
       if (m.wide && sid.startsWith('390x') && m.board < 360) pb.push('échiquier de ' + m.board + ' px (360 au moins)');
+      if (m.wraps.length) pb.push('libellé sur deux lignes : ' + m.wraps.slice(0, 3).join(', '));
+      if (sid === '312x531' && m.fit && m.board && m.board < (name.startsWith('partie') ? 200 : 240)) pb.push('échiquier de ' + m.board + ' px (' + (name.startsWith('partie') ? 200 : 240) + ' au moins)');
+      if (m.noEdge.length) pb.push('panneau qui défile sans bord : ' + m.noEdge.slice(0, 3).join(', '));
+      if (m.edgeEnd.length) pb.push('bord estompé gardé en bas du défilement : ' + m.edgeEnd.join(', '));
       if (m.errors.length) pb.push('erreurs JS : ' + m.errors.join(' | '));
       console.log(`${sid.padEnd(9)} ${name.padEnd(21)} ${pb.join(' · ') || 'rien à signaler'}`);
     }

@@ -13,7 +13,7 @@ const DFMT = datef({ day: '2-digit', month: '2-digit', year: '2-digit' });
 export const dfmt = (t) => DFMT(t * 1000);
 export const TC = { rapid: 'Rapide', blitz: 'Blitz', bullet: 'Bullet', daily: 'Différé', all: 'Toutes cadences' };
 export const HOW = { checkmated: 'mat', timeout: 'temps', resigned: 'abandon', abandoned: 'partie quittée', stalemate: 'pat', agreed: 'nulle par accord', repetition: 'répétition', insufficient: 'matériel insuffisant', '50move': '50 coups', timevsinsufficient: 'temps contre matériel insuffisant' };
-export const coach = (html, cls = '') => `<div class="coach ${cls}"><span class="coach-av" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="7" r="3.6" fill="currentColor"/><path d="M8 20c0-4 1.5-6 4-8.5 2.5 2.5 4 4.500 4 8.500z" fill="currentColor"/><rect x="6" y="19.500" width="12" height="2.500" rx="1" fill="currentColor"/></svg></span><div class="coach-b">${html}</div></div>`;
+export const coach = (html, cls = '') => `<div class="coach ${cls}"><span class="coach-av" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="7" r="3.6" fill="currentColor"/><path d="M8 20c0-4 1.5-6 4-8.5 2.5 2.5 4 4.500 4 8.500z" fill="currentColor"/><rect x="6" y="19.500" width="12" height="2.500" rx="1" fill="currentColor"/></svg></span><div class="coach-b" data-edge>${html}</div></div>`;
 export const txt = (t) => esc(t).replace(/\n/g, '<br>');
 export const pl = (n, w) => `${n} ${w}${n > 1 ? 's' : ''}`;
 export const f1 = (x) => x.toFixed(1).replace('.', ',');
@@ -39,8 +39,18 @@ const IC = {
   king: `<path d="M12 2.500v4M10 4.500h4M7 21h10M8 17.500h8l1-6.500a5 5 0 0 0-10 0z" ${LT}/>`,
   // Haut-parleur (sons activés) et haut-parleur barré (sons coupés)
   snd: `<path d="M4 9.5h3.500L12 5.500v13L7.500 14.500H4z" fill="currentColor"/><path d="M15.500 9a4 4 0 0 1 0 6M18 6.500a7.500 7.500 0 0 1 0 11" ${LN}/>`,
+  refresh: `<path d="M20 12a8 8 0 1 1-2.400-5.700M20 4v4.500h-4.500" ${LN}/>`,
   mute: `<path d="M4 9.5h3.500L12 5.500v13L7.500 14.500H4z" fill="currentColor"/><path d="M16 9.500l5 5M21 9.500l-5 5" ${LN}/>`,
 };
+// Durée écoulée en français : « à l’instant », « il y a 3 min », « il y a 2 h », « hier », « il y a 5 jours ».
+export function agoFr(ms) {
+  const m = Math.floor(ms / 60000), h = Math.floor(ms / 3600000), d = Math.floor(ms / 86400000);
+  if (m < 1) return 'à l’instant';
+  if (h < 1) return `il y a ${m} min`;
+  if (h < 24) return `il y a ${h} h`;
+  if (h < 48) return 'hier';
+  return `il y a ${d} jours`;
+}
 export const ico = (n) => `<svg class="ic" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">${IC[n]}</svg>`;
 export const setHtml = (el, html) => { if (el && el._h !== html) { el._h = html; el.innerHTML = html; } }; // ne reconstruit pas un bouton sous le doigt
 export function wdl(s) {
@@ -58,3 +68,21 @@ export const resChip = (out, how) => `<span class="chip ${out === 'W' ? 'good' :
 // Onglets en liens (.seg2 pztabs) : items = [[clé, adresse, libellé], …], on = clé de l'onglet allumé.
 export const tabs = (on, items) => `<div class="seg2 pztabs">${items.map(([k, href, t]) => `<a class="${on === k ? 'on' : ''}" href="${href}">${t}</a>`).join('')}</div>`;
 export const WDL_LEGEND = '<div class="legend"><span style="--c:var(--good)">Victoires</span><span style="--c:var(--neutral)">Nulles</span><span style="--c:var(--bad)">Défaites</span></div>';
+
+// Bord estompé des panneaux qui défilent : `edge-b` tant qu'il reste du contenu dessous, `edge-t` dès qu'on a défilé.
+// Chaque élément [data-edge] n'est suivi qu'une fois ; taille, contenu et défilement remettent les classes à jour.
+export function watchEdges(root = document) {
+  for (const el of root.querySelectorAll('[data-edge]')) {
+    if (el._edge) continue;
+    el._edge = true;
+    const upd = () => {
+      el.classList.toggle('edge-b', el.scrollHeight - el.scrollTop - el.clientHeight > 4);
+      el.classList.toggle('edge-t', el.scrollTop > 4);
+    };
+    const ro = new ResizeObserver(upd);
+    const watch = () => { ro.disconnect(); ro.observe(el); if (el.firstElementChild) ro.observe(el.firstElementChild); upd(); };
+    el.addEventListener('scroll', upd, { passive: true });
+    new MutationObserver(watch).observe(el, { childList: true });
+    watch();
+  }
+}
