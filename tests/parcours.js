@@ -296,6 +296,25 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   await ctx.route('https://explorer.lichess.ovh/**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ white: 60, draws: 10, black: 30, moves: [{ uci: 'e2e4', san: 'e4', white: 40, draws: 5, black: 15 }, { uci: 'd2d4', san: 'd4', white: 20, draws: 5, black: 15 }] }) }));
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#ouvertures`); await sleep(1000);
   check(/e4/.test(await bar('#lexp')) && /60 %/.test(await bar('#lexp')), 'ouvertures : explorateur Lichess à ton niveau');
+  // Anciennes adresses (table des routes) : chacune affiche son titre, sa section allumée, son échiquier, sans erreur JavaScript.
+  const errAt = await S(() => { const s = window.__cap; for (const g of s.data.games) { const e = s.an[g.id]?.errs?.[0]; if (e && !s.an[g.id].bad) return { t: g.t, ply: e.ply }; } return null; });
+  const OLD = [
+    ['#plus', { hash: '#plan', h1: 'Plan et réglages', nav: 'pro' }],
+    ['#ouvertures', { h1: 'Ouvertures', nav: 'par', cg: '#exb' }],
+    ['#ouvertures/apprendre', { h1: 'Apprendre les ouvertures', nav: 'ent' }],
+    ['#ouvertures/italienne', { ttl: 'Ouverture', h1: 'Partie italienne', nav: 'ent', cg: '#opb' }],
+    ['#cours/en_prise_pose/fiche', { ttl: 'Cours', h1: 'Ne plus poser une pièce en prise', nav: 'ent' }],
+    [`#partie/${gt}/d`, { hash: `#partie/${gt}`, ttl: 'Partie', cap: /Débrief 1 \//, nav: 'par', cg: '#xb' }],
+    ...(errAt ? [[`#erreur/${errAt.t}/${errAt.ply}`, { ttl: 'Comprendre', h1: 'Comprendre cette erreur', nav: 'ent', cg: '#xb' }]] : []),
+  ];
+  for (const [hash, w] of OLD) {
+    const e0 = errs.length;
+    await page.goto(`http://localhost:${PORT}/?u=${USER}&debug${hash}`); await sleep(800);
+    const got = await S(() => ({ hash: location.hash, ttl: document.querySelector('#ttl').textContent, h1: document.querySelector('#view h1')?.textContent.trim() || '', nav: document.querySelector('#nav .grp-h.on')?.id || '' }));
+    const ok = got.hash === (w.hash || hash) && got.ttl === (w.ttl || '') && (!w.h1 || got.h1 === w.h1) && got.nav === 'nh-' + w.nav
+      && (!w.cg || await S((s) => !!document.querySelector(s + ' cg-board'), w.cg)) && (!w.cap || w.cap.test(await bar('#xcap'))) && errs.length === e0;
+    check(ok, `ancienne adresse ${hash.replace(/\/\d{6,}/g, '/<partie>')} : titre « ${w.ttl || w.h1} »` + (ok ? '' : ' ' + JSON.stringify(got) + ' ' + errs.slice(e0).join(' | ')));
+  }
   // Cache périmé : une nouvelle partie servie, puis « Mettre à jour ». Les vues déjà calculées (memo, S.rev) doivent la compter.
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#accueil`); await sleep(1500);
   await page.waitForFunction(() => !window.__cap.job.running && !window.__cap.importing, null, { timeout: 120000 });
