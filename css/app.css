@@ -47,7 +47,7 @@
   /* Échelle de texte : 13, 14, 16, 20, 28, 40 */
   --t-xs: 13px; --t-s: 14px; --t-m: 16px; --t-l: 20px; --t-xl: 28px; --t-xxl: 40px;
   /* Espacement par 4 */
-  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 24px; --s-6: 32px; --s-7: 48px;
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 24px; --s-6: 32px;
   /* Rayons : petit, carte, rond */
   --r-s: 6px; --r: 8px;
   --hit: 44px;
@@ -359,18 +359,8 @@ div.hbar { cursor: default; grid-template-columns: minmax(80px, 150px) 1fr minma
 
 /* Séance du jour */
 .today { box-shadow: inset 3px 0 0 var(--accent); gap: 14px; padding: 18px; } /* trait vert à gauche, pas de contour */
-.steps { display: flex; flex-direction: column; gap: 8px; }
-.step { display: grid; grid-template-columns: 36px 1fr; gap: 6px 14px; align-items: center; padding: 14px; border-radius: var(--r); background: var(--bg); border: 1px solid transparent; }
-.step.on { border-color: var(--accent); background: var(--accent-soft); }
-.step.done { opacity: .7; }
-.stepn { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font: 600 var(--t-m) var(--display); background: var(--sunken); color: var(--ink2); }
-.step.on .stepn { background: var(--btn); color: var(--on-btn); }
-.step.done .stepn { background: var(--good-soft); color: var(--good); }
 .stepc { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .stepc b { font: 600 var(--t-m) var(--display); } .stepc > span { font-size: var(--t-s); color: var(--ink2); }
-.stepc .goalbar { margin-top: 4px; max-width: 320px; background: var(--bg); }
-.stepa { grid-column: 2; display: flex; gap: 8px; flex-wrap: wrap; }
-@media (min-width: 700px) { .step { grid-template-columns: 36px 1fr auto; } .stepa { grid-column: 3; } }
 /* Coach */
 .coach { display: flex; gap: 12px; align-items: flex-start; }
 .coach-av { flex: none; width: 40px; height: 40px; border-radius: 50%; background: var(--btn); color: var(--on-btn); display: grid; place-items: center; }
@@ -469,7 +459,6 @@ body.homefit .view { flex: 1; min-height: 0; width: 100%; padding-bottom: 16px; 
 .now .goalbar { max-width: 320px; margin-top: 4px; } .now .dots { margin-top: 4px; }
 .today .btn.pri { align-self: flex-start; }
 .fmini { gap: 4px; text-decoration: none; color: inherit; } .fmini:hover { border-color: var(--accent); }
-.frule { font-size: var(--t-m); color: var(--ink); }
 .fnums { font-size: var(--t-s); } .fnums b { color: var(--ink); } .fnums b.ok { color: var(--good); } .fnums b.ko { color: var(--bad); }
 /* Mot du coach (accueil) : diagnostic, consigne du jour (ordinateur), critère de réussite */
 .brief .bdiag { font-size: var(--t-m); line-height: 1.45; color: var(--ink); }
@@ -537,8 +526,6 @@ body.homefit .view { flex: 1; min-height: 0; width: 100%; padding-bottom: 16px; 
 .lgtxt { display: flex; flex-direction: column; gap: var(--s-2); min-width: 0; }
 .lgpos { flex: none; width: 192px; display: block; border-radius: var(--r-s); }
 .lgpos .board { display: block; }
-.qlinks { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: var(--t-s); padding: 2px 2px 0; }
-.qlinks a { text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
 details.gd summary { cursor: pointer; font-size: var(--t-s); color: var(--accent-ink); font-weight: 600; margin-bottom: 8px; }
 @media (min-width: 860px) {
   details.gd summary { display: none; }
@@ -565,7 +552,7 @@ details.gd summary { cursor: pointer; font-size: var(--t-s); color: var(--accent
   .card { border-radius: var(--r); padding: 16px; }
   .btn, .btn.sm { min-height: var(--hit); }
   .seg2 a, .seg2 button { min-height: var(--hit); display: flex; align-items: center; justify-content: center; }
-  .qlinks a, details.gd summary { min-height: var(--hit); }
+  details.gd summary { min-height: var(--hit); }
   /* Cibles tactiles de 44 px sur les éléments qui ne sont pas des boutons */
   .brand, .gnum, .tools .pzprog, a.row, .sig a { min-height: var(--hit); display: flex; align-items: center; }
   td a, p.small > a:only-child, .meta.small > a:only-child, .kv dd > a { min-height: var(--hit); display: inline-flex; align-items: center; }
@@ -575,8 +562,6 @@ details.gd summary { cursor: pointer; font-size: var(--t-s); color: var(--accent
   body.imm .back { width: var(--hit); height: var(--hit); }
   .btn.lg { width: 100%; justify-content: center; min-height: 52px; }
   select, input[type=text], input[type=number], input[type=date] { min-height: var(--hit); font-size: var(--t-m); }
-  .stepa .btn { flex: 1; justify-content: center; }
-  .step { padding: 14px 12px; border-radius: var(--r); }
   .coach-av { width: 34px; height: 34px; } .coach-b { font-size: var(--t-m); padding: 10px 14px; }
   .big { font-size: var(--t-xxl); }
   /* Écran de travail plein cadre */
@@ -684,7 +669,6 @@ h3.lexh { font-size: var(--t-s); color: var(--ink2); margin-top: var(--s-4); }
   .actbar .btn .ic { width: 18px; height: 18px; }
 }
 body.solved .coach.intro { display: none; }
-.stepc .dots { margin-top: 4px; }
 
 /* ===== Écrans d'exercice sans défilement (body.fit, posé par exercise.js ; structure : .bwrap + .fitside) ===== */
 /* La page ne défile jamais : échiquier + commentaire d'un côté, le reste dans un panneau qui défile seul. */
