@@ -11,19 +11,35 @@ const ok = (a) => a && !a.bad;
 export const PHASES = [['ouverture', 'Ouverture'], ['milieu', 'Milieu de partie'], ['finale', 'Finale']];
 // Précision (100 moins la perte moyenne de chances de gain) et fautes graves (10 points ou plus), par phase de jeu.
 export function phaseStats(games, an) {
+  const job = phaseJob(games, an);
+  job.step(Infinity);
+  return job.result();
+}
+// Même calcul, par tranches (17/11) : step(ms) traite des parties tant qu'il reste du temps (au moins une), rend true quand
+// tout est fait. La phase demande de rejouer chaque partie : sur des milliers de parties, c'est trop long pour un seul rendu.
+export function phaseJob(games, an) {
   const by = Object.fromEntries(PHASES.map(([k, label]) => [k, { k, label, n: 0, drop: 0, bad: 0 }]));
-  for (const g of games) {
+  let i = 0;
+  const one = (g) => {
     const a = an[g.id];
-    if (!ok(a) || !a.ev) continue;
-    const r = replay(g); if (!r) continue;
+    if (!ok(a) || !a.ev) return;
+    const r = replay(g); if (!r) return;
     const pov = (cp) => (g.w ? cp : -cp);
-    for (let i = 0; i < r.mv.length && i + 1 < a.ev.length; i++) {
-      if ((i % 2 === 0) !== g.w) continue;
-      const d = Math.max(0, winPct(pov(a.ev[i])) - winPct(pov(a.ev[i + 1]))), b = by[phase(r.fens[i], i)];
+    for (let j = 0; j < r.mv.length && j + 1 < a.ev.length; j++) {
+      if ((j % 2 === 0) !== g.w) continue;
+      const d = Math.max(0, winPct(pov(a.ev[j])) - winPct(pov(a.ev[j + 1]))), b = by[phase(r.fens[j], j)];
       b.n++; b.drop += d; if (d >= 10) b.bad++;
     }
-  }
-  return Object.values(by).map((b) => ({ k: b.k, label: b.label, n: b.n, bad: b.bad, acc: b.n ? Math.round(100 - b.drop / b.n) : null, rate: b.n ? b.bad / b.n : null }));
+  };
+  return {
+    get done() { return i >= games.length; },
+    step(ms, now = () => performance.now()) {
+      const t0 = now();
+      for (let n = 0; i < games.length && (n === 0 || now() - t0 < ms); n++) one(games[i++]);
+      return i >= games.length;
+    },
+    result: () => Object.values(by).map((b) => ({ k: b.k, label: b.label, n: b.n, bad: b.bad, acc: b.n ? Math.round(100 - b.drop / b.n) : null, rate: b.n ? b.bad / b.n : null })),
+  };
 }
 
 export const PIECE = { p: 'pion', n: 'cavalier', b: 'fou', r: 'tour', q: 'dame', k: 'roi' };
