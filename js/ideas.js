@@ -14,23 +14,22 @@ const CALM = new Set(['plan', 'ouverture', 'finale']);
 
 // Positions retenues : ton coup, après le 8e coup, position pas encore décidée, erreur calme (imprécision ou erreur de plan),
 // et une intention nette pour le meilleur coup.
-export function ideaPositions(games, an) {
+export function ideaPositionsOf(g, a) {
   const out = [];
-  for (const g of games) {
-    const a = an[g.id]; if (!a || a.bad || !a.errs) continue;
-    const me = g.w ? 'w' : 'b';
-    for (const e of a.errs) {
-      if (!e.best || !e.fen || e.ply < 16 || Math.abs(e.e0) >= 400) continue;
-      if (e.kind !== 'imprecision' && !CALM.has(e.theme)) continue;
-      // Le meilleur coup doit être calme : une prise ou un échec relève de la tactique, pas d'un plan.
-      const m = play(new Chess(e.fen), e.best);
-      if (!m || m.captured || /[+#]/.test(m.san)) continue;
-      if (!intent(e.fen, e.line?.length ? e.line : [e.best], me)) continue;
-      out.push({ id: g.t + ':' + e.ply, g, e });
-    }
+  if (!a || a.bad || !a.errs) return out;
+  const me = g.w ? 'w' : 'b';
+  for (const e of a.errs) {
+    if (!e.best || !e.fen || e.ply < 16 || Math.abs(e.e0) >= 400) continue;
+    if (e.kind !== 'imprecision' && !CALM.has(e.theme)) continue;
+    // Le meilleur coup doit être calme : une prise ou un échec relève de la tactique, pas d'un plan.
+    const m = play(new Chess(e.fen), e.best);
+    if (!m || m.captured || /[+#]/.test(m.san)) continue;
+    if (!intent(e.fen, e.line?.length ? e.line : [e.best], me)) continue;
+    out.push({ id: g.t + ':' + e.ply, g, e });
   }
   return out;
 }
+export const ideaPositions = (games, an) => games.flatMap((g) => ideaPositionsOf(g, an[g.id]));
 
 // Trois choix { mv, san, k, text, good, check }, dans un ordre stable (par coup).
 export function ideaChoices(fen, e, me) {
@@ -54,4 +53,37 @@ export function ideaChoices(fen, e, me) {
   for (const m of quiet) { if (c.length >= 3) break; if (c.some((x) => x.mv.slice(0, 4) === m.from + m.to)) continue; c.push({ mv: m.from + m.to, text: plain(m, me), check: true }); }
   for (const x of c) { x.san = play(new Chess(fen), x.mv)?.san; x.good = !!x.good; }
   return c.sort((a, b) => (a.mv < b.mv ? -1 : 1));
+}
+
+// Parcours paresseux (17/11) : on ne calcule les positions d'une partie que quand on y arrive, de la plus récente à la plus
+// ancienne, au lieu de toutes les parties à chaque rendu. `of(g)` rend les positions d'une partie (ideaPositionsOf, gardé
+// par l'appelant). L'ordre est celui d'avant : parties récentes d'abord, puis plus tard dans la partie d'abord.
+export function* ideaWalk(games, of) {
+  for (const g of [...games].sort((a, b) => b.t - a.t)) yield* [...of(g)].sort((a, b) => b.e.ply - a.e.ply);
+}
+// Retrouve une position par son identifiant « fin:coup » sans parcourir les autres parties.
+export function ideaFind(games, of, id) {
+  const t = +String(id).split(':')[0];
+  for (const g of games) if (g.t === t) { const p = of(g).find((x) => x.id === id); if (p) return p; }
+  return null;
+}
+// Position à montrer : la mémorisée si elle existe encore, sinon la première pas encore faite (à défaut, la première).
+export function ideaStart(games, of, cur, done) {
+  const keep = cur ? ideaFind(games, of, cur) : null;
+  if (keep) return keep;
+  let first = null;
+  for (const p of ideaWalk(games, of)) { first ||= p; if (!done.has(p.id)) return p; }
+  return first;
+}
+// Position suivante après `cur` : la première pas encore faite après elle, puis avant elle ; à défaut la suivante ou la première.
+export function ideaFollow(games, of, cur, done) {
+  const known = cur ? ideaFind(games, of, cur) : null;
+  let seen = !known, after = null, first = null, before = null;
+  for (const p of ideaWalk(games, of)) {
+    first ||= p;
+    if (seen) { after ||= p; if (!done.has(p.id)) return p; }
+    else if (p.id === cur) seen = true;
+    else before ||= !done.has(p.id) ? p : null;
+  }
+  return before || after || first;
 }

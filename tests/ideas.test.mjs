@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 globalThis.Chess = createRequire(import.meta.url)('../vendor/chess.js').Chess;
-const { ideaPositions, ideaChoices } = await import('../js/ideas.js');
+const { ideaPositions, ideaPositionsOf, ideaChoices, ideaWalk, ideaFind, ideaStart, ideaFollow } = await import('../js/ideas.js');
 const FEN = '4k3/pp3ppp/8/8/4P3/2N5/PPP2PPP/4K3 w - - 0 20';
 const E = { ply: 38, fen: FEN, best: 'c3d5', bestSan: 'Nd5', playedUci: 'a2a3', played: 'a3', punish: [], line: ['Nd5'], kind: 'imprecision', theme: null, e0: 40 };
 
@@ -43,4 +43,43 @@ test('jamais deux idées identiques ; le roque se dit « Roquer »', () => {
   const same = ideaChoices(f2, { ...E, fen: f2, best: 'g7b7', line: ['Qb7', 'Qb5', 'Rg4', 'g3'], playedUci: 'g7c7', punish: ['Qb5', 'Rg4'] }, 'b');
   assert.equal(new Set(same.map((x) => x.text)).size, same.length);
   assert.equal(same.find((x) => x.mv === 'g7c7').text, 'Jouer ta dame en c7.');
+});
+
+// Parcours paresseux : mêmes résultats que l'ancien tri de toutes les positions, mais seules les parties atteintes sont calculées.
+function pool() {
+  const games = [3, 9, 5, 7].map((t) => ({ id: 'g' + t, t, w: true, san: [] }));
+  const an = Object.fromEntries(games.map((g) => [g.id, { errs: [E, { ...E, ply: 30 }, { ...E, ply: 44 }] }]));
+  const calls = [];
+  const of = (g) => { calls.push(g.t); return ideaPositionsOf(g, an[g.id]); };
+  const ref = ideaPositions(games, an).sort((a, b) => b.g.t - a.g.t || b.e.ply - a.e.ply).map((p) => p.id);
+  return { games, an, of, calls, ref };
+}
+test('parcours paresseux : même ordre que le tri complet (récentes d’abord, fin de partie d’abord)', () => {
+  const { games, of, ref } = pool();
+  assert.deepEqual([...ideaWalk(games, of)].map((p) => p.id), ref);
+  assert.equal(ref[0], '9:44');
+});
+test('première position : s’arrête dès la première non faite, sans calculer les autres parties', () => {
+  const { games, of, calls, ref } = pool();
+  assert.equal(ideaStart(games, of, null, new Set())?.id, ref[0]);
+  assert.deepEqual([...new Set(calls)], [9], 'seule la partie la plus récente est calculée');
+  assert.equal(ideaStart(games, of, null, new Set(ref.slice(0, 4)))?.id, ref[4]);
+  assert.equal(ideaStart(games, of, null, new Set(ref))?.id, ref[0], 'tout est fait : on repart du début');
+  assert.equal(ideaStart(games, of, '5:38', new Set())?.id, '5:38', 'la position mémorisée reste');
+  assert.equal(ideaStart(games, of, '5:99', new Set())?.id, ref[0], 'position mémorisée disparue');
+  assert.equal(ideaStart([], of, null, new Set()), null);
+});
+test('position suivante : comme avant (après la courante, puis avant ; les faites passent leur tour)', () => {
+  const { games, of, ref } = pool();
+  const eager = (cur, done) => { const i = ref.indexOf(cur), rest = [...ref.slice(i + 1), ...ref.slice(0, Math.max(0, i))]; return rest.find((x) => !done.has(x)) || rest[0] || ref[0]; };
+  for (const cur of [ref[0], ref[3], ref[ref.length - 1], '1:1', null]) {
+    for (const done of [new Set(), new Set(ref.slice(0, 5)), new Set(ref.slice(6)), new Set(ref)]) {
+      assert.equal(ideaFollow(games, of, cur, done)?.id, eager(cur, done), `cur ${cur}, ${done.size} faites`);
+    }
+  }
+});
+test('retrouver une position par son id ne calcule que la partie concernée', () => {
+  const { games, of, calls } = pool();
+  assert.equal(ideaFind(games, of, '7:30')?.e.ply, 30);
+  assert.deepEqual(calls, [7]);
 });
