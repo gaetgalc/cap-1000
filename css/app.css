@@ -757,11 +757,11 @@ body.fit .cap { max-width: none; overflow-y: auto; }
   body.fit { padding-bottom: calc(56px + env(safe-area-inset-bottom)); }
   body.fit .view { gap: 4px; padding-top: 4px; padding-bottom: 4px; }
   .actbar { padding-top: 6px; padding-bottom: calc(6px + env(safe-area-inset-bottom)); } .actbar .btn { min-height: var(--hit); }
-  body.fit .cap { min-height: 44px; padding: 6px 12px; }
+  body.fit .cap { min-height: var(--hit); padding: 6px 12px; }
   body.fit .coach { padding: 6px 12px; } body.fit .coach .coach-av { display: none; } body.fit .coach-b { line-height: 1.4; max-height: 68px; overflow-y: auto; } /* trois lignes au plus : un texte plus long défile dans sa boîte, l’échiquier ne rétrécit pas */
-  /* échauffement, Rush : bandeau de deux lignes au plus sous l'échiquier */
+  /* échauffement, Rush : bandeau de deux lignes au plus sous l’échiquier ; 56 px = ses deux lignes (2 × 22 px de texte) + 12 px de marge intérieure */
   body.fit:not(.solved) .bwrap:not(.gv):not(:has(.m-txt)) .board { width: min(100cqw, 100cqh - 56px); height: min(100cqw, 100cqh - 56px); }
-  body.fit .bwrap.gv + .fitside .fitpanel { max-height: 44px; } /* relecture : seule la bande de coups reste visible, le reste défile */
+  body.fit .bwrap.gv + .fitside .fitpanel { max-height: var(--hit); } /* relecture : seule la bande de coups reste visible, le reste défile */
   body.fit:has(#lnp) .fitpanel { display: none; } /* ligne d'ouverture : le bandeau commente chaque coup */
   body.fit:has(.ideas) .fitpanel { max-height: 76px; }
   .seg2 a, .seg2 button { min-width: var(--hit); }
