@@ -55,7 +55,7 @@ Site statique sans build, servi par GitHub Pages depuis `main` (racine). Tout to
 | `js/insights.js` | « Quand et comment tu perds » (Mon jeu) : `phaseStats`, `pieceStats`, `hourStats`, `sessionStats`, `insightText` ; Elo estimé d'une partie (`perfRef`, `gameRating`) |
 | `js/endgames.js` | 11 finales de base à jouer contre le moteur (`ENDGAMES` : fen, but `mat` / `promo` / `nulle`, limite de coups, règle, plan) |
 | `js/explorer.js` | Explorateur Lichess filtré par niveau (`explorer.lichess.ovh`, 1200 à 1800) : `fetchExplorer` (cache), `explorerRows` |
-| `js/review.js` | Calculs purs de la relecture : symbole d'un coup (`moveMark`), part des Blancs dans la barre d'évaluation (`evalShare`), erreur précédente ou suivante (`errStep`) |
+| `js/review.js` | Calculs purs de la relecture : symbole d'un coup (`moveMark`), part des Blancs dans la barre d'évaluation (`evalShare`), erreur précédente ou suivante (`errStep`), temps passé par coup (`moveTimes`, `clockFmt`) |
 | `js/coach.js` | Cours privés Claude : faits vérifiés, prompt, appel API, lecture du JSON. « Demande au coach » sur une position : `positionPrompt`, `askPosition` (clé API), `positionText` (à copier sans clé) |
 | `js/backup.js` | Sauvegarde et restauration en un fichier JSON (parties, analyses, cours, toutes les clés `cap1000:` sauf `key`). `pack` / `unpack` purs |
 | `js/store.js` | IndexedDB (`data:<user>`, `an:<user>`, `ai:<user>`) et localStorage (préfixe `cap1000:` ; clés principales : `pz` répétition espacée, `hist` journal d'entraînement, `ui` état de l'écran à reprendre, `act` activité par jour, `focus` chantier, `bak` date de la dernière sauvegarde, `why` cause donnée à chaque erreur, `self` réponse à « As-tu appliqué ta règle ? » par partie) |

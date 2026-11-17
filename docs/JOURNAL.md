@@ -459,6 +459,15 @@ Comparaison des rubriques de Chess.com (Jouer, Puzzles, Apprendre, Analyse, Insi
 - « Mon jeu » figeait l'écran 290 ms pour 12 parties (`phaseStats` rejoue chaque partie avec chess.js) : `replay` garde chaque partie en mémoire (`classify.js`), et `warmReplays` les rejoue d'avance quand le navigateur est libre. 40 ms ensuite.
 - Relecture : images régulières (17 ms) ; la liste des coups ne relance plus un défilement doux à chaque coup quand les coups s'enchaînent (moins de 250 ms).
 
+## 42. Relecture de partie à la Chess.com (17/11)
+
+> prend les best practices pour améliorer cette page de parties. j'aime bien voir le graphique […] mais l'espace à droite est inexploité + toutes les infos en haut ne sont pas suffisamment différenciées. « joué comme un 750 » j'aime pas, au lieu de ça mets « Elo estimé → 750 », dans un encart dédié
+
+- **En-tête** : les deux joueurs l'un sous l'autre (adversaire en haut, comme sur l'échiquier), pastille de couleur, Elo, résultat sur ta ligne ; ouverture, date et cadence en petit dessous ; Débrief et Chess.com à droite. Le titre « Blancs contre … » reste pour les lecteurs d'écran (`.sr`).
+- **Encarts** (`gvTiles`) : Précision, Elo estimé (avec son explication au survol), Fautes (`??`, `?`, `?!` colorés). « Jouée comme un » devient « Elo estimé » partout (barre du haut sur téléphone comprise).
+- **Liste des coups** : une ligne par coup complet sur toute la largeur, lignes alternées, et colonne du temps passé par coup pour chaque camp (barre proportionnelle au coup le plus long, `moveTimes` / `clockFmt` dans `review.js`). Sur téléphone, bande horizontale inchangée (`.gvr` en `display: contents`).
+- Courbe ramenée à 104 px pour laisser la place aux coups.
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |

@@ -42,3 +42,11 @@ export function gaffeTrail(games, an, tc) {
   });
   return out;
 }
+
+// Temps passé sur chaque coup (secondes), comme la colonne de pendule de Chess.com : pendule du coup précédent du même camp
+// (la cadence de base pour son premier coup) + incrément - pendule après le coup. null sans pendule complète.
+export function moveTimes(g) {
+  if (!g.base || !g.clk || g.clk.length !== g.san.length) return null;
+  return g.clk.map((c, i) => Math.max(0, (i >= 2 ? g.clk[i - 2] : g.base) + (g.inc || 0) - c));
+}
+export const clockFmt = (s) => (s < 60 ? `${s} s` : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`);

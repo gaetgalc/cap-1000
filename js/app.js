@@ -11,7 +11,7 @@ import { $, esc, dfmt, TC, HOW, coach, txt, pl, f1, ico, wdl, WDL_LEGEND, setHtm
 import { lineChart } from './charts.js';
 import { progress, DAY } from './progress.js';
 import { board, destroyBoards, destsOf, arrow, errShapes, REDUCED } from './board.js';
-import { moveMark, evalShare, errStep, gaffeTrail } from './review.js';
+import { moveMark, evalShare, errStep, gaffeTrail, moveTimes, clockFmt } from './review.js';
 import * as exo from './exercise.js';
 import { LI_ANGLES, LI_FOR, LI_DIFF, fetchPuzzle } from './lichess.js';
 import { DRILLS, DRILL_FOR, makeRound } from './drills.js';
@@ -1863,20 +1863,24 @@ function gvBar(v) {
 // Sur ordinateur, chaque gaffe ou erreur du joueur est rappelée sous son coup (.gvnote) : un clic mène au moment clé.
 function gvMoves(v) {
   const { mv, errAt } = v, note = (e) => (e?.theme ? `<button class="gvnote" data-act="goto" data-k="${e.ply}"><span class="chip ${e.kind === 'gaffe' ? 'bad' : 'warn'}">${e.kind === 'gaffe' ? '??' : '?'}</span><span>Coup ${moveNo(e)} : ${fr(e.played)}, mieux <b>${fr(e.bestSan)}</b> · ${esc(st.THEMES[e.theme])}</span></button>` : '');
+  // Une ligne par coup complet (ordinateur), comme Chess.com : numéro, coup blanc, coup noir, temps passé par chaque camp
+  // (barre proportionnelle au coup le plus long de la partie). Sur téléphone, les lignes s'effacent (display: contents).
+  const tm = moveTimes(v.g), top = tm ? Math.max(...tm, 1) : 1;
+  const time = (i) => (tm && i < tm.length ? `<span class="gvtm ${i % 2 ? 'b' : 'w'}"><i style="width:${Math.max(4, Math.round((100 * tm[i]) / top))}%"></i><em class="num">${clockFmt(tm[i])}</em></span>` : '');
+  const btn = (i) => { const m = mv[i], mk = errAt[i] ? moveMark(errAt[i]) : null; return `<button class="mv ${errAt[i]?.kind || ''}" data-act="goto" data-k="${i + 1}">${fr(m.san)}${mk ? `<sup>${mk.s}</sup>` : ''}</button>`; };
   let h = '<button class="mv gvst" data-act="goto" data-k="0">Début</button>';
-  mv.forEach((m, i) => {
-    const mk = errAt[i] ? moveMark(errAt[i]) : null;
-    if (i % 2 === 0) h += `<span class="n">${i / 2 + 1}.</span>`;
-    h += `<button class="mv ${errAt[i]?.kind || ''}" data-act="goto" data-k="${i + 1}">${fr(m.san)}${mk ? `<sup>${mk.s}</sup>` : ''}</button>`;
-    if (i % 2 === 1 || i === mv.length - 1) h += (i % 2 === 1 ? note(errAt[i - 1]) : '') + note(errAt[i]);
-  });
+  for (let i = 0; i < mv.length; i += 2) {
+    h += `<div class="gvr"><span class="n">${i / 2 + 1}.</span>${btn(i)}${i + 1 < mv.length ? btn(i + 1) : '<span></span>'}${tm ? `<span class="gvt">${time(i)}${time(i + 1)}</span>` : ''}</div>`;
+    h += note(errAt[i]) + note(errAt[i + 1]);
+  }
   return h;
 }
 // Elo estimé de la partie (insights.js) : repère personnel, d'après ta précision moyenne et ton classement moyen dans cette cadence.
-function perfChip(g, a) {
+function perfOf(g, a) {
   const ref = perfRef(S.data.games.filter((x) => x.tc === g.tc), S.an), e = gameRating(a.acc, ref);
-  return e ? `<span class="chip" title="Repère : ta précision moyenne (${ref.acc} %) vaut ton classement moyen (${ref.elo}) ; chaque point de précision en plus ou en moins compte pour 25 points.">Jouée comme un ${e}</span>` : '';
+  return e ? { e, tip: `Repère : ta précision moyenne (${ref.acc} %) vaut ton classement moyen (${ref.elo}) ; chaque point de précision en plus ou en moins compte pour 25 points.` } : null;
 }
+function perfChip(g, a) { const p = perfOf(g, a); return p ? `<span class="chip" title="${p.tip}">Elo estimé ${p.e}</span>` : ''; }
 // ---------- Idées de plan : sur une position calme de tes parties, choisir la bonne idée (ideas.js) ----------
 function ideaPool() { return ideaPositions(S.data.games.filter((g) => g.tc === targetTc()), S.an).sort((a, b) => b.g.t - a.g.t || b.e.ply - a.e.ply); }
 function ideaCur() {
@@ -1983,12 +1987,17 @@ function viewPartie(t, plyArg) {
   const perf = a ? perfChip(g, a) : '';
   return exo.screen({
     top: perf ? () => perf : undefined,
-    head: `<div class="pzhead gvhead"><h1>${g.w ? 'Blancs' : 'Noirs'} contre ${esc(g.opp)} <span class="small num">${g.or}</span></h1>
-      <div class="row">${res}<span class="chip">${dfmt(g.t)}</span><span class="chip">${esc(g.fam)}</span>${link}</div></div>`,
+    // En-tête (17/11, « comme Chess.com ») : les deux joueurs l'un sous l'autre, adversaire en haut comme sur l'échiquier,
+    // résultat sur ta ligne ; ouverture, date et cadence en dessous ; Débrief et Chess.com à droite.
+    head: `<div class="gvhead"><h1 class="sr">${g.w ? 'Blancs' : 'Noirs'} contre ${esc(g.opp)}</h1>
+      <div class="gvpl"><span class="gvp"><i class="dot ${g.w ? 'b' : 'w'}"></i><b>${esc(g.opp)}</b><span class="num">${g.or}</span></span>
+      <span class="gvp me"><i class="dot ${g.w ? 'w' : 'b'}"></i><b>Toi</b><span class="num">${g.r}</span>${res}</span></div>
+      <div class="gvact">${a ? '<button class="btn sm" data-act="dbgo" data-i="0">Débrief</button>' : ''}${link}</div>
+      <p class="gvmeta small">${esc(g.fam)} · ${dfmt(g.t)}${TC[g.tc] ? ' · ' + TC[g.tc] : ''}</p></div>`,
     wrap: 'gv',
     rail: a ? `<div class="evbar ${g.w ? '' : 'flip'}" id="gvev" aria-hidden="true" style="--ev:${evalShare(a.ev[v.k])}"><i></i></div>` : '',
     cap: cap.html, capClass: cap.cls,
-    panel: `${a ? `<div class="row gvsum"><span class="chip bad">${pl(a.errs.filter((x) => x.kind === 'gaffe').length, 'gaffe')} ??</span><span class="chip warn">${pl(a.errs.filter((x) => x.kind === 'erreur').length, 'erreur')} ?</span><span class="chip">${pl(a.errs.filter((x) => x.kind === 'imprecision').length, 'imprécision')} ?!</span><span class="chip good">Précision ${a.acc?.toFixed(0)} %</span>${perfChip(g, a)}<button class="btn sm" data-act="dbgo" data-i="0">Débrief</button></div>
+    panel: `${a ? `${gvTiles(g, a)}
       <div class="gvch"><p class="small">Tes chances de gain. Points rouges : gaffes, orange : erreurs. Touche la courbe pour aller au coup.</p><div class="chart" id="evc"></div></div>`
     : `<div class="card"><p class="sub">Cette partie n’est pas encore analysée.</p><div><button class="btn pri" data-act="analyse1" ${S.job.running ? 'disabled' : ''}>${S.job.running ? 'Analyse en cours' : 'Analyser cette partie'}</button></div></div>`}
       <div class="gvm" id="gvm">${gvMoves(v)}</div>
@@ -1997,6 +2006,13 @@ function viewPartie(t, plyArg) {
       ${serious.length ? `<div class="card"><h2>Moments clés</h2>${serious.map((x) => `<a class="row" href="#" data-act="goto" data-k="${x.ply}" style="justify-content:space-between;text-decoration:none"><span>Coup ${moveNo(x)} : ${fr(x.played)}, mieux ${fr(x.bestSan)}</span><span class="chip ${x.kind === 'gaffe' ? 'bad' : 'warn'}">${st.THEMES[x.theme]}</span></a>`).join('')}</div>` : ''}</div>`,
     bar: gvBar(v),
   });
+}
+// Bilan de la partie en encarts (17/11) : précision, Elo estimé, puis les fautes par gravité avec leur symbole.
+function gvTiles(g, a) {
+  const n = (k) => a.errs.filter((x) => x.kind === k).length, p = perfOf(g, a);
+  const tile = (lab, v, cls = '', tip = '') => `<div class="glt"${tip ? ` title="${tip}"` : ''}><span class="small">${lab}</span><b class="num ${cls}">${v}</b></div>`;
+  const f = (k, sym, cls, lab) => `<span class="gvf ${n(k) ? cls : ''}" title="${pl(n(k), lab)}">${n(k)}<small>${sym}</small></span>`;
+  return `<div class="glsum gvsum">${tile('Précision', a.acc != null ? a.acc.toFixed(0) + ' %' : '—')}${p ? tile('Elo estimé', p.e, '', p.tip) : ''}${tile('Fautes', f('gaffe', '??', 'ko', 'gaffe') + f('erreur', '?', 'warn', 'erreur') + f('imprecision', '?!', '', 'imprécision'))}</div>`;
 }
 // Variante jouée par l'élève depuis la position k0 de la partie : { k0, mv, fens, i, ev }.
 // L'échiquier de la relecture se joue librement (les deux camps) ; un coup différent de la partie ouvre une variante.
@@ -2096,7 +2112,7 @@ function mountPartie() {
     const pts = v.a.ev.map((cp, i) => ({ x: i, y: winPct(v.g.w ? cp : -cp), tip: (i ? `Coup ${Math.ceil(i / 2)} (${fr(v.mv[i - 1]?.san || '')}) : ` : 'Début : ') + Math.round(winPct(v.g.w ? cp : -cp)) + ' %' }));
     const marks = v.a.errs.filter((x) => x.kind !== 'imprecision').map((x) => ({ i: x.ply, c: x.kind === 'gaffe' ? 'bad' : 'warn' }));
     const o = { min: 0, max: 100, base: 0, marks, cursor: Math.min(v.k, pts.length - 1), label: 'Chances de gain au fil de la partie', onPick: gvGo };
-    v.chart = lineChart(c, pts, matchMedia('(min-width: 860px)').matches ? { ...o, h: 140, step: 25, yfmt: (y) => y + ' %', x0: 'Début', x1: 'Fin' } : { ...o, h: 48, compact: true, mid: 50 });
+    v.chart = lineChart(c, pts, matchMedia('(min-width: 860px)').matches ? { ...o, h: 104, step: 50, yfmt: (y) => y + ' %', x0: 'Début', x1: 'Fin' } : { ...o, h: 48, compact: true, mid: 50 });
   }
   X.on({ first: () => gvGo(0), prev: () => gvGo(v.k - 1), next: () => gvGo(v.k + 1), last: () => gvGo(v.mv.length) });
   // Clavier : géré par l'écouteur global (variante comprise), voir keydown plus bas

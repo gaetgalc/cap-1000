@@ -182,6 +182,10 @@ td.r, th.r { text-align: right; font-variant-numeric: tabular-nums; white-space:
 .glsum { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: var(--s-2); }
 .glt { display: flex; flex-direction: column; gap: 2px; padding: var(--s-2) var(--s-3); background: var(--sunken); border-radius: var(--r-s); }
 .glt b { font-size: var(--t-l); font-weight: 600; } .glt b span { font-size: var(--t-s); font-weight: 500; }
+.gvsum { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+.gvf { margin-right: var(--s-3); } .gvf small { font-size: var(--t-s); font-weight: 500; margin-left: 2px; color: var(--ink3); }
+.gvf.ko, .gvf.ko small { color: var(--bad-ink); } .gvf.warn, .gvf.warn small { color: var(--warn); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } /* lu par les lecteurs d'écran seulement */
 @media (max-width: 859px) { .glsum { grid-template-columns: repeat(3, minmax(0, 1fr)); } .glt { padding: var(--s-2); } .glt b { font-size: var(--t-m); } }
 .up { color: var(--good); } .dn { color: var(--bad-ink); }
 .gll { gap: 0; padding: var(--s-1) var(--s-4); }
@@ -264,8 +268,25 @@ cg-board { background-color: var(--sq-light); background-image: repeating-conic-
   body.fit .bwrap.gv + .fitside .fitpanel { overflow: hidden; gap: 12px; }
   .gvsum, .gvch { flex: none; }
   .gvch { display: flex; flex-direction: column; gap: 4px; padding: 10px 16px 6px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); }
-  .gvm { flex: 1 1 auto; min-height: 96px; overflow-y: auto; overscroll-behavior: contain; display: grid; grid-template-columns: 44px repeat(2, minmax(0, 140px)); align-content: start; gap: 2px 4px; padding: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); }
+  /* Relecture (17/11, « comme Chess.com ») : en-tête des joueurs, encarts du bilan, coups en lignes pleine largeur */
+  .gvhead { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s-2) var(--s-3); padding: var(--s-3) var(--s-4); background: var(--surface); border-radius: var(--r); }
+  .gvpl { display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
+  .gvp { display: flex; align-items: center; gap: var(--s-2); font-size: var(--t-m); min-width: 0; }
+  .gvp b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .gvp .num { color: var(--ink3); }
+  .gvp .chip { margin-left: var(--s-2); }
+  .gvact { display: flex; gap: var(--s-2); align-items: flex-start; }
+  .gvmeta { grid-column: 1 / -1; }
+  .gvm { flex: 1 1 auto; min-height: 96px; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; padding: var(--s-1) 0; background: var(--surface); border: 1px solid transparent; border-radius: var(--r); }
+  .gvr { display: grid; grid-template-columns: 52px minmax(0, 1fr) minmax(0, 1fr) minmax(96px, 180px); align-items: center; gap: var(--s-1); padding: 2px var(--s-3); }
+  .gvr:nth-of-type(even) { background: color-mix(in srgb, var(--surface), var(--ink) 3%); }
+  .gvr .mv { font-size: var(--t-m); justify-self: start; }
   .gvm .n { align-self: center; padding-left: 6px; }
+  .gvt { display: flex; flex-direction: column; gap: 2px; }
+  .gvtm { display: grid; grid-template-columns: minmax(0, 1fr) 48px; align-items: center; gap: var(--s-2); }
+  .gvtm i { justify-self: end; height: 4px; border-radius: var(--r-s); background: var(--ink2); }
+  .gvtm.b i { background: var(--neutral); }
+  .gvtm em { font: normal var(--t-xs) var(--body); color: var(--ink3); text-align: right; white-space: nowrap; }
+  .gvnote { margin: 2px var(--s-3) 4px; }
   .gvm .gvst, .gvmore { display: none; }
   .bwrap.gv + .fitside .actbar .btn { padding: 0 12px; } /* six boutons sur une ligne dès 1280 px */
 }
@@ -285,6 +306,7 @@ cg-board { background-color: var(--sq-light); background-image: repeating-conic-
   .gvm::-webkit-scrollbar { display: none; }
   .gvm .mv { flex: none; min-height: var(--hit); min-width: var(--hit); text-align: center; }
   .gvm .n { flex: none; padding-left: 6px; }
+  .gvr { display: contents; } .gvr > span:empty, .gvt { display: none; }
   .gvnote, .gvch .small { display: none; }
   .gvch { order: -1; flex: none; }
   .actbar .gvfl { display: none; }

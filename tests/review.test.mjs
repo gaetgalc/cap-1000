@@ -66,3 +66,14 @@ test('fil des gaffes : la partie la plus récente non analysée reste en tête',
   const t = gaffeTrail([{ id: 'a', t: 1, tc: 'rapid' }, { id: 'b', t: 2, tc: 'rapid' }], { a: { errs: [{ ply: 8, kind: 'gaffe', best: 'e2e4' }] } }, 'rapid');
   assert.deepEqual(t.map((x) => [x.g.id, x.e?.ply ?? null, !!x.pending]), [['b', null, true], ['a', 8, false]]);
 });
+
+test('moveTimes : temps passé sur chaque coup, d’après la pendule restante, l’incrément et la cadence', async () => {
+  const { moveTimes, clockFmt } = await import('../js/review.js');
+  // 10 min + 5 s : le premier coup de chaque camp part de la cadence de base ; ensuite pendule précédente + incrément - pendule
+  const g = { base: 600, inc: 5, san: ['e4', 'e5', 'Nf3', 'Nc6'], clk: [603, 600, 590, 580] };
+  assert.deepEqual(moveTimes(g), [2, 5, 18, 25]);
+  assert.equal(moveTimes({ base: 600, inc: 0, san: ['e4', 'e5'], clk: [600] }), null); // pendule incomplète
+  assert.equal(moveTimes({ base: 0, inc: 0, san: ['e4'], clk: [] }), null); // partie par correspondance
+  assert.equal(clockFmt(4), '4 s');
+  assert.equal(clockFmt(75), '1:15');
+});
