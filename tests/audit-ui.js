@@ -125,6 +125,8 @@ function measure(touch) {
 
 async function visit(ctx, size, report) {
   const page = await ctx.newPage(), errs = [];
+  // Captures reproductibles : les positions tirées au hasard (échauffements, Rush) viennent d'un générateur à graine fixe.
+  await page.addInitScript(() => { let a = 12345; Math.random = () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; });
   page.on('pageerror', (e) => errs.push(e.message));
   const base = `http://localhost:${PORT}/?u=${USER}&debug`;
   await page.goto(base + '#accueil');
@@ -134,9 +136,12 @@ async function visit(ctx, size, report) {
     if (opt.mobileOnly && !size.mobile) continue;
     const hash = typeof route === 'function' ? await page.evaluate(route) : route;
     await page.goto(base + '#' + hash); await sleep(900);
+    // Transition de vue et animations finies avant de mesurer et de photographier (sinon capture à mi-fondu sur une machine chargée).
+    await page.evaluate(() => Promise.race([new Promise((r) => setTimeout(r, 4000)), Promise.all([document.activeViewTransition?.finished, ...document.getAnimations().filter((a) => isFinite(a.effect?.getComputedTiming().endTime)).map((a) => a.finished)].map((p) => Promise.resolve(p).catch(() => {})))])).catch(() => {});
     const m = await page.evaluate(measure, !!size.mobile);
     m.route = hash; m.errors = errs.splice(0);
-    await page.screenshot({ path: path.join(OUT, size.id, name + '.png') });
+    // Heures qui changent d'une exécution à l'autre (pendule du Rush, dernière mise à jour du Plan) : masquées sur la capture seulement.
+    await page.screenshot({ path: path.join(OUT, size.id, name + '.png'), mask: [page.locator('.rushclk'), page.locator('.card.m-only p.sub')], maskColor: '#ff00ff' });
     report[size.id][name] = m;
   }
   await page.close();
