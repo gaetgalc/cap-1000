@@ -35,7 +35,7 @@ import { makeMemo, viewKey } from './memo.js';
 
 // Formats de date : un Intl.DateTimeFormat par jeu d'options (datef), les mêmes options qu'avec toLocale…String('fr-FR', …).
 const F_HM = datef({ hour: '2-digit', minute: '2-digit' }), F_WDLONG = datef({ weekday: 'long', day: 'numeric', month: 'long' }), F_DSHORT = datef({ day: 'numeric', month: 'short' });
-const F_DNUM = datef({}), F_DMY = datef({ day: 'numeric', month: 'short', year: 'numeric' }), F_WDSHORT = datef({ weekday: 'long', day: 'numeric', month: 'short' });
+const F_DNUM = datef({}), F_DMY = datef({ day: 'numeric', month: 'short', year: 'numeric' }), F_WDLONG_MSHORT = datef({ weekday: 'long', day: 'numeric', month: 'short' });
 const F_DSHORT_UTC = datef({ day: 'numeric', month: 'short', timeZone: 'UTC' }), F_MY_UTC = datef({ month: 'short', year: 'numeric', timeZone: 'UTC' });
 const F_DLONG = datef({ day: 'numeric', month: 'long' });
 
@@ -124,7 +124,8 @@ function reclassify() {
 }
 // Parties rejouées d'avance, par tranches de 10 ms quand le navigateur est libre (17/11) : « Mon jeu » et la relecture
 // trouvent alors leurs positions déjà calculées (replay garde chaque partie), au lieu de figer l'écran à l'ouverture.
-const idle = (f) => (window.requestIdleCallback || ((g) => setTimeout(() => g({ timeRemaining: () => 10 }), 50)))(f);
+// Sans requestIdleCallback (Safari) : tranches d'environ 10 ms enchaînées par setTimeout(0), sous le seuil de 50 ms d'une tâche longue.
+const idle = (f) => (window.requestIdleCallback || ((g) => setTimeout(() => g({ timeRemaining: () => 12 }), 0)))(f);
 function warmReplays() {
   if (!S.data) return;
   const user = S.user, todo = S.data.games.filter((g) => S.an[g.id] && !S.an[g.id].bad).reverse();
@@ -451,7 +452,7 @@ function viewHistory() {
     <div class="tile"><b class="num">${pz.filter((x) => x.t >= d0 - 6 * DAY).length}</b><span>sur 7 jours</span></div>
     <div class="tile"><b class="num">${pz.length ? st.pct(pz.filter((x) => x.r === 2).length, pz.length) + ' %' : '—'}</b><span>trouvés du premier coup</span></div>
     <div class="tile"><b class="num">${acq}</b><span>acquis (réussis 3 fois, à plusieurs jours d’écart)</span></div></div>`;
-  const hm = (t) => F_HM(t);
+  const hm = F_HM;
   const row = (x) => {
     if (x.k === 'd') { const D = DRILLS[x.ty]; return `<div class="hrow"><i class="hres ${x.ok >= x.n * 0.8 ? 'r2' : x.ok >= x.n * 0.5 ? 'r1' : 'r0'}"></i><span class="stepc"><b>Échauffement${D ? ' : ' + D.t : ''}</b><span>${x.ok} / ${x.n} justes · ${hm(x.t)}</span></span>${D ? `<a class="btn sm" href="#drill/${x.ty}">Refaire</a>` : ''}</div>`; }
     if (x.k === 'o') { const [oid, ok] = String(x.id).split(':'), o = byId(oid), l = o?.lines[+ok]; const [cls, lab] = RES[x.r] || RES[0]; return `<div class="hrow"><i class="hres ${cls}"></i><span class="stepc"><b>Ligne d’ouverture${o ? ` : ${o.nom}` : ''}</b><span>${l ? esc(l.n) + ' · ' : ''}${x.r === 2 ? 'Sans faute' : x.r === 1 ? 'Avec aide' : 'Suite vue'}${x.re ? ' (révision)' : ''} · ${hm(x.t)}</span></span>${l ? `<a class="btn sm" href="${lineHref(x.id)}">Refaire</a>` : ''}</div>`; }
@@ -657,7 +658,7 @@ const GAMES_TABS = (on) => tabs(on, [['parties', '#parties', 'Parties'], ['ouv',
 const allLineKeys = () => OPENINGS.flatMap((o) => o.lines.map((_, k) => lineKey(o, k)));
 const lineHref = (key, voir) => '#ligne/' + key.replace(':', '/') + (voir ? '/voir' : '');
 const opGames = (o) => (S.data ? S.data.games.filter((g) => matchGame(o, g)) : []);
-const dshort = (t) => F_DSHORT(t);
+const dshort = F_DSHORT;
 function lineChip(key) {
   const s = progress.lineState(key);
   if (!s) return ''; // ligne jamais jouée : rien à signaler, la liste reste serrée
@@ -1374,7 +1375,7 @@ function elo30() {
 function weekDots() {
   const played = {}; for (const g of S.data?.games || []) { const k = dkey(new Date(g.t * 1000)); played[k] = (played[k] || 0) + 1; }
   const today = dkey();
-  return `<span class="week">${progress.week().map((x) => { const p = played[x.d] || 0, lab = F_WDSHORT(new Date(x.t)); return `<i class="${x.n ? 'on' : p ? 'pl' : ''}${x.d === today ? ' now' : ''}" title="${lab} : ${x.n ? pl(x.n, 'exercice') : 'pas d’entraînement'}${p ? ', ' + pl(p, 'partie') : ''}"></i>`; }).join('')}</span>`;
+  return `<span class="week">${progress.week().map((x) => { const p = played[x.d] || 0, lab = F_WDLONG_MSHORT(new Date(x.t)); return `<i class="${x.n ? 'on' : p ? 'pl' : ''}${x.d === today ? ' now' : ''}" title="${lab} : ${x.n ? pl(x.n, 'exercice') : 'pas d’entraînement'}${p ? ', ' + pl(p, 'partie') : ''}"></i>`; }).join('')}</span>`;
 }
 // Prochaine révision (accueil, ordinateur) : lignes d'ouverture et finales dues aujourd'hui, sinon la prochaine à venir.
 function nextReview() {
@@ -1470,20 +1471,28 @@ function viewAccueil() {
 // Calcul gardé par memo() tant que les parties, les analyses, le filtre et le jour ne changent pas. La phase demande de rejouer
 // chaque partie : elle se calcule par tranches quand le navigateur est libre (phaseJob), la carte montre un bloc gris d'ici là
 // puis se remplit sur place. Le reste de la page ne l'attend pas.
-function insightsOf(gs) {
-  return memo('insights', () => ({ job: phaseJob(gs, S.an), pieces: pieceStats(gs, S.an), hours: hourStats(gs), sessions: sessionStats(gs) }));
+function insightsOf() {
+  return memo('insights', () => { const gs = games(); return { job: phaseJob(gs, S.an), pieces: pieceStats(gs, S.an), hours: hourStats(gs), sessions: sessionStats(gs) }; });
 }
+// Une seule boucle à la fois (phasesRun). Si les données changent en route, elle reprend sur le nouveau calcul tant qu'on est
+// sur Mon jeu ; les parties inchangées ne sont pas refaites (cache par analyse dans insights.js).
+let phasesRun = null;
 function runPhases(I) {
+  if (phasesRun) return;
+  phasesRun = I;
   idle(function step(dl) {
-    if (!S.data || insightsOf(games()) !== I) return; // les données ont changé : un nouveau calcul prendra le relais
-    I.job.step(Math.max(0, dl.timeRemaining() - 2));
-    if (!I.job.done) { idle(step); return; }
-    const el = $('#ins');
-    if (el && route()[0] === 'bilan' && !exo.live()) el.outerHTML = insightsCard(games());
+    const here = S.data && route()[0] === 'bilan' && $('#ins');
+    if (!here) { phasesRun = null; return; } // on a quitté Mon jeu : le prochain mountBilan relancera
+    const cur = insightsOf();
+    if (cur !== phasesRun) phasesRun = cur;
+    cur.job.step(Math.max(0, dl.timeRemaining() - 2));
+    if (!cur.job.done) { idle(step); return; }
+    phasesRun = null;
+    if (!exo.live()) $('#ins').outerHTML = insightsCard(games());
   });
 }
 function insightsCard(gs) {
-  const J = insightsOf(gs), I = { ...J, phases: J.job.done ? J.job.result() : null }, lines = insightText({ ...I, phases: I.phases || [] }), every = (r) => (r ? `1 tous les ${Math.round(1 / r)} coups` : 'aucune');
+  const J = insightsOf(), I = { ...J, phases: J.job.done ? J.job.result() : null }, lines = insightText({ ...I, phases: I.phases || [] }), every = (r) => (r ? `1 tous les ${Math.round(1 / r)} coups` : 'aucune');
   const row = (label, n, val, cls = '') => `<tr><td>${label}</td><td class="r small">${n}</td><td class="r ${cls}"><b>${val}</b></td></tr>`;
   const sc = (x) => (x.n >= 5 ? (x.score >= 55 ? 'ok' : x.score <= 42 ? 'ko' : '') : '');
   const pcs = I.pieces.filter((p) => p.moves >= 10).slice(0, 4);
@@ -1525,7 +1534,7 @@ function viewBilan() {
   ${insightsCard(gs)}` : `<div class="card"><p class="sub">Aucune partie pour ce filtre (${TC[S.f.tc]}). Change la cadence ou la période.</p></div>`}`;
 }
 function mountBilan() {
-  const I = S.data && games().length ? insightsOf(games()) : null;
+  const I = S.data && games().length ? insightsOf() : null;
   if (I && !I.job.done) runPhases(I);
 
   const fcEl = $('#fchart'), f = ls.get('focus', null);
