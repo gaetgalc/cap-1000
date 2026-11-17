@@ -30,8 +30,18 @@ const IC = {
   king: `<path d="M12 2.500v4M10 4.500h4M7 21h10M8 17.500h8l1-6.500a5 5 0 0 0-10 0z" ${LT}/>`,
   // Haut-parleur (sons activés) et haut-parleur barré (sons coupés)
   snd: `<path d="M4 9.5h3.500L12 5.500v13L7.500 14.500H4z" fill="currentColor"/><path d="M15.500 9a4 4 0 0 1 0 6M18 6.500a7.500 7.500 0 0 1 0 11" ${LN}/>`,
+  refresh: `<path d="M20 12a8 8 0 1 1-2.400-5.700M20 4v4.500h-4.500" ${LN}/>`,
   mute: `<path d="M4 9.5h3.500L12 5.500v13L7.500 14.500H4z" fill="currentColor"/><path d="M16 9.500l5 5M21 9.500l-5 5" ${LN}/>`,
 };
+// Durée écoulée en français : « à l’instant », « il y a 3 min », « il y a 2 h », « hier », « il y a 5 jours ».
+export function agoFr(ms) {
+  const m = Math.floor(ms / 60000), h = Math.floor(ms / 3600000), d = Math.floor(ms / 86400000);
+  if (m < 1) return 'à l’instant';
+  if (h < 1) return `il y a ${m} min`;
+  if (h < 24) return `il y a ${h} h`;
+  if (h < 48) return 'hier';
+  return `il y a ${d} jours`;
+}
 export const ico = (n) => `<svg class="ic" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">${IC[n]}</svg>`;
 export const setHtml = (el, html) => { if (el && el._h !== html) { el._h = html; el.innerHTML = html; } }; // ne reconstruit pas un bouton sous le doigt
 export function wdl(s) {

@@ -541,7 +541,6 @@ body.homefit .view { flex: 1; min-height: 0; width: 100%; padding-bottom: 16px; 
 .qlinks a { text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
 details.gd summary { cursor: pointer; font-size: var(--t-s); color: var(--accent-ink); font-weight: 600; margin-bottom: 8px; }
 @media (min-width: 860px) {
-  .filters { display: flex; flex-direction: column; gap: 8px; }
   details.gd summary { display: none; }
 }
 
@@ -978,3 +977,12 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
 .edge-t, .edge-b { --ft: 0px; --fb: 0px; -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--ft), #000 calc(100% - var(--fb)), transparent 100%); mask-image: linear-gradient(to bottom, transparent 0, #000 var(--ft), #000 calc(100% - var(--fb)), transparent 100%); }
 .edge-t { --ft: var(--s-5); }
 .edge-b { --fb: var(--s-5); }
+
+/* Revue HIG : période et mise à jour dans les vues qui les lisent */
+.vhead { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); flex-wrap: wrap; }
+.updrow { justify-content: space-between; flex-wrap: nowrap; }
+.btn.ico { min-width: var(--hit); min-height: var(--hit); padding: 0 var(--s-3); display: inline-flex; align-items: center; justify-content: center; }
+[data-act="refresh"][aria-busy="true"] .ic { animation: spin 900ms linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { [data-act="refresh"][aria-busy="true"] .ic { animation: none; opacity: .5; } }
+.vhead .seg2.mini button { min-width: var(--hit); }

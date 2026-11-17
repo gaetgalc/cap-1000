@@ -7,7 +7,7 @@ import * as st from './stats.js';
 import { LESSONS, ENGINE_LESSONS, RULES } from './lessons.js';
 import { viewStats, mountStats } from './alltime.js';
 import { fr, settle, buildLine, insight, hintFor, lastMoveText, moveText, material, describeAt, justPlayed, PLAN_RULE } from './explain.js';
-import { $, esc, dfmt, TC, HOW, coach, txt, pl, f1, ico, wdl, WDL_LEGEND, setHtml } from './ui.js';
+import { $, esc, dfmt, TC, HOW, coach, txt, pl, f1, ico, wdl, WDL_LEGEND, setHtml, agoFr } from './ui.js';
 import { lineChart, sparkline } from './charts.js';
 import { progress, DAY } from './progress.js';
 import { board, destroyBoards, destsOf, arrow, errShapes, REDUCED } from './board.js';
@@ -69,7 +69,7 @@ async function doImport(user, manual) {
     S.ai = (await dbGet('ai:' + d.user)) || {};
     S.importing = null;
     if (!d.games.some((g) => g.tc === S.f.tc) && S.f.tc !== 'all') { S.f = { tc: 'all', days: 0 }; ls.set('filter', S.f); }
-    if (first) render(); else bgRender();
+    if (first) render(); else if (route()[0] === 'partie') { paintJob(); header(); } else bgRender(); // relecture : les nouvelles parties ne changent pas la partie ouverte
     if (first || manual || n > 0) toast(first ? `${pl(d.games.length, 'partie')} importée${d.games.length > 1 ? 's' : ''}` : n > 1 ? `${n} nouvelles parties importées` : n ? '1 nouvelle partie importée' : 'Aucune nouvelle partie');
     reclassify();
     autoAnalyse();
@@ -171,6 +171,8 @@ async function runAnalysis(count, only, list) {
 // Bandeau d'avancement : import, puis analyse (parties finies + avancée dans la partie en cours).
 // La barre est mise à jour sur place (transform), sans reconstruire le bouton de pause sous le doigt.
 function paintJob() {
+  const busy = !!S.importing && !S.importing.err;
+  document.querySelectorAll('[data-act="refresh"]').forEach((b) => b.toggleAttribute('aria-busy', busy));
   const el = $('#job');
   const j = S.job;
   if (S.importing && !S.importing.err && S.data) {
@@ -1162,12 +1164,15 @@ function mountRush() {
 }
 
 // ---------- Vues ----------
-function filtersHtml() {
+// Cadence suivie : un réglage avec son libellé (vue Plan), plus un filtre posé sur chaque page.
+function cadenceField() {
   const has = new Set(S.data.games.map((g) => g.tc));
-  return `<select data-f="tc" aria-label="Cadence">${['rapid', 'blitz', 'bullet', 'daily'].filter((k) => has.has(k)).map((k) => `<option value="${k}" ${S.f.tc === k ? 'selected' : ''}>${TC[k]}</option>`).join('')}<option value="all" ${S.f.tc === 'all' ? 'selected' : ''}>Toutes cadences</option></select>
-    <select data-f="days" aria-label="Période"><option value="0">Depuis le début</option><option value="90" ${S.f.days === 90 ? 'selected' : ''}>90 derniers jours</option><option value="30" ${S.f.days === 30 ? 'selected' : ''}>30 derniers jours</option></select>
-    <button class="btn sm" data-act="refresh" title="Récupérer les nouvelles parties de ${esc(S.user)}">Mettre à jour</button>`;
+  return `<label class="sub" for="tcsel">Cadence suivie</label><select id="tcsel" data-f="tc">${['rapid', 'blitz', 'bullet', 'daily'].filter((k) => has.has(k)).map((k) => `<option value="${k}" ${S.f.tc === k ? 'selected' : ''}>${TC[k]}</option>`).join('')}<option value="all" ${S.f.tc === 'all' ? 'selected' : ''}>Toutes cadences</option></select>`;
 }
+// Période : Tout · 90 j · 30 j, dans chaque vue qui la lit (Mon jeu, Parties).
+const periodSeg = () => `<div class="seg2 mini" role="group" aria-label="Période">${[[0, 'Tout'], [90, '90 j'], [30, '30 j']].map(([v, l]) => `<button data-f="days" data-v="${v}" aria-pressed="${(S.f.days || 0) === v}" class="${(S.f.days || 0) === v ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+const upToDate = () => (S.data?.fetchedAt ? `À jour, ${agoFr(Date.now() - S.data.fetchedAt)}` : 'Pas encore mis à jour');
+const refreshBtn = () => `<button class="btn ico" data-act="refresh" aria-label="Mettre à jour" title="Récupérer les nouvelles parties de ${esc(S.user)}" ${S.importing && !S.importing.err ? 'aria-busy="true"' : ''}>${ico('refresh')}</button>`;
 const TITLES = { idees: 'Idées de plan', avantpartie: 'Avant de jouer', ouvertures: 'Ouverture', ligne: 'Ouverture', puzzles: 'Puzzles', erreur: 'Comprendre', partie: 'Partie', cours: 'Cours', drill: 'Échauffement', inedits: 'Positions inédites', gagner: 'Gagner', monouv: 'Mon ouverture', rush: 'Rush', finale: 'Finale', jouer: 'Jouer' };
 function header() {
   const t = $('#tools'), [r, a] = route();
@@ -1179,7 +1184,7 @@ function header() {
   const tr = st.trend(rapidAll()), stk = streak();
   // Sur téléphone, pendant un exercice, la barre du haut montre l'avancée (puzzles du jour, position de la série).
   const top = exo.top();
-  t.innerHTML = `${top ? `<span class="m-only row chips">${top}</span>` : `<span class="m-only row chips">${tr ? `<span class="chip">${tr.cur} Elo</span>` : ''}<span class="chip ${stk ? 'warn' : ''}">Série ${stk} j</span></span>`}${exo.current() ? sndBtn() : ''}<span class="d-only filters">${filtersHtml()}</span>`;
+  t.innerHTML = `${top ? `<span class="m-only row chips">${top}</span>` : `<span class="m-only row chips">${tr ? `<span class="chip">${tr.cur} Elo</span>` : ''}<span class="chip ${stk ? 'warn' : ''}">Série ${stk} j</span></span>`}${exo.current() ? sndBtn() : ''}`;
   navBadges();
 }
 // Bouton son / muet d'un écran d'exercice : barre du haut sur téléphone, bas de la colonne d'icônes sur ordinateur.
@@ -1468,7 +1473,7 @@ function viewBilan() {
   const { es, sig, fc } = session();
   const sigHtml = (arr, c, empty) => (arr.length ? arr.slice(0, 4).map((x) => `<div class="sig" style="--c:var(--${c})"><b>${esc(x.t)}</b><span>${esc(x.d)}</span>${x.lesson ? `<a href="#${x.lesson === 'ouvertures' ? 'ouvertures' : 'cours/' + x.lesson}">${x.lesson === 'ouvertures' ? 'Voir tes ouvertures' : 'Ouvrir le cours'}</a>` : ''}</div>`).join('') : `<p class="sub">${empty}</p>`);
   const all = st.tally(gs);
-  return `<h1>Mon jeu</h1>
+  return `<div class="vhead"><h1>Mon jeu</h1>${periodSeg()}</div>
   <div class="hero">${gb.html}
     <div class="card"><h2>Ton classement ${S.f.tc === 'all' ? 'Rapide' : TC[S.f.tc]}</h2><div class="chart" id="rc"></div></div></div>
   ${portraitCard()}
@@ -1815,7 +1820,7 @@ function viewParties() {
   const gs = games().slice().reverse(), fx = st.gameFacts(S.data?.games || []), allTc = S.f.tc === 'all';
   S.listN ||= 50;
   const head = '<div class="gl head" aria-hidden="true"><span>Joueurs et Elo</span><span>Résultat</span><span class="gl-meta"><span>Ouverture</span><span class="gl-c">Coups</span><span class="gl-c">Précision</span><span class="gl-c">Fautes</span><span class="gl-c">Pendule</span><span class="gl-d">Date</span></span></div><p class="gl-leg small">Elo : écart de l’adversaire avec toi, puis ce que la partie t’a fait gagner ou perdre. Dessous : coups, précision, temps restant, fautes (?? gaffe, ? erreur).</p>';
-  return `${GAMES_TABS('parties')}<h1>Parties</h1>${gs.length ? `<div class="card">${partiesSummary(gs)}</div>` : ''}<div class="card gll">${head}
+  return `${GAMES_TABS('parties')}<div class="vhead"><h1>Parties</h1>${periodSeg()}</div><div class="row updrow"><span class="sub" id="upd">${upToDate()}</span>${refreshBtn()}</div>${gs.length ? `<div class="card">${partiesSummary(gs)}</div>` : ''}<div class="card gll">${head}
     ${gs.slice(0, S.listN).map((g) => partieRow(g, fx[g.id] || {}, allTc)).join('')}
     ${gs.length > S.listN ? '<div><button class="btn" data-act="more">Afficher 50 parties de plus</button></div>' : ''}</div>`;
 }
@@ -2317,7 +2322,7 @@ function viewPlan() {
   ].filter(Boolean);
   const g = goal();
   return `<h1>Plan et réglages</h1>
-  <div class="card m-only stack"><h2>Tes données</h2><p class="sub">Compte ${esc(S.user)}. Dernière mise à jour le ${new Date(S.data.fetchedAt).toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}.</p><div class="stack filters">${filtersHtml()}</div></div>
+  <div class="card stack"><h2>Tes données</h2><p class="sub">Compte ${esc(S.user)}. Les nouvelles parties sont récupérées toutes seules.</p><div class="row">${cadenceField()}</div><div class="row"><button class="btn" data-act="refresh" ${S.importing && !S.importing.err ? 'aria-busy="true"' : ''}>Mettre à jour</button><span class="sub">${S.data.fetchedAt ? `À jour : ${agoFr(Date.now() - S.data.fetchedAt)}` : 'Pas encore mis à jour'}</span></div></div>
   <div class="card"><h2>Semaine du ${new Date(wk + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}</h2>
       <div class="row"><label for="hrs" class="sub">Temps disponible</label><select id="hrs">${[3, 4, 5, 6, 8, 10].map((h) => `<option value="${h}" ${h === hours ? 'selected' : ''}>${h} h par semaine</option>`).join('')}</select></div>
       <div class="stack"><b>Jouer : <span class="num">${played} / ${target}</span> parties rapides cette semaine</b>
@@ -2607,6 +2612,10 @@ document.addEventListener('change', (ev) => {
   if (el.dataset.f === 'tc') { S.f.tc = el.value; if (S.pz) pzReset('', false); } else S.f.days = +el.value;
   ls.set('filter', S.f); S.path = []; render(true);
 });
+document.addEventListener('click', (ev) => {
+  const b = ev.target.closest('button[data-f="days"]'); if (!b) return;
+  S.f.days = +b.dataset.v; ls.set('filter', S.f); S.path = []; render(true);
+});
 document.addEventListener('submit', async (ev) => {
   const f = ev.target.closest('form[data-form]'); if (!f) return;
   ev.preventDefault();
@@ -2652,6 +2661,10 @@ document.addEventListener('pointerout', (ev) => { if (ev.target.closest?.('[data
 let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { const r = route()[0]; if (r === 'bilan') mountBilan(); else if (r === 'accueil' && S.data) mountAccueil(); else if (r === 'entrainer' && S.data) mountEntrainer(); else if (r === 'stats') mountStats(S); else if (r === 'partie' && S.gv?.cg) { if (!!$('.fitside #xcap') !== exo.wide()) render(true); else gvSync(); } }, 200); }); // relecture : le bandeau change de colonne au passage ordinateur / téléphone
 
 if (new URLSearchParams(location.search).has('debug')) window.__cap = S; // accès à l'état pour les tests
+// Mise à jour automatique : au chargement et au retour sur l'onglet, si les données ont plus de 10 minutes.
+const STALE = 10 * 60000;
+const stale = () => Date.now() - (S.data?.fetchedAt || 0) > STALE;
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S.data && S.user && !S.importing && stale()) doImport(S.user); });
 (async function init() {
   look.apply(); // palette, pièces, coordonnées et taille de l'échiquier avant le premier rendu
   await load();
@@ -2661,6 +2674,6 @@ if (new URLSearchParams(location.search).has('debug')) window.__cap = S; // acc�
   const u = new URLSearchParams(location.search).get('u');
   reclassify(); warmReplays();
   if (!S.data && (S.user || u)) doImport(S.user || u);
-  else if (S.data && Date.now() - (S.data.fetchedAt || 0) > 6 * 3600000) doImport(S.user);
+  else if (S.data && stale()) doImport(S.user);
   else if (S.data && Object.values(S.an).some(toRedo)) autoAnalyse(); // anciennes analyses à réévaluer ou compléter, même sans nouvel import
 })();
