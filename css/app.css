@@ -110,16 +110,13 @@ body.fit .brand-mark { width: 26px; height: 26px; }
   .nav { position: static; flex-direction: column; border: 0; background: none; gap: 2px; padding: 0; }
   .nav a { flex: none; flex-direction: row; gap: 12px; min-height: var(--hit); padding: 0 12px; font-size: var(--t-m); border: 0; border-radius: var(--r-s); }
   .nav a.on { color: var(--ink); }
-  .nav a:hover { background: var(--sunken); }
   .tools { margin: auto 0 0; flex-direction: column; align-items: stretch; }
 }
 select, input[type=text], input[type=number], input[type=date] { font: inherit; font-size: var(--t-s); color: var(--ink); background: var(--sunken); border: 1px solid var(--line); border-radius: var(--r-s); min-height: 40px; padding: 0 10px; }
 .btn { font: 600 var(--t-m) var(--body); color: var(--ink); background: var(--btn2); border: 1px solid var(--btn2); border-radius: var(--r); min-height: var(--hit); padding: 0 var(--s-4); justify-content: center; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
-@media (hover: hover) and (pointer: fine) { .btn:hover { background: var(--btn2-hover); border-color: var(--btn2-hover); } }
 .btn.pri { background: var(--btn); border-color: var(--btn); color: var(--on-btn); font-weight: 600; box-shadow: 0 3px 0 var(--btn-edge); }
 .btn.pri:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--btn-edge); }
 .btn.lg { min-height: 48px; padding: 0 var(--s-5); font-size: var(--t-m); border-radius: var(--r); }
-@media (hover: hover) and (pointer: fine) { .btn.pri:hover { filter: brightness(1.12); background: var(--btn); } }
 .btn[disabled] { opacity: .5; cursor: default; }
 .btn.on { border-color: var(--accent); background: var(--accent-soft); } /* choix sélectionné : jamais un bouton plein */
 .btn.sm { min-height: 36px; padding: 0 var(--s-3); font-size: var(--t-s); }
@@ -169,13 +166,12 @@ select, input[type=text], input[type=number], input[type=date] { font: inherit; 
 .hbar { display: grid; grid-template-columns: minmax(110px, 200px) 1fr 34px; gap: 10px; align-items: center; font-size: var(--t-s); text-decoration: none; color: var(--ink); padding: 3px 0; }
 .hbar .track { height: 12px; }
 .hbar .track i { display: block; height: 100%; background: var(--accent); border-radius: 0 var(--r-s) var(--r-s) 0; min-width: 3px; }
-.hbar:hover .track i { filter: brightness(1.15); }
 .hbar .v { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
 
 table { width: 100%; border-collapse: collapse; font-size: var(--t-s); }
 th { text-align: left; font-weight: 500; color: var(--ink3); font-size: var(--t-xs); padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
-tr.click { cursor: pointer; } tr.click:hover td { background: var(--sunken); }
+tr.click { cursor: pointer; }
 td.r, th.r { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .scroll { overflow-x: auto; }
 /* Liste des parties (16/11) : synthèse en tuiles, puis une ligne par partie. Téléphone : joueurs et résultat, chiffres dessous. */
@@ -349,7 +345,6 @@ ol.routine { margin: 0; padding-left: 20px; display: flex; flex-direction: colum
 .tile b { font: 600 var(--t-xl)/1.1 var(--display); } .tile span { font-size: var(--t-xs); color: var(--ink2); }
 .bars { display: flex; align-items: flex-end; gap: 2px; height: 140px; border-bottom: 1px solid var(--line); }
 .bars i { flex: 1; min-width: 2px; background: var(--accent); border-radius: var(--r-s) var(--r-s) 0 0; }
-.bars i:hover { filter: brightness(1.25); }
 div.hbar { cursor: default; grid-template-columns: minmax(80px, 150px) 1fr minmax(72px, auto); }
 
 /* Séance du jour */
@@ -368,7 +363,6 @@ div.hbar { cursor: default; grid-template-columns: minmax(80px, 150px) 1fr minma
 .btn.choice[disabled] { opacity: 1; cursor: default; }
 .btn.choice.right { border-color: var(--good); background: var(--good-soft); } .btn.choice.wrong { border-color: var(--bad); background: var(--bad-soft); }
 a.card.lesson { text-decoration: none; color: inherit; transition: border-color var(--m-in) var(--ease), transform var(--m-in) var(--ease); }
-@media (hover: hover) and (pointer: fine) { a.card.lesson:hover { border-color: var(--accent); transform: translateY(-2px); } }
 details.manual { border-top: 1px solid var(--line); padding-top: 12px; }
 details.manual summary { cursor: pointer; font-weight: 600; margin-bottom: 10px; }
 textarea { font: var(--t-xs)/1.4 ui-monospace, Menlo, monospace; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-s); padding: 8px 10px; width: 100%; resize: vertical; }
@@ -398,7 +392,6 @@ textarea { font: var(--t-xs)/1.4 ui-monospace, Menlo, monospace; color: var(--in
 .moves { position: relative; display: flex; flex-wrap: wrap; gap: 2px 4px; font-size: var(--t-s); overflow-y: auto; }
 .moves .n { color: var(--ink3); font-size: var(--t-xs); padding: 3px 0 3px 4px; }
 .moves button { font: inherit; font-family: var(--mono); border: 0; background: none; color: var(--ink); padding: 3px 5px; border-radius: var(--r-s); cursor: pointer; }
-@media (hover: hover) and (pointer: fine) { .moves button:hover { background: var(--sunken); } }
 .moves button.cur { background: var(--btn); color: var(--on-btn); }
 .capm { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .capn { font: 600 var(--t-m) var(--display); display: inline-flex; align-items: center; gap: 6px; }
@@ -411,7 +404,6 @@ textarea { font: var(--t-xs)/1.4 ui-monospace, Menlo, monospace; color: var(--in
 ol.line { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 ol.line li { display: grid; grid-template-columns: 74px 1fr; gap: 10px; padding: 9px 10px; border-radius: var(--r-s); cursor: pointer; font-size: var(--t-s); border-left: 3px solid transparent; }
 ol.line li b { font-family: var(--display); font-size: var(--t-m); white-space: nowrap; } ol.line li span { color: var(--ink2); }
-ol.line li:hover { background: var(--sunken); }
 ol.line li.cur { background: var(--sunken); border-left-color: var(--accent); } ol.line li.cur span { color: var(--ink); }
 .idea { border-color: var(--accent); } .idea h3, .why h3 { font-size: var(--t-m); }
 .idea p, .why p { max-width: 65ch; }
@@ -450,7 +442,7 @@ body.homefit .view { flex: 1; min-height: 0; width: 100%; padding-bottom: 16px; 
 .now b { font: 600 var(--t-l) var(--serif); } .now > span { font-size: var(--t-m); color: var(--ink2); }
 .now .goalbar { max-width: 320px; margin-top: 4px; } .now .dots { margin-top: 4px; }
 .today .btn.pri { align-self: flex-start; }
-.fmini { gap: 4px; text-decoration: none; color: inherit; } .fmini:hover { border-color: var(--accent); }
+.fmini { gap: 4px; text-decoration: none; color: inherit; }
 .fnums { font-size: var(--t-s); } .fnums b { color: var(--ink); } .fnums b.ok { color: var(--good); } .fnums b.ko { color: var(--bad); }
 /* Mot du coach (accueil) : diagnostic, consigne du jour (ordinateur), critère de réussite */
 .brief .bdiag { font-size: var(--t-m); line-height: 1.45; color: var(--ink); }
@@ -594,7 +586,6 @@ cg-board square.selected { background-color: var(--sq-sel) !important; }
 /* Cases où la pièce choisie peut aller : point sur une case libre, anneau sur une pièce à prendre */
 cg-board square.move-dest { background: radial-gradient(var(--sq-dot) 17%, transparent 18.5%); }
 cg-board square.move-dest.oc { background: radial-gradient(transparent 76%, var(--sq-dot) 78%); }
-@media (hover: hover) and (pointer: fine) { cg-board square.move-dest:hover { background: var(--sq-hover); } }
 /* Roi en échec (posé par board()) : halo rouge radial sous la pièce */
 cg-board square.check { background: radial-gradient(circle, var(--sq-check) 0, var(--sq-check-mid) 40%, var(--sq-check-0) 72%); }
 
@@ -752,7 +743,6 @@ body.fit .cap { max-width: none; overflow-y: auto; }
 .oplist { display: flex; flex-direction: column; background: var(--surface); border: 1px solid transparent; border-radius: var(--r); overflow: hidden; }
 .oprow { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; row-gap: 3px; align-items: center; padding: 10px 14px; border-top: 1px solid var(--line); text-decoration: none; color: inherit; }
 .oprow:first-child, .lnrow:first-child { border-top: 0; }
-.oprow:hover { background: var(--sunken); }
 .oprow b { font: 600 var(--t-m) var(--body); }
 .oprow > :not(.chev) { grid-column: 1; }
 .oprow .chev { grid-column: 2; grid-row: 1 / span 3; font-size: var(--t-l); }
@@ -852,22 +842,6 @@ a:is([href^="#bilan"], [href^="#stats"], [href^="#plan"], [href^="#plus"]) { --s
   .fly a.on { box-shadow: none; }
 }
 
-/* ===== Survol (demande du 16/11) : tout élément cliquable s'éclaire sous la souris, jamais au toucher ===== */
-.btn, .seg2 button, .seg2 a, .mrow, a.revue, .oprow, .gl, .opdue, .fmini, .check, .gnum, .pzprog, .lgpos, a.card, .nav a, .nav a > svg, .brand, .moves button, .gvm .mv, .gvnote {
-  transition: background-color var(--m-in) var(--ease), border-color var(--m-in) var(--ease), color var(--m-in) var(--ease), filter var(--m-in) var(--ease), transform var(--m-press) var(--ease);
-}
-@media (hover: hover) and (pointer: fine) {
-  .btn:not(.pri):not([disabled]):hover { background: var(--btn2-hover); border-color: var(--hover-line); color: var(--ink); }
-  .btn.pri:not([disabled]):hover { filter: brightness(1.15); }
-  .seg2 button:not(.on):hover, .seg2 a:not(.on):hover { background: var(--hover); color: var(--ink); }
-  .nav a:not(.on):hover, .grp:hover .grp-h:not(.on) { background: var(--hover); color: var(--ink); }
-  .nav a:hover > svg, .grp:hover .grp-h > svg { color: var(--sec); filter: brightness(1.12); } /* icône plus vive sous la souris */
-  .mrow:hover, a.card:hover, .fmini:hover { background: var(--hover); border-color: var(--hover-line); }
-  .oprow:hover, .check:hover, tr.click:hover td, ol.line li:hover, .gl:not(.head):hover { background: var(--hover); }
-  .opdue:hover, .gnum:hover, a.revue:hover, .pzprog:hover, .lgpos:hover, .brand:hover { filter: brightness(1.15); }
-  .moves button:not(.cur):hover, .gvm .mv:not(.cur):hover, .gvnote:hover { background: var(--hover); color: var(--ink); }
-  a:not(.btn):not(.card):not(.gl):not(.mrow):not(.oprow):not(.opdue):not(.fmini):not(.gnum):not(.pzprog):not(.lgpos):not(.brand):hover { text-decoration-thickness: 2px; }
-}
 /* Un menu de navigation ouvert passe devant les messages éphémères (téléphone : même zone en bas d'écran) */
 body:has(.grp.open) .toasts { opacity: 0; }
 
@@ -910,11 +884,6 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
 .ent-log { display: flex; align-items: center; gap: var(--s-3); min-height: var(--hit); padding: var(--s-2) var(--s-4); border-radius: var(--r); color: var(--ink2); text-decoration: none; border: 1px dashed var(--line); }
 .ent-log span:first-of-type { color: var(--ink); font-weight: 500; }
 .ent-log .small { margin-left: auto; }
-@media (hover: hover) and (pointer: fine) {
-  .ent-tile, .ent-log { transition: background-color var(--m-in) var(--ease), border-color var(--m-in) var(--ease); }
-  .ent-tile:hover { background: var(--hover); border-color: color-mix(in srgb, var(--sec) 55%, var(--line)); }
-  .ent-log:hover { background: var(--hover); color: var(--ink); }
-}
 @media (max-width: 859px) {
   .ent-now { grid-template-columns: 112px minmax(0, 1fr); gap: var(--s-4); padding: var(--s-4); margin-bottom: var(--s-5); }
   .ent-b .board { width: 112px; height: 112px; }
@@ -955,3 +924,30 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { [data-act="refresh"][aria-busy="true"] .ic { animation: none; opacity: .5; } }
 .vhead .seg2.mini button { min-width: var(--hit); }
+
+/* ===== Survol (demande du 16/11) : tout élément cliquable s'éclaire sous la souris, jamais au toucher ===== */
+.btn, .seg2 button, .seg2 a, .mrow, a.revue, .oprow, .gl, .opdue, .fmini, .check, .gnum, .pzprog, .lgpos, a.card, .nav a, .nav a > svg, .brand, .moves button, .gvm .mv, .gvnote {
+  transition: background-color var(--m-in) var(--ease), border-color var(--m-in) var(--ease), color var(--m-in) var(--ease), filter var(--m-in) var(--ease), transform var(--m-press) var(--ease);
+}
+@media (hover: hover) and (pointer: fine) {
+  /* Bouton désactivé : teinte de survol de la première version, gardée telle quelle (même poids que .btn:hover) */
+  .btn:where([disabled]:not(.pri)):hover { background: var(--btn2-hover); border-color: var(--btn2-hover); }
+  .btn.pri:hover { filter: brightness(1.12); }
+  .btn:not(.pri):not([disabled]):hover { background: var(--btn2-hover); border-color: var(--hover-line); color: var(--ink); }
+  .btn.pri:not([disabled]):hover { filter: brightness(1.15); }
+  .seg2 button:not(.on):hover, .seg2 a:not(.on):hover { background: var(--hover); color: var(--ink); }
+  .nav a:not(.on):hover, .grp:hover .grp-h:not(.on) { background: var(--hover); color: var(--ink); }
+  .nav a:hover > svg, .grp:hover .grp-h > svg { color: var(--sec); filter: brightness(1.12); } /* icône plus vive sous la souris */
+  .mrow:hover, a.card:hover, .fmini:hover { background: var(--hover); border-color: var(--hover-line); }
+  .oprow:hover, .check:hover, tr.click:hover td, ol.line li:hover, .gl:not(.head):hover { background: var(--hover); }
+  .opdue:hover, .gnum:hover, a.revue:hover, .pzprog:hover, .lgpos:hover, .brand:hover { filter: brightness(1.15); }
+  .moves button:not(.cur):hover, .gvm .mv:not(.cur):hover, .gvnote:hover { background: var(--hover); color: var(--ink); }
+  a.card.lesson:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .hbar:hover .track i { filter: brightness(1.15); }
+  .bars i:hover { filter: brightness(1.25); }
+  cg-board square.move-dest:hover { background: var(--sq-hover); }
+  .ent-tile, .ent-log { transition: background-color var(--m-in) var(--ease), border-color var(--m-in) var(--ease); }
+  .ent-tile:hover { background: var(--hover); border-color: color-mix(in srgb, var(--sec) 55%, var(--line)); }
+  .ent-log:hover { background: var(--hover); color: var(--ink); }
+  a:not(.btn):not(.card):not(.gl):not(.mrow):not(.oprow):not(.opdue):not(.fmini):not(.gnum):not(.pzprog):not(.lgpos):not(.brand):hover { text-decoration-thickness: 2px; }
+}
