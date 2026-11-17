@@ -17,6 +17,8 @@ const TOUTES_TAILLES = [
   { id: '390x760', width: 390, height: 760, mobile: true },
   { id: '1366x768', width: 1366, height: 768 },
   { id: '1280x860', width: 1280, height: 860 },
+  // 390 × 664 au zoom 125 % de Safari : 312 × 531 pixels CSS (revue HIG, texte agrandi).
+  { id: '312x531', width: 312, height: 531, mobile: true, zoom: true },
 ];
 // Audit ciblé : SIZES=390x664,1366x768 et ONLY=accueil,bilan (noms d'écrans) ; sans variable, tout tourne.
 const liste = (v) => (v || '').split(',').map((x) => x.trim()).filter(Boolean);
@@ -49,6 +51,15 @@ const TOUS_ECRANS = [
   }],
 ];
 const SCREENS = liste(process.env.ONLY).length ? TOUS_ECRANS.filter(([n]) => liste(process.env.ONLY).includes(n)) : TOUS_ECRANS;
+// Un nom inconnu (faute de frappe) ne doit pas donner un « rien à signaler » silencieux.
+const inconnus = [
+  ...liste(process.env.SIZES).filter((x) => !TOUTES_TAILLES.some((z) => z.id === x)).map((x) => 'taille ' + x),
+  ...liste(process.env.ONLY).filter((x) => !TOUS_ECRANS.some(([n]) => n === x)).map((x) => 'écran ' + x),
+];
+if (inconnus.length || !SIZES.length || !SCREENS.length) {
+  console.error('Audit : rien à mesurer, noms inconnus : ' + (inconnus.join(', ') || '(sélection vide)'));
+  process.exit(1);
+}
 
 // Exécuté dans la page : mesures sur tout ce qui est visible.
 function measure(touch) {
@@ -119,6 +130,16 @@ function measure(touch) {
   const xb = document.querySelector('#xb');
   out.board = xb && vis(xb) ? Math.round(xb.getBoundingClientRect().width) : 0;
   out.wide = !!document.querySelector('.xwide');
+  // Libellés courts : jamais sur deux lignes (plus haut que 1,6 fois la hauteur de ligne).
+  out.wraps = [];
+  for (const el of document.querySelectorAll('#ttl, .tools .chip, .seg2 > *, .actbar .btn, .nav .grp-h span')) {
+    if (!vis(el)) continue;
+    // Hauteur du texte lui-même (pas de la boîte, qui peut avoir une hauteur minimale ou des marges).
+    const cs = getComputedStyle(el), lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2;
+    const rg = document.createRange(); rg.selectNodeContents(el);
+    const h = rg.getBoundingClientRect().height;
+    if (h > lh * 1.6) out.wraps.push('« ' + label(el) + ' » sur deux lignes');
+  }
   for (const el of document.querySelectorAll('body *')) {
     if (el.closest('cg-container, svg') || !vis(el)) continue;
     const rr = getComputedStyle(el).borderTopLeftRadius;
@@ -179,6 +200,8 @@ async function visit(ctx, size, report) {
       if (m.taps.length) pb.push(m.taps.length + ' cibles < 44 px');
       if (m.coords.length) pb.push('coordonnées : ' + m.coords.slice(0, 3).join(', '));
       if (m.wide && sid.startsWith('390x') && m.board < 360) pb.push('échiquier de ' + m.board + ' px (360 au moins)');
+      if (m.wraps.length) pb.push('libellé sur deux lignes : ' + m.wraps.slice(0, 3).join(', '));
+      if (sid === '312x531' && m.fit && m.board && m.board < (name.startsWith('partie') ? 200 : 240)) pb.push('échiquier de ' + m.board + ' px (' + (name.startsWith('partie') ? 200 : 240) + ' au moins)');
       if (m.errors.length) pb.push('erreurs JS : ' + m.errors.join(' | '));
       console.log(`${sid.padEnd(9)} ${name.padEnd(21)} ${pb.join(' · ') || 'rien à signaler'}`);
     }

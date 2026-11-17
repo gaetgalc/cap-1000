@@ -102,3 +102,5 @@ Suite de la refonte, détail dans `docs/PLAN-AGREMENT.md`. Écarts assumés en p
 ## Revue HIG (17/11)
 
 Règles ajoutées par la revue selon les règles d'interface d'Apple : voir `docs/PLAN-HIG.md`.
+
+- **Texte agrandi** (Safari à 125 % : 312 × 531 px CSS, cinquième taille de l'audit `312x531`) : aucun libellé court (titre, puces, onglets, boutons de barre, navigation) sur deux lignes, et l'échiquier d'un écran d'exercice garde au moins 240 px (200 px en relecture). Sous 560 px de haut, un écran d'exercice retire les onglets des puzzles, les ronds de progression (le compteur reste) et la ligne de contexte ; le bloc est en fin de `css/app.css`, rien ne change au-dessus.
