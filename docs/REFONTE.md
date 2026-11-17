@@ -10,9 +10,9 @@ Maquette validée par Gaëtan le 15/11 : écrans Aujourd'hui et Puzzle, téléph
 | Ce qu'on prend du skill | Jetons partagés (espacement par 4, une échelle de titres, une échelle d'arrondis), un seul bouton plein par vue, boutons de 44 px minimum, texte lu à 16 px, rien sous 13 px, contraste 7:1 (texte) et 4.5:1 (secondaire), une couleur d'accent, mouvement court (150 à 240 ms, `transform` et `opacity` seulement, survol réservé à la souris, `prefers-reduced-motion`), pas de capitales espacées ni de mise en valeur par couleur |
 | Ce qu'on laisse | Héro, « une section par écran », photos, effets, scènes, tirage de palette (le vert de l'échiquier reste) |
 | Bouton principal | Garde son relief (ombre basse `--btn-edge`), choix de Gaëtan contre la règle du skill. Vert assombri `#3a8020` pour un libellé blanc à 4.9:1 |
-| Polices | Geist (titres et texte), Geist Mono (notation des coups). Choisies dans la table du skill (`library/type.json`, poids 3 sur « software » et « tech ») ; à servir depuis `vendor/fonts/` comme les polices actuelles. Graisses 400 et 500, 600 au plus, jamais 700 |
+| Polices | Geist (texte), Source Serif 4 600 (h1, h2, logo, grands chiffres : `--serif`, demande du 17/11), Geist Mono (notation des coups). Choisies dans la table du skill (`library/type.json`, poids 3 sur « software » et « tech ») ; à servir depuis `vendor/fonts/` comme les polices actuelles. Graisses 400 et 500, 600 au plus, jamais 700 |
 | Échelle de texte | 13, 14, 16, 20, 28 px, plus 40 px pour un grand chiffre (Elo, stats) |
-| Arrondis | 8 px (petits éléments), 12 px (cartes, boutons), 50 % (pastilles rondes) |
+| Arrondis | 6 px (petits éléments), 8 px (cartes, boutons), 50 % (pastilles rondes) ; 8 et 12 jusqu’au 16/11 |
 | Thème | Sombre unique, échiquier vert |
 | Navigation | 5 entrées : Aujourd'hui, S'entraîner, Apprendre, Parties, Progrès. Pas de volet au survol, pas de « Plus ». Pendant un exercice sur ordinateur, la colonne se réduit aux icônes |
 | Anciennes adresses | Toutes gardées et redirigées vers leur nouvelle place |
@@ -89,3 +89,12 @@ Suite de la refonte, détail dans `docs/PLAN-AGREMENT.md`. Écarts assumés en p
 
 - **Fonds inversés, comme Chess.com** : page en gris chaud clair (`--bg` #2b2926), colonne de navigation, barres et cartes plus sombres posées dessus (`--surface` #22211e), encarts, champs et onglets choisis plus clairs que la carte (`--sunken`, `--raised`). Boutons secondaires pleins gris clair sans bord visible (`--btn2`, `--btn2-hover`). Contraste revérifié par l'audit.
 - **Centrage** : une seule colonne de contenu (`.view`, 1 120 px au plus), centrée dans l'espace à droite de la navigation ; l'accueil n'a plus sa propre largeur (1 040 px), donc le bord gauche du contenu ne bouge plus d'une page à l'autre. Le texte reste aligné à gauche ; on ne centre que les éléments autonomes (icônes dans leur pastille, compteurs, anneau du bilan, libellés des onglets et des boutons, échiquier dans sa zone).
+
+## Encarts nets et fluidité (17/11, demande de Gaëtan)
+
+> rendre plus propre les encarts […] j'aime bien [la police] de claude · à-coup par à-coup, au lieu d'une expérience fluide
+
+- **Cartes sans contour** : séparées par le fond seulement (`--surface` sur `--bg`), bordure transparente gardée pour ne rien décaler. Un état (séance en cours) se marque par un trait de 3 px à gauche, pas par un contour.
+- **Pastilles** : texte simple, couleur d'état portée par un point de 6 px ; jamais de fond coloré.
+- **Serif** (`--serif`) réservée aux titres h1 / h2, au logo et aux grands chiffres ; tout texte de lecture, bouton ou chiffre de tableau reste en Geist.
+- **Transitions** : la navigation garde son `view-transition-name` (`side` sur ordinateur, `tabs` sur téléphone) ; un nouvel élément fixe de la coquille en reçoit un aussi pour ne pas fondre avec la page. Un calcul de vue de plus de 50 ms se garde en mémoire ou se prépare quand le navigateur est libre.

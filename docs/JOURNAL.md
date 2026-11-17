@@ -442,6 +442,23 @@ Comparaison des rubriques de Chess.com (Jouer, Puzzles, Apprendre, Analyse, Insi
 5. **Explorateur Lichess filtré par niveau** (Ouvertures, sous l'explorateur de tes parties) : `explorer.lichess.ovh`, joueurs Lichess 1200 à 1800, blitz et rapide. Un coup touché prolonge la ligne explorée, même hors de tes parties. `js/explorer.js`, testé sur réponse simulée : `explorer.lichess.ovh` n'est pas joignable depuis l'environnement de Claude, format réel et besoin éventuel d'une connexion à confirmer au premier essai (message clair en cas de refus 401).
 6. **Elo estimé de la partie** (relecture : à côté de la précision sur ordinateur, dans la barre du haut sur téléphone à la place du classement et de la série) : repère personnel, ta précision moyenne des 30 dernières parties analysées vaut ton classement moyen, 25 points par point de précision, borné à ±400, rien sous 10 parties.
 
+## 41. Encarts plus nets, titres en serif, fluidité (17/11)
+
+> comment faire pour rendre plus propre les encarts ? […] peut-être changer la police, j'aime bien celle de claude. j'ai aussi envie de réfléchir à améliorer la fluidité […] c'est plutôt un à-coup par à-coup, au lieu d'une expérience fluide · fais moi voir un avant après et je valide · je valide, applique et passe à la fluidité
+
+**Encarts** (avant / après montré sur le site avec parties simulées, validé) :
+- Cartes sans bordure, séparées par le fond seulement, comme Chess.com (`--bg` #302e2b, `--surface` #262421 : écart creusé). La bordure reste là, transparente : aucune taille ne bouge.
+- Rayons resserrés : `--r` 8 px (cartes, boutons), `--r-s` 6 px.
+- Pastilles (`.chip`) : texte simple, l'état passe par un point de couleur, plus de fond coloré.
+- « Ta séance » : trait vert à gauche au lieu d'un contour vert ; règle du chantier sans contour.
+- Boutons en semi-gras, boutons secondaires `#3c3a37`.
+- Titres (h1, h2, logo, grands chiffres) en **Source Serif 4** 600 (OFL, `vendor/fonts/`), la serif libre la plus proche de celle de Claude (propriétaire) ; le reste en Geist.
+
+**Fluidité**, mesurée avant correction (Playwright, parties simulées) :
+- Entrée et sortie d'un exercice : saut de mise en page (colonne 208 → 72 px), sans fondu en sortie. Désormais fondu aussi en sortie, la colonne glisse (`view-transition-name: side`, images découpées, non étirées), la barre du bas du téléphone reste immobile (`tabs`).
+- « Mon jeu » figeait l'écran 290 ms pour 12 parties (`phaseStats` rejoue chaque partie avec chess.js) : `replay` garde chaque partie en mémoire (`classify.js`), et `warmReplays` les rejoue d'avance quand le navigateur est libre. 40 ms ensuite.
+- Relecture : images régulières (17 ms) ; la liste des coups ne relance plus un défilement doux à chaque coup quand les coups s'enchaînent (moins de 250 ms).
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |

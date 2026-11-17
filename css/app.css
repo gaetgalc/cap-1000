@@ -1,6 +1,7 @@
 @font-face { font-family: "Geist"; font-style: normal; font-weight: 400; font-display: swap; src: url("../vendor/fonts/geist-sans-latin-400-normal.woff2") format("woff2"); }
 @font-face { font-family: "Geist"; font-style: normal; font-weight: 500; font-display: swap; src: url("../vendor/fonts/geist-sans-latin-500-normal.woff2") format("woff2"); }
 @font-face { font-family: "Geist"; font-style: normal; font-weight: 600; font-display: swap; src: url("../vendor/fonts/geist-sans-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight: 600; font-display: swap; src: url("../vendor/fonts/source-serif-4-latin-600-normal.woff2") format("woff2"); }
 @font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 400; font-display: swap; src: url("../vendor/fonts/geist-mono-latin-400-normal.woff2") format("woff2"); }
 @font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 500; font-display: swap; src: url("../vendor/fonts/geist-mono-latin-500-normal.woff2") format("woff2"); }
 /* Cap 1000 : outil d'entraînement. Colonne de lecture + cartes de données, échiquier comme pièce centrale. */
@@ -9,9 +10,9 @@
   /* Refonte du 16/11 (docs/REFONTE.md) : toute couleur, taille, rayon et durée de l'interface vient d'ici. */
   /* Fonds (16/11, demande de Gaëtan, « comme Chess.com ») : page en gris chaud clair, colonne de navigation et cartes
      plus sombres posées dessus, encarts et boutons secondaires plus clairs que la carte qui les porte. */
-  --bg: #2b2926; --surface: #22211e; --sunken: #34322e; --raised: #3a3834; --line: #3a3733;
-  --btn2: #3a3834; --btn2-hover: #46433f; /* boutons secondaires */
-  --ink: #f2f1ed; --ink2: #c9c6be; --ink3: #a19e96; --on-btn: #fff; --black: #000;
+  --bg: #302e2b; --surface: #262421; --sunken: #3a3835; --raised: #3c3a37; --line: #3a3835;
+  --btn2: #3c3a37; --btn2-hover: #484541; /* boutons secondaires */
+  --ink: #f2f1ed; --ink2: #c9c6be; --ink3: #aaa79f; --on-btn: #fff; --black: #000;
   --accent: #7fc44f; --accent-ink: #a6e07a; --accent-soft: #2d4022; --btn: #3a8020; --btn-edge: #265713;
   --good: #8fdd5e; --good-soft: #2c4524; --warn: #ffb534; --warn-soft: #4a3a17; --bad: #ff7a6e; --bad-ink: #ff9a90; --bad-soft: #522522;
   --hover: #3d3b37; --hover-line: #6b665d; /* survol à la souris : fond et bord */
@@ -38,6 +39,8 @@
   /* Coordonnées : 12 px semi-gras, seule exception assumée à « rien sous 13 px » (dans les coins des cases) */
   --t-coord: 12px;
   --display: "Geist", "Segoe UI", system-ui, sans-serif;
+  /* Titres en serif (17/11, demande de Gaëtan, « comme Claude ») : h1, h2, logo, grands chiffres ; tout le reste en Geist */
+  --serif: "Source Serif 4", Georgia, serif;
   --body: "Geist", "Segoe UI", system-ui, sans-serif;
   --mono: "Geist Mono", ui-monospace, Menlo, monospace;
   /* Échelle de texte : 13, 14, 16, 20, 28, 40 */
@@ -45,7 +48,7 @@
   /* Espacement par 4 */
   --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 24px; --s-6: 32px; --s-7: 48px;
   /* Rayons : petit, carte, rond */
-  --r-s: 8px; --r: 12px;
+  --r-s: 6px; --r: 8px;
   --hit: 44px;
   /* Mouvement */
   --ease: cubic-bezier(.2, .8, .2, 1); --m-in: 150ms; --m-press: 90ms; --m-panel: 200ms;
@@ -71,14 +74,15 @@ html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: var(--t-m)/1.5 var(--body); padding-bottom: 76px; }
 h1, h2, h3 { font-family: var(--display); font-weight: 600; line-height: 1.2; margin: 0; text-wrap: balance; letter-spacing: -.02em; }
 b, strong { font-weight: 600; }
-h1 { font-size: var(--t-xl); letter-spacing: -.035em; } h2 { font-size: var(--t-l); } h3 { font-size: var(--t-m); }
+h1, h2 { font-family: var(--serif); letter-spacing: -.01em; }
+h1 { font-size: var(--t-xl); } h2 { font-size: var(--t-l); } h3 { font-size: var(--t-m); }
 p { margin: 0; } a { color: var(--accent-ink); }
 .num { font-variant-numeric: tabular-nums; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--r-s); }
 .mono, .gvm .mv, ol.line li b, .opmoves, .lnmv { font-family: var(--mono); letter-spacing: 0; }
 
 .top { display: flex; align-items: center; gap: 16px; padding: 12px 16px; background: var(--surface); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
-.brand { font: 600 var(--t-l) var(--display); color: var(--ink); text-decoration: none; display: flex; align-items: center; gap: 8px; }
+.brand { font: 600 var(--t-l) var(--serif); color: var(--ink); text-decoration: none; display: flex; align-items: center; gap: 8px; }
 /* Logo « le cap » (16/11) : aiguille de boussole dans un anneau, garder le cap vers 1000 */
 .brand-mark { width: 22px; height: 22px; flex: none; display: block; } .brand-mark svg { display: block; width: 100%; height: 100%; }
 body.fit .brand-mark { width: 26px; height: 26px; }
@@ -110,7 +114,7 @@ body.fit .brand-mark { width: 26px; height: 26px; }
   .tools { margin: auto 0 0; flex-direction: column; align-items: stretch; }
 }
 select, input[type=text], input[type=number], input[type=date] { font: inherit; font-size: var(--t-s); color: var(--ink); background: var(--sunken); border: 1px solid var(--line); border-radius: var(--r-s); min-height: 40px; padding: 0 10px; }
-.btn { font: 500 var(--t-m) var(--body); color: var(--ink); background: var(--btn2); border: 1px solid var(--btn2); border-radius: var(--r); min-height: var(--hit); padding: 0 var(--s-4); justify-content: center; transition: transform var(--m-press) var(--ease), background-color var(--m-in) var(--ease); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+.btn { font: 600 var(--t-m) var(--body); color: var(--ink); background: var(--btn2); border: 1px solid var(--btn2); border-radius: var(--r); min-height: var(--hit); padding: 0 var(--s-4); justify-content: center; transition: transform var(--m-press) var(--ease), background-color var(--m-in) var(--ease); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
 @media (hover: hover) and (pointer: fine) { .btn:hover { background: var(--btn2-hover); border-color: var(--btn2-hover); } }
 .btn.pri { background: var(--btn); border-color: var(--btn); color: var(--on-btn); font-weight: 600; box-shadow: 0 3px 0 var(--btn-edge); }
 .btn.pri:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--btn-edge); }
@@ -129,7 +133,7 @@ select, input[type=text], input[type=number], input[type=date] { font: inherit; 
 .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
 .split { display: grid; gap: 20px; grid-template-columns: 1fr; align-items: start; }
 @media (min-width: 860px) { .split { grid-template-columns: minmax(0, 520px) minmax(0, 1fr); } }
-.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.card { background: var(--surface); border: 1px solid transparent; border-radius: var(--r); padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .card > h2 { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .sub { color: var(--ink2); font-size: var(--t-s); }
 .small { font-size: var(--t-xs); color: var(--ink3); }
@@ -139,16 +143,16 @@ select, input[type=text], input[type=number], input[type=date] { font: inherit; 
 
 .hero { display: grid; gap: 16px; grid-template-columns: 1fr; }
 @media (min-width: 860px) { .hero { grid-template-columns: 320px 1fr; } }
-.big { font: 600 var(--t-xxl)/1 var(--display); letter-spacing: -.035em; }
+.big { font: 600 var(--t-xxl)/1 var(--serif); letter-spacing: -.01em; }
 .kv { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; font-size: var(--t-s); }
 .kv dt { color: var(--ink2); } .kv dd { margin: 0; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
 .goalbar { height: 10px; background: var(--sunken); border-radius: var(--r-s); overflow: hidden; }
 .goalbar i { display: block; height: 100%; background: var(--accent); border-radius: var(--r-s); }
 
-.chip { display: inline-flex; align-items: center; gap: 5px; font-size: var(--t-xs); font-weight: 600; padding: 2px 8px; border-radius: var(--r-s); background: var(--sunken); color: var(--ink2); white-space: nowrap; }
-.chip.good { background: var(--good-soft); color: var(--good); }
-.chip.bad { background: var(--bad-soft); color: var(--bad); }
-.chip.warn { background: var(--warn-soft); color: var(--warn); }
+/* Pastilles (17/11) : texte simple, la couleur d'état passe par un point, sans fond coloré */
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: var(--t-s); font-weight: 500; color: var(--ink3); white-space: nowrap; }
+.chip.good { color: var(--good); } .chip.bad { color: var(--bad-ink); } .chip.warn { color: var(--warn); }
+.chip.good::before, .chip.bad::before, .chip.warn::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
 .dot { width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--ink3); display: inline-block; flex: none; }
 .dot.w { background: #fff; border-color: var(--on-btn); } .dot.b { background: #000; border: 2px solid var(--ink3); }
 
@@ -305,7 +309,7 @@ ol.routine { margin: 0; padding-left: 20px; display: flex; flex-direction: colum
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 
 .tiles { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
-.tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; }
+.tile { background: var(--surface); border: 1px solid transparent; border-radius: var(--r); padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; }
 .tile b { font: 600 var(--t-xl)/1.1 var(--display); } .tile span { font-size: var(--t-xs); color: var(--ink2); }
 .bars { display: flex; align-items: flex-end; gap: 2px; height: 140px; border-bottom: 1px solid var(--line); }
 .bars i { flex: 1; min-width: 2px; background: var(--accent); border-radius: var(--r-s) var(--r-s) 0 0; }
@@ -313,7 +317,7 @@ ol.routine { margin: 0; padding-left: 20px; display: flex; flex-direction: colum
 div.hbar { cursor: default; grid-template-columns: minmax(80px, 150px) 1fr minmax(72px, auto); }
 
 /* Séance du jour */
-.today { border-color: var(--accent); gap: 14px; padding: 18px; }
+.today { box-shadow: inset 3px 0 0 var(--accent); gap: 14px; padding: 18px; } /* trait vert à gauche, pas de contour */
 .steps { display: flex; flex-direction: column; gap: 8px; }
 .step { display: grid; grid-template-columns: 36px 1fr; gap: 6px 14px; align-items: center; padding: 14px; border-radius: var(--r); background: var(--bg); border: 1px solid transparent; }
 .step.on { border-color: var(--accent); background: var(--accent-soft); }
@@ -329,11 +333,11 @@ div.hbar { cursor: default; grid-template-columns: minmax(80px, 150px) 1fr minma
 /* Coach */
 .coach { display: flex; gap: 12px; align-items: flex-start; }
 .coach-av { flex: none; width: 40px; height: 40px; border-radius: 50%; background: var(--btn); color: var(--on-btn); display: grid; place-items: center; }
-.coach-b { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-s) var(--r) var(--r) var(--r); padding: 12px 16px; max-width: 70ch; font-size: var(--t-m); }
+.coach-b { background: var(--surface); border: 1px solid transparent; border-radius: var(--r-s) var(--r) var(--r) var(--r); padding: 12px 16px; max-width: 70ch; font-size: var(--t-m); }
 .coach-b b.ko { color: var(--bad); }
 .seg { display: flex; gap: 4px; } .seg i { flex: 1; height: 6px; border-radius: var(--r-s); background: var(--sunken); }
 .seg i.done { background: var(--accent); } .seg i.cur { background: var(--accent-ink); }
-.rule { border-color: var(--accent); background: var(--accent-soft); } .rulet { font: 600 var(--t-l)/1.35 var(--display); max-width: 40ch; }
+.rule { background: var(--accent-soft); } .rulet { font: 600 var(--t-l)/1.35 var(--serif); max-width: 40ch; }
 .btn.choice { justify-content: flex-start; text-align: left; padding: 12px 14px; white-space: normal; }
 .btn.choice[disabled] { opacity: 1; cursor: default; }
 .btn.choice.right { border-color: var(--good); background: var(--good-soft); } .btn.choice.wrong { border-color: var(--bad); background: var(--bad-soft); }
@@ -408,7 +412,7 @@ body.homefit .view { flex: 1; min-height: 0; width: 100%; padding-bottom: 16px; 
 .htitle .chip { vertical-align: 2px; } .htitle .sub { font: 400 var(--t-s) var(--body); }
 .gstrip { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; }
 .gnum { display: flex; align-items: center; gap: 10px; flex: 1 1 260px; text-decoration: none; color: var(--ink); }
-.gnum b { font: 600 var(--t-xl)/1 var(--display); } .gnum b:last-child { color: var(--ink3); font-size: var(--t-m); }
+.gnum b { font: 600 var(--t-xl)/1 var(--serif); } .gnum b:last-child { color: var(--ink3); font-size: var(--t-m); }
 .gnum .goalbar { flex: 1; height: 8px; }
 .gmeta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: var(--t-s); color: var(--ink2); }
 .today { gap: 14px; }
@@ -419,7 +423,7 @@ body.homefit .view { flex: 1; min-height: 0; width: 100%; padding-bottom: 16px; 
 .stepper .done { color: var(--good); } .stepper .done i { background: var(--good-soft); }
 .stepper a:focus-visible, .stepper button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: var(--r-s); }
 .now { display: flex; flex-direction: column; gap: 4px; }
-.now b { font: 600 var(--t-l) var(--display); } .now > span { font-size: var(--t-m); color: var(--ink2); }
+.now b { font: 600 var(--t-l) var(--serif); } .now > span { font-size: var(--t-m); color: var(--ink2); }
 .now .goalbar { max-width: 320px; margin-top: 4px; } .now .dots { margin-top: 4px; }
 .today .btn.pri { align-self: flex-start; }
 .fmini { gap: 4px; text-decoration: none; color: inherit; } .fmini:hover { border-color: var(--accent); }
@@ -461,7 +465,7 @@ body.homefit .view { flex: 1; min-height: 0; width: 100%; padding-bottom: 16px; 
 .whyb { display: flex; flex-wrap: wrap; gap: 8px; }
 .askrow { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 8px; }
 .askout:empty { display: none; } .askout textarea { width: 100%; }
-.cap .capask { margin-left: auto; } .cap .gvwhy + .capask { margin-left: 0; }
+.cap .capacts { margin-left: auto; display: inline-flex; gap: 8px; } .cap .gvwhy + .capacts { margin-left: 0; }
 .cap.db, .cap.coachq { border-top-color: var(--accent); }
 /* Tier 2 : auto-évaluation (accueil), idées de plan, portrait, page « Avant de jouer » */
 .selfrow { display: flex; flex-direction: column; gap: 8px; }
@@ -496,7 +500,7 @@ details.gd summary { cursor: pointer; font-size: var(--t-s); color: var(--accent
   body { font-size: var(--t-m); padding-bottom: calc(66px + env(safe-area-inset-bottom)); }
   body.imm { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
   .top { position: sticky; top: 0; z-index: 30; height: 52px; padding: 0 14px; flex-wrap: nowrap; gap: 10px; }
-  .tools { gap: 6px; flex-wrap: nowrap; } .tools .chip { font-size: var(--t-xs); padding: 4px 9px; }
+  .tools { gap: 12px; flex-wrap: nowrap; } .tools .chip { font-size: var(--t-xs); }
   body.imm .brand, body.imm .nav { display: none; }
   body.imm .back { display: grid; place-items: center; width: 40px; height: 40px; margin-left: -8px; font-size: var(--t-xl); line-height: 1; color: var(--ink); background: none; border: 0; cursor: pointer; }
   body.imm .ttl { display: block; font: 600 var(--t-m) var(--display); }
@@ -707,7 +711,7 @@ body.fit .cap { max-width: none; overflow-y: auto; }
 .opdue { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 14px; border-radius: var(--r); background: var(--warn-soft); color: var(--warn); text-decoration: none; font-size: var(--t-s); }
 .opgrp button, .optabs button { flex: 1 1 auto; }
 .optabs { overflow-x: auto; scrollbar-width: none; }
-.oplist { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.oplist { display: flex; flex-direction: column; background: var(--surface); border: 1px solid transparent; border-radius: var(--r); overflow: hidden; }
 .oprow { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; row-gap: 3px; align-items: center; padding: 10px 14px; border-top: 1px solid var(--line); text-decoration: none; color: inherit; }
 .oprow:first-child, .lnrow:first-child { border-top: 0; }
 .oprow:hover { background: var(--sunken); }
@@ -750,6 +754,16 @@ body.imm .toasts { bottom: calc(84px + var(--s-3) + env(safe-area-inset-bottom))
 @media (min-width: 860px) { .toasts, body.imm .toasts { left: var(--side); bottom: var(--s-5); } }
 /* Changement de vue : fondu court (View Transitions API, déclenché dans app.js seulement sur une navigation) */
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: var(--m-in); animation-timing-function: var(--ease); }
+/* Fluidité (17/11) : la navigation ne fond pas avec la page, elle reste en place. Sur ordinateur, la colonne qui se
+   réduit aux icônes pendant un exercice (208 → 72 px) glisse au lieu de sauter : ses deux images ne sont pas étirées,
+   seulement découpées à la largeur du moment. Sur téléphone, la barre du bas reste immobile. */
+@media (max-width: 859.98px) { .nav { view-transition-name: tabs; } }
+@media (min-width: 860px) { .top { view-transition-name: side; } }
+::view-transition-group(side) { animation-duration: var(--m-panel); animation-timing-function: var(--ease); overflow: clip; }
+::view-transition-old(side), ::view-transition-new(side) { width: auto; height: 100%; object-fit: none; object-position: left top; animation: none; }
+::view-transition-old(side) { display: none; }
+::view-transition-old(tabs) { display: none; }
+::view-transition-new(tabs) { animation: none; }
 @media (prefers-reduced-motion: reduce) { .toast { transform: none; } ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; } }
 /* Sons (lot 3) : bouton son / muet d'un exercice, dans la barre du haut (téléphone) ou en bas de la colonne d'icônes (ordinateur) */
 .btn.snd { flex: none; width: var(--hit); height: var(--hit); padding: 0; color: var(--ink2); }

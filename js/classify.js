@@ -53,14 +53,21 @@ function sanLine(fen, pv, n = 4) {
 }
 
 // Rejoue la partie : positions (FEN) avant chaque coup et coups joués. null si elle est illisible.
+// Gardé en mémoire par partie (17/11) : « Mon jeu », le classement et les puzzles rejouent les mêmes parties ;
+// chess.js coûte ~20 ms par partie, soit plusieurs secondes sur des centaines. Le résultat ne se modifie pas.
+const REPLAYS = new Map();
 export function replay(game) {
+  const key = (game.id ?? '') + '|' + game.san.join(' ');
+  if (REPLAYS.has(key)) return REPLAYS.get(key);
   const ch = new Chess(), fens = [ch.fen()], mv = [];
   for (const s of game.san) {
     const m = ch.move(s, { sloppy: true });
     if (!m) break;
     mv.push(m); fens.push(ch.fen());
   }
-  return mv.length < 4 ? null : { fens, mv };
+  const r = mv.length < 4 ? null : { fens, mv };
+  REPLAYS.set(key, r);
+  return r;
 }
 
 // Coups du joueur qui font perdre au moins 10 points de chances de gain (erreurs et gaffes) : ce sont les

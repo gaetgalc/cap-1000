@@ -108,6 +108,19 @@ function reclassify() {
     if (i < todo.length) setTimeout(step, 0); else { dbSet('an:' + user, S.an); bgRender(); }
   })();
 }
+// Parties rejouées d'avance, par tranches de 10 ms quand le navigateur est libre (17/11) : « Mon jeu » et la relecture
+// trouvent alors leurs positions déjà calculées (replay garde chaque partie), au lieu de figer l'écran à l'ouverture.
+function warmReplays() {
+  if (!S.data) return;
+  const user = S.user, todo = S.data.games.filter((g) => S.an[g.id] && !S.an[g.id].bad).reverse();
+  const idle = window.requestIdleCallback || ((f) => setTimeout(() => f({ timeRemaining: () => 10 }), 50));
+  let i = 0;
+  idle(function step(dl) {
+    if (S.user !== user) return;
+    while (i < todo.length && dl.timeRemaining() > 2) replay(todo[i++]);
+    if (i < todo.length) idle(step);
+  });
+}
 // Au démarrage : nouvelles parties récentes à analyser, puis anciennes analyses à réévaluer (une seule fois).
 function autoAnalyse() {
   if (!S.data) return;
@@ -1825,7 +1838,7 @@ function gvCap(v) {
   const k = v.k, g = v.g, a = v.a, e = v.errAt[k], prevErr = v.errAt[k - 1], me = g.w ? 'w' : 'b';
   if (v.db != null) { const L = gvDbList(v), m = L[v.db]; return { cls: 'db', html: `<div class="capm"><span class="capn">Débrief ${v.db + 1} / ${L.length}</span><span class="chip">${m.title}</span></div><p>${esc(m.text)}</p>` }; }
   if (v.ask?.k === k) return { cls: 'coachq', html: `<div class="capm"><span class="capn">Le coach</span><button class="btn sm gvwhy" data-act="askclose">Fermer</button></div>${v.ask.err ? `<p>${esc(v.ask.err)}</p>` : v.ask.html ? `<p>${txt(v.ask.html)}</p>` : '<p>Je regarde la position…</p>'}` };
-  const askB = `<button class="btn sm capask" data-act="askpos" title="${coachKey() ? 'Demande au coach de commenter cette position' : 'Copie la question pour la coller dans Claude'}">Coach</button>${playB(v)}`;
+  const askB = `<span class="capacts"><button class="btn sm capask" data-act="askpos" title="${coachKey() ? 'Demande au coach de commenter cette position' : 'Copie la question pour la coller dans Claude'}">Coach</button>${playB(v)}</span>`; // Coach et Jouer passent à la ligne ensemble
   const kindChip = (x) => `<span class="chip ${x.kind === 'gaffe' ? 'bad' : x.kind === 'erreur' ? 'warn' : ''}">${x.kind === 'gaffe' ? 'Gaffe' : x.kind === 'erreur' ? 'Erreur' : 'Imprécision'}</span>`;
   if (e) return { cls: 'ko', html: `<div class="capm"><span class="capn">Moment clé, coup ${moveNo(e)}</span>${kindChip(e)}<a class="btn pri sm gvwhy" href="#erreur/${g.t}/${e.ply}">Comprendre<span class="d-txt">cette erreur</span></a>${askB}</div><p>${explain(e)}</p>` };
   const dbB = a ? ' <button class="btn sm" data-act="dbgo" data-i="0">Débrief de la partie</button>' : '';
@@ -2059,7 +2072,9 @@ function gvSync() {
   if (box) { // coup courant surligné et gardé au centre de la liste, qui défile seule (jamais la page)
     box.querySelectorAll('.mv').forEach((b) => b.classList.toggle('cur', +b.dataset.k === k));
     const c = box.querySelector('.mv.cur');
-    if (c) box.scrollTo({ top: c.offsetTop - (box.clientHeight - c.offsetHeight) / 2, left: c.offsetLeft - (box.clientWidth - c.offsetWidth) / 2, behavior: REDUCED ? 'auto' : 'smooth' });
+    // Défilement doux, sauf quand les coups s'enchaînent (flèche maintenue) : un défilement relancé à chaque coup saccade
+    const now = performance.now(), quick = now - (v.lastSync || 0) < 250; v.lastSync = now;
+    if (c) box.scrollTo({ top: c.offsetTop - (box.clientHeight - c.offsetHeight) / 2, left: c.offsetLeft - (box.clientWidth - c.offsetWidth) / 2, behavior: REDUCED || quick ? 'auto' : 'smooth' });
   }
   v.chart?.cursor(k);
   if (v.a) $('#gvev')?.style.setProperty('--ev', evalShare(v.a.ev[k]));
@@ -2561,12 +2576,13 @@ document.addEventListener('keydown', (ev) => {
   if (ev.key === 'ArrowLeft') gvGo(S.gv.k - 1); else if (ev.key === 'ArrowRight') gvGo(S.gv.k + 1);
   else if (ev.key === 'Home') gvGo(0); else if (ev.key === 'End') gvGo(S.gv.mv.length);
 });
-// Changement de vue : fondu de 150 ms (View Transitions API, rien si elle manque). Jamais en quittant un exercice,
-// ni si l'appareil demande moins de mouvement ; les rendus d'arrière-plan (bgRender) ne passent pas par ici.
+// Changement de vue : fondu de 150 ms (View Transitions API, rien si elle manque), aussi en entrant dans un exercice
+// ou en le quittant (17/11 : la colonne de navigation glisse au lieu de sauter, voir css). Jamais si l'appareil demande
+// moins de mouvement ; les rendus d'arrière-plan (bgRender) ne passent pas par ici.
 const calm = matchMedia('(prefers-reduced-motion: reduce)');
 addEventListener('hashchange', () => {
   navClose(); // un rendu d'arrière-plan laisse le volet ouvert, un changement de page le ferme
-  if (!document.startViewTransition || calm.matches || exo.current() || document.hidden) render();
+  if (!document.startViewTransition || calm.matches || document.hidden) render();
   else document.startViewTransition(() => render());
 });
 document.addEventListener('pointerover', (ev) => {
@@ -2587,7 +2603,7 @@ if (new URLSearchParams(location.search).has('debug')) window.__cap = S; // acc�
   navigator.storage?.persist?.().catch(() => {}); // demande au navigateur de ne pas effacer les données de l'app
   render();
   const u = new URLSearchParams(location.search).get('u');
-  reclassify();
+  reclassify(); warmReplays();
   if (!S.data && (S.user || u)) doImport(S.user || u);
   else if (S.data && Date.now() - (S.data.fetchedAt || 0) > 6 * 3600000) doImport(S.user);
   else if (S.data && Object.values(S.an).some(toRedo)) autoAnalyse(); // anciennes analyses à réévaluer ou compléter, même sans nouvel import

@@ -88,3 +88,13 @@ test('coups qui tiennent : comptés à moins de 6 points du meilleur, et puzzles
   const [err] = classify(game, { ev, best: pv.map((m) => m[0] ?? null), pv, mp: { 4: [30, 25, -60] } }).errs;
   assert.equal(err.alt, 2);
 });
+
+test('replay : une même partie n’est rejouée qu’une fois (cache), une partie modifiée est rejouée', () => {
+  const g = { id: 'r1', san: ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5'] };
+  const a = replay(g), b = replay({ ...g });
+  assert.equal(a, b);
+  assert.equal(a.mv.length, 5);
+  const c = replay({ id: 'r1', san: ['e4', 'e5', 'Nf3', 'Nc6'] });
+  assert.equal(c.mv.length, 4);
+  assert.equal(replay({ id: 'r2', san: ['e4', 'e5', 'Qh5'] }), null);
+});
