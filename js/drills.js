@@ -1,6 +1,8 @@
 // Exercices de vérification rapide, générés à partir de positions réelles des parties du joueur.
 // La bonne réponse est établie par les règles (coups légaux, attaquants, défenseurs), sans moteur.
 /* global Chess */
+import { replay } from './classify.js';
+import { attacksFrom } from './geom.js';
 import { hanging, poss, fr, VAL, NOM, cap, fem } from './explain.js';
 
 export const DRILLS = {
@@ -22,20 +24,23 @@ const build = {
     if (ch.in_check()) return null;
     const wantUnsafe = out.filter((x) => x.answer === 'non').length <= out.filter((x) => x.answer === 'oui').length;
     for (const m of shuffle(ch.moves({ verbose: true }).filter((x) => 'nbrq'.includes(x.piece) && !x.captured))) {
-      const c2 = new Chess(c.fen), mm = c2.move(m);
-      const caps = c2.moves({ verbose: true }).filter((x) => x.to === mm.to).sort((a, b) => VAL[a.piece] - VAL[b.piece]);
+      const mm = ch.move(m); // jouer puis défaire : évite de relire une FEN par essai
+      const caps = ch.moves({ verbose: true }).filter((x) => x.to === mm.to).sort((a, b) => VAL[a.piece] - VAL[b.piece]);
       let bad = null, rec = false;
       for (const x of caps) {
-        const c3 = new Chess(c2.fen()); c3.move(x);
-        const r = c3.moves({ verbose: true }).some((y) => y.to === mm.to);
+        ch.move(x);
+        const r = ch.moves({ verbose: true }).some((y) => y.to === mm.to);
+        ch.undo();
         if (!r || VAL[x.piece] < VAL[mm.piece]) { bad = x; rec = r; break; }
       }
+      const fenAfter = ch.fen();
+      ch.undo();
       if (!!bad !== wantUnsafe) continue;
       const mine = poss(mm.piece, me, me);
       const text = bad
         ? `Non. ${cap(poss(bad.piece, opp, me))} en ${bad.from} peut prendre ${mine}${rec ? `, et même si tu reprends tu perds au change (${NOM[mm.piece]} contre ${NOM[bad.piece]})` : ', et rien ne peut reprendre'}.`
         : caps.length ? `Oui. ${cap(mine)} est attaqué${fem(mm.piece)}, mais défendu${fem(mm.piece)} : ${fem(mm.piece) ? 'la' : 'le'} prendre ne rapporte rien à ton adversaire.` : `Oui. Aucune pièce adverse n’attaque la case ${mm.to}.`;
-      return { fen: c2.fen(), last: [mm.from, mm.to], q: `Tu viens de jouer <b>${fr(mm.san)}</b>. Ta pièce est-elle en sécurité sur ${mm.to} ?`, options: [['oui', 'Oui, sûre'], ['non', 'Non, en prise']], answer: bad ? 'non' : 'oui', text, pre: [arrow(mm.from, mm.to, 'blue')], shapes: bad ? [arrow(bad.from, bad.to, 'red')] : [] };
+      return { fen: fenAfter, last: [mm.from, mm.to], q: `Tu viens de jouer <b>${fr(mm.san)}</b>. Ta pièce est-elle en sécurité sur ${mm.to} ?`, options: [['oui', 'Oui, sûre'], ['non', 'Non, en prise']], answer: bad ? 'non' : 'oui', text, pre: [arrow(mm.from, mm.to, 'blue')], shapes: bad ? [arrow(bad.from, bad.to, 'red')] : [] };
     }
     return null;
   },
@@ -44,8 +49,7 @@ const build = {
     if (!c.prevFen || !c.last) return null;
     const opp = me === 'w' ? 'b' : 'w', ch = new Chess(c.fen);
     if (ch.in_check()) return null;
-    const h0 = new Set(hanging(new Chess(c.prevFen).board(), me).map((h) => h.sq)), h1 = hanging(ch.board(), me);
-    const fresh = h1.filter((h) => !h0.has(h.sq));
+    const h1 = hanging(ch.board(), me);
     const wantNone = out.filter((x) => x.answer === 'none').length < Math.floor((out.length + 1) / 4);
     const q = `Ton adversaire vient de jouer <b>${fr(c.last.san)}</b>. Touche celle de tes pièces qu’il met en danger.`;
     const options = [['none', 'Aucune menace']];
@@ -53,7 +57,10 @@ const build = {
       if (h1.length || c.last.captured) return null;
       return { fen: c.fen, last: [c.last.from, c.last.to], q, options, tap: true, answer: 'none', text: 'Aucune de tes pièces n’est en danger après ce coup. Le constater vite fait aussi partie de la vérification.', shapes: [] };
     }
-    if (fresh.length !== 1 || h1.length !== 1 || fresh[0].type === 'p') return null;
+    if (h1.length !== 1) return null; // la nouvelle menace est forcément dans h1 : inutile de relire la position d'avant sinon
+    const h0 = new Set(hanging(new Chess(c.prevFen).board(), me).map((h) => h.sq));
+    const fresh = h1.filter((h) => !h0.has(h.sq));
+    if (fresh.length !== 1 || fresh[0].type === 'p') return null;
     const t = fresh[0];
     return { fen: c.fen, last: [c.last.from, c.last.to], q, options, tap: true, answer: t.sq, text: `${cap(poss(t.by.type, opp, me))} en ${t.by.sq} attaque ${poss(t.type, me, me)} en ${t.sq}, ${t.defended ? `qui vaut plus cher que l’attaquant` : `qui n’est pas défendu${fem(t.type)}`}.`, shapes: [arrow(t.by.sq, t.sq, 'red')] };
   },
@@ -61,10 +68,16 @@ const build = {
   cadeau(c, me) {
     const opp = me === 'w' ? 'b' : 'w', ch = new Chess(c.fen);
     if (ch.in_check()) return null;
-    const free = [];
+    // Sans pièce adverse (cavalier ou plus) attaquée, aucune capture ne rapporte : inutile de générer les coups (ce qui coûte cher).
+    const B = ch.board(), hit = new Set();
+    for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) if (B[r][f]?.color === me) for (const [a, b] of attacksFrom(B, r, f)) hit.add(a * 8 + b);
+    if (!B.some((row, r) => row.some((p, f) => p && p.color === opp && VAL[p.type] >= 3 && hit.has(r * 8 + f)))) return null;
+    const free = [], seen = new Set();
     for (const m of ch.moves({ verbose: true }).filter((x) => x.captured && VAL[x.captured] >= 3)) {
-      const c2 = new Chess(c.fen); c2.move(m);
-      if (!c2.moves({ verbose: true }).some((y) => y.to === m.to)) free.push(m);
+      ch.move(m);
+      if (!ch.moves({ verbose: true }).some((y) => y.to === m.to)) { free.push(m); seen.add(m.to); }
+      ch.undo();
+      if (seen.size > 1) return null; // deux cadeaux : la question n'a plus une seule réponse
     }
     const targets = [...new Set(free.map((m) => m.to))];
     if (targets.length !== 1) return null;
@@ -85,24 +98,30 @@ const build = {
   },
 };
 
-// Une série de n positions, une par partie pour varier.
+// Positions essayées au plus par partie à la première passe : les règles de `build` sont sélectives, mais en essayer
+// beaucoup ne change rien à la variété. Si la série reste incomplète, une seconde passe reprend les autres positions.
+const TRIES = 6;
+
+// Une série de n positions, une par partie pour varier. Positions et coups viennent du rejeu en cache (`replay`).
 export function makeRound(type, games, n = 10) {
-  const out = [];
-  for (const g of shuffle(games.filter((x) => x.san.length >= 24).slice())) {
+  const out = [], rest = [];
+  const tryGame = (g, cands) => {
+    const r = replay(g), me = g.w ? 'w' : 'b';
+    for (const i of cands) {
+      const it = build[type]({ fen: r.fens[i], prevFen: r.fens[i - 1], last: r.mv[i - 1] }, me, out);
+      if (it) { out.push({ ...it, type, white: g.w }); return true; }
+    }
+    return false;
+  };
+  for (const g of shuffle(games.filter((x) => x.san.length >= 24))) {
     if (out.length >= n) break;
-    const me = g.w ? 'w' : 'b', ch = new Chess(), cands = [];
-    let prevFen = null, last = null;
-    for (let i = 0; i < Math.min(g.san.length, 80); i++) {
-      const fen = ch.fen();
-      if (i >= 10 && (i % 2 === 0) === g.w) cands.push({ fen, prevFen, last });
-      prevFen = fen;
-      last = ch.move(g.san[i], { sloppy: true });
-      if (!last) break;
-    }
-    for (const c of shuffle(cands)) {
-      const it = build[type](c, me, out);
-      if (it) { out.push({ ...it, type, white: g.w }); break; }
-    }
+    const r = replay(g);
+    if (!r) continue;
+    const cands = [];
+    for (let i = g.w ? 10 : 11; i < Math.min(r.mv.length, 80); i += 2) cands.push(i);
+    shuffle(cands);
+    if (!tryGame(g, cands.slice(0, TRIES)) && cands.length > TRIES) rest.push([g, cands.slice(TRIES)]);
   }
+  for (const [g, cands] of rest) { if (out.length >= n) break; tryGame(g, cands); }
   return out;
 }
