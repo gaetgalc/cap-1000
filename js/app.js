@@ -1771,10 +1771,10 @@ const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 function partiesSummary(gs) {
   const s = st.listSummary(gs); if (!s.n) return '';
   // Encart propre à la synthèse, pas tile() de ui.js : sous-titre en chiffres alignés (small num)
-  const tile = (lab, v, sub = '') => `<div class="glt"><span class="small">${lab}</span><b class="num">${v}</b>${sub ? `<span class="small num">${sub}</span>` : ''}</div>`;
-  return `<div class="glsum">${tile('Parties', s.n, `${s.w} V · ${s.d} N · ${s.l} D`)}${tile('Score', s.score + ' %')}
-    ${s.from != null ? tile('Mon Elo', `${s.to} <span class="${s.to > s.from ? 'up' : s.to < s.from ? 'dn' : ''}">${sgn(s.to - s.from)}</span>`, `depuis ${s.from}`) : ''}
-    ${s.opp ? tile('Adversaires', s.opp, 'Elo moyen') : ''}${s.perf ? tile('Performance', s.perf, 'Elo estimé') : ''}</div>${wdl(s)}`;
+  const sumTile = (lab, v, sub = '') => `<div class="glt"><span class="small">${lab}</span><b class="num">${v}</b>${sub ? `<span class="small num">${sub}</span>` : ''}</div>`;
+  return `<div class="glsum">${sumTile('Parties', s.n, `${s.w} V · ${s.d} N · ${s.l} D`)}${sumTile('Score', s.score + ' %')}
+    ${s.from != null ? sumTile('Mon Elo', `${s.to} <span class="${s.to > s.from ? 'up' : s.to < s.from ? 'dn' : ''}">${sgn(s.to - s.from)}</span>`, `depuis ${s.from}`) : ''}
+    ${s.opp ? sumTile('Adversaires', s.opp, 'Elo moyen') : ''}${s.perf ? sumTile('Performance', s.perf, 'Elo estimé') : ''}</div>${wdl(s)}`;
 }
 function partieRow(g, fx, allTc) {
   const a = S.an[g.id], ok = a && !a.bad, acc = ok && a.acc != null ? a.acc : g.acc;
@@ -2287,21 +2287,21 @@ function viewEntrainer() {
   } else {
     hero = `<section class="ent-now noboard"><div class="ent-t"><span class="ent-k">À faire maintenant</span><h2>${d.done >= d.goal ? 'Objectif du jour atteint' : 'Échauffe ton regard'}</h2><p>${d.done >= d.goal ? 'Tes puzzles sont faits. Deux minutes de vérification gardent le réflexe.' : 'Dix positions tirées de tes parties, deux minutes, pour vérifier avant de jouer.'}</p><a class="btn pri lg" href="#exos">Lancer un échauffement</a></div></section>`;
   }
-  const tile = (href, icon, t, desc, tag, sec) => `<a class="ent-tile" href="${href}" style="--sec:var(${sec})"><span class="ent-i">${ico(icon)}</span><b>${t}</b><span class="ent-d">${desc}</span>${tag ? `<span class="ent-tag">${tag}</span>` : ''}</a>`;
+  const entTile = (href, icon, t, desc, tag, sec) => `<a class="ent-tile" href="${href}" style="--sec:var(${sec})"><span class="ent-i">${ico(icon)}</span><b>${t}</b><span class="ent-d">${desc}</span>${tag ? `<span class="ent-tag">${tag}</span>` : ''}</a>`;
   return `<h1>S’entraîner</h1>${hero}
   <h2 class="ent-h">Pratiquer</h2><div class="ent-grid">
-    ${n.kind === 'pz' ? '' : tile('#puzzles', 'tgt', 'Puzzles sur mes erreurs', 'Tes propres fautes, à corriger', d.due ? `${d.due} en attente` : '', '--c-train')}
-    ${tile('#exos', 'clock', 'Échauffements', 'Vérifier avant de jouer, 2 minutes', '', '--c-train')}
-    ${tile(due.length ? lineHref(due[0]) : '#ouvertures/apprendre', 'lines', 'Réciter mes lignes', 'Tes ouvertures, de mémoire', due.length ? `${due.length} à réviser` : '', '--c-learn')}
-    ${tile('#rush', 'bolt', 'Rush', 'Vérifier vite, contre la montre', progress.rushBest().t3 ? 'Record : ' + progress.rushBest().t3 : '', '--c-train')}
-    ${tile('#gagner', 'flag', 'Finir les parties gagnées', 'Convertir l’avantage contre le moteur', cv ? pl(cv, 'partie') : '', '--c-train')}
-    ${tile('#finales', 'king', 'Finales de base', 'Mater, faire dame, tenir la nulle', egDue ? `${egDue} à refaire` : '', '--c-train')}
-    ${tile('#inedits', 'spark', 'Positions inédites', 'Puzzles neufs sur ton chantier', '', '--c-train')}
-    ${tile('#idees', 'bulb', 'Idées de plan', 'Choisir le bon plan dans tes positions calmes', '', '--c-train')}
+    ${n.kind === 'pz' ? '' : entTile('#puzzles', 'tgt', 'Puzzles sur mes erreurs', 'Tes propres fautes, à corriger', d.due ? `${d.due} en attente` : '', '--c-train')}
+    ${entTile('#exos', 'clock', 'Échauffements', 'Vérifier avant de jouer, 2 minutes', '', '--c-train')}
+    ${entTile(due.length ? lineHref(due[0]) : '#ouvertures/apprendre', 'lines', 'Réciter mes lignes', 'Tes ouvertures, de mémoire', due.length ? `${due.length} à réviser` : '', '--c-learn')}
+    ${entTile('#rush', 'bolt', 'Rush', 'Vérifier vite, contre la montre', progress.rushBest().t3 ? 'Record : ' + progress.rushBest().t3 : '', '--c-train')}
+    ${entTile('#gagner', 'flag', 'Finir les parties gagnées', 'Convertir l’avantage contre le moteur', cv ? pl(cv, 'partie') : '', '--c-train')}
+    ${entTile('#finales', 'king', 'Finales de base', 'Mater, faire dame, tenir la nulle', egDue ? `${egDue} à refaire` : '', '--c-train')}
+    ${entTile('#inedits', 'spark', 'Positions inédites', 'Puzzles neufs sur ton chantier', '', '--c-train')}
+    ${entTile('#idees', 'bulb', 'Idées de plan', 'Choisir le bon plan dans tes positions calmes', '', '--c-train')}
   </div>
   <h2 class="ent-h">Apprendre</h2><div class="ent-grid two">
-    ${tile('#cours', 'book', 'Cours', les?.d ? esc(les.d) : 'Leçons illustrées par tes positions', '', '--c-learn')}
-    ${tile('#ouvertures/apprendre', 'tree', 'Ouvertures', `${OPENINGS.length} fiches : idées, pièges, lignes`, '', '--c-learn')}
+    ${entTile('#cours', 'book', 'Cours', les?.d ? esc(les.d) : 'Leçons illustrées par tes positions', '', '--c-learn')}
+    ${entTile('#ouvertures/apprendre', 'tree', 'Ouvertures', `${OPENINGS.length} fiches : idées, pièges, lignes`, '', '--c-learn')}
   </div>
   <a class="ent-log" href="#historique">${ico('log')}<span>Historique</span><span class="small">${nh ? `${pl(nh, 'exercice')} noté${nh > 1 ? 's' : ''}` : 'Rien encore'}</span>${ico('next')}</a>`;
 }
@@ -2422,7 +2422,8 @@ async function restoreFrom(file) {
 const route = () => (location.hash.slice(1) || 'accueil').split('/');
 // Table des routes (#route/a/b/c) : view rend le HTML de la vue ; mount monte échiquiers, courbes et écouteurs juste après ;
 // resize redessine au redimensionnement ; title nomme l'écran dans la barre du haut (exercice, page de cours) ; back est la cible
-// du bouton Retour (adresse, ou fonction qui la rend ; #accueil sinon). Sans prototype : #constructor n'est pas une route.
+// du bouton Retour (adresse, ou fonction qui la rend, ou qui navigue elle-même par history.back() et ne rend rien ; #accueil
+// sans back). Sans prototype : #constructor n'est pas une route.
 const pzMount = () => { mountPuzzle(); const s = $('#pzt'); if (s) s.onchange = () => { S.pz.theme = s.value; S.pz.cur = null; S.pz.show = null; render(); }; };
 const ROUTES = {
   __proto__: null,
