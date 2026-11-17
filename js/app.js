@@ -7,7 +7,7 @@ import * as st from './stats.js';
 import { LESSONS, ENGINE_LESSONS, RULES } from './lessons.js';
 import { viewStats, mountStats } from './alltime.js';
 import { fr, settle, buildLine, insight, hintFor, lastMoveText, moveText, material, describeAt, justPlayed, PLAN_RULE } from './explain.js';
-import { $, esc, dfmt, TC, HOW, coach, txt, pl, f1, ico, wdl, WDL_LEGEND, setHtml } from './ui.js';
+import { $, esc, dfmt, datef, TC, HOW, coach, txt, pl, f1, ico, wdl, WDL_LEGEND, setHtml } from './ui.js';
 import { lineChart, sparkline } from './charts.js';
 import { progress, DAY } from './progress.js';
 import { board, destroyBoards, destsOf, arrow, errShapes, REDUCED } from './board.js';
@@ -18,7 +18,7 @@ import { DRILLS, DRILL_FOR, makeRound } from './drills.js';
 import { OPENINGS, GROUPS, byId, lineKey, movesOf, matchGame } from './openings.js';
 import { MODELS, coachKey, coachModel, facts, genLesson, askCoach, buildPrompt, parseLesson, askPosition, positionText } from './coach.js';
 import { coachBrief, briefFacts, CAUSES, mainCause, selfVerdict } from './brief.js';
-import { ideaPositions, ideaChoices } from './ideas.js';
+import { ideaPositionsOf, ideaChoices, ideaStart, ideaFollow } from './ideas.js';
 import { STAGES, programWeek, weekStats, reviewText } from './program.js';
 import { portrait } from './portrait.js';
 import { theoryExits, planOf } from './theory.js';
@@ -29,21 +29,31 @@ import { toast } from './toast.js';
 import * as sound from './sound.js';
 import * as look from './look.js';
 import { ENDGAMES, egById, GOAL_TXT } from './endgames.js';
-import { phaseStats, pieceStats, hourStats, sessionStats, perfRef, gameRating, insightText } from './insights.js';
+import { phaseJob, pieceStats, hourStats, sessionStats, perfRef, gameRating, insightText } from './insights.js';
 import { fetchExplorer, explorerRows, LEVEL } from './explorer.js';
+import { makeMemo, viewKey } from './memo.js';
+
+// Formats de date : un Intl.DateTimeFormat par jeu d'options (datef), les mêmes options qu'avec toLocale…String('fr-FR', …).
+const F_HM = datef({ hour: '2-digit', minute: '2-digit' }), F_WDLONG = datef({ weekday: 'long', day: 'numeric', month: 'long' }), F_DSHORT = datef({ day: 'numeric', month: 'short' });
+const F_DNUM = datef({}), F_DMY = datef({ day: 'numeric', month: 'short', year: 'numeric' }), F_WDSHORT = datef({ weekday: 'long', day: 'numeric', month: 'short' });
+const F_DSHORT_UTC = datef({ day: 'numeric', month: 'short', timeZone: 'UTC' }), F_MY_UTC = datef({ month: 'short', year: 'numeric', timeZone: 'UTC' });
+const F_FETCH = datef({ day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }), F_DLONG = datef({ day: 'numeric', month: 'long' });
 
 const DEPTH = 12; // même profondeur sur tous les appareils : une erreur est classée pareil partout
 
 const { dkey, dayStart, act, streak } = progress;
 
 const S = {
-  user: ls.get('user', null), data: null, an: {},
+  user: ls.get('user', null), data: null, an: {}, rev: 0,
   f: ls.get('filter', { tc: 'rapid', days: 0 }),
   job: { running: false, done: 0, total: 0, stop: false, msg: '' },
   engine: null, play: null, ai: {}, gen: null, cl: null, white: true, path: [], pz: null, importing: null,
 };
 
 // ---------- Données ----------
+// S.rev : version des données (parties, analyses). touch() à chaque changement de S.data ou S.an : les calculs gardés par memo() sont alors refaits.
+const touch = () => { S.rev++; };
+const memo = makeMemo(() => viewKey(S, dkey()));
 const goal = () => ls.get('goal', { elo: 1000, date: new Date().getFullYear() + '-12-31' });
 const rapidAll = () => (S.data ? S.data.games.filter((g) => g.tc === 'rapid') : []);
 const games = () => (S.data ? st.filterGames(S.data.games, S.f) : []);
@@ -54,6 +64,7 @@ async function load() {
   S.data = (await dbGet('data:' + S.user)) || null;
   S.an = (await dbGet('an:' + S.user)) || {};
   S.ai = (await dbGet('ai:' + S.user)) || {};
+  touch();
 }
 async function doImport(user, manual) {
   const first = !S.data;
@@ -67,6 +78,7 @@ async function doImport(user, manual) {
     await dbSet('data:' + d.user, d);
     S.an = (await dbGet('an:' + d.user)) || {};
     S.ai = (await dbGet('ai:' + d.user)) || {};
+    touch();
     S.importing = null;
     if (!d.games.some((g) => g.tc === S.f.tc) && S.f.tc !== 'all') { S.f = { tc: 'all', days: 0 }; ls.set('filter', S.f); }
     if (first) render(); else bgRender();
@@ -105,15 +117,16 @@ function reclassify() {
   (function step() {
     if (S.user !== user || !todo.length) return;
     for (const t0 = performance.now(); i < todo.length && performance.now() - t0 < 30; i++) S.an[todo[i].id] = analysis(todo[i], S.an[todo[i].id]);
+    touch();
     if (i < todo.length) setTimeout(step, 0); else { dbSet('an:' + user, S.an); bgRender(); }
   })();
 }
 // Parties rejouées d'avance, par tranches de 10 ms quand le navigateur est libre (17/11) : « Mon jeu » et la relecture
 // trouvent alors leurs positions déjà calculées (replay garde chaque partie), au lieu de figer l'écran à l'ouverture.
+const idle = (f) => (window.requestIdleCallback || ((g) => setTimeout(() => g({ timeRemaining: () => 10 }), 50)))(f);
 function warmReplays() {
   if (!S.data) return;
   const user = S.user, todo = S.data.games.filter((g) => S.an[g.id] && !S.an[g.id].bad).reverse();
-  const idle = window.requestIdleCallback || ((f) => setTimeout(() => f({ timeRemaining: () => 10 }), 50));
   let i = 0;
   idle(function step(dl) {
     if (S.user !== user) return;
@@ -152,6 +165,7 @@ async function runAnalysis(count, only, list) {
         if (S.job.stop && !raw) break; // interrompue : l'ancienne analyse, s'il y en a une, reste en place
         S.an[g.id] = raw ? analysis(g, raw) : { ev: [], errs: [], nb: 0, acc: null, maxAdv: 0, last: 0, bad: true };
       }
+      touch();
       S.job.done++; S.job.part = 0;
       if (S.job.done % 3 === 0 || S.job.done === queue.length) await saveAn();
       paintJob();
@@ -434,7 +448,7 @@ function viewHistory() {
     <div class="tile"><b class="num">${pz.filter((x) => x.t >= d0 - 6 * DAY).length}</b><span>sur 7 jours</span></div>
     <div class="tile"><b class="num">${pz.length ? st.pct(pz.filter((x) => x.r === 2).length, pz.length) + ' %' : '—'}</b><span>trouvés du premier coup</span></div>
     <div class="tile"><b class="num">${acq}</b><span>acquis (réussis 3 fois, à plusieurs jours d’écart)</span></div></div>`;
-  const hm = (t) => new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const hm = (t) => F_HM(t);
   const row = (x) => {
     if (x.k === 'd') { const D = DRILLS[x.ty]; return `<div class="hrow"><i class="hres ${x.ok >= x.n * 0.8 ? 'r2' : x.ok >= x.n * 0.5 ? 'r1' : 'r0'}"></i><span class="stepc"><b>Échauffement${D ? ' : ' + D.t : ''}</b><span>${x.ok} / ${x.n} justes · ${hm(x.t)}</span></span>${D ? `<a class="btn sm" href="#drill/${x.ty}">Refaire</a>` : ''}</div>`; }
     if (x.k === 'o') { const [oid, ok] = String(x.id).split(':'), o = byId(oid), l = o?.lines[+ok]; const [cls, lab] = RES[x.r] || RES[0]; return `<div class="hrow"><i class="hres ${cls}"></i><span class="stepc"><b>Ligne d’ouverture${o ? ` : ${o.nom}` : ''}</b><span>${l ? esc(l.n) + ' · ' : ''}${x.r === 2 ? 'Sans faute' : x.r === 1 ? 'Avec aide' : 'Suite vue'}${x.re ? ' (révision)' : ''} · ${hm(x.t)}</span></span>${l ? `<a class="btn sm" href="${lineHref(x.id)}">Refaire</a>` : ''}</div>`; }
@@ -451,7 +465,7 @@ function viewHistory() {
   const days = new Map();
   for (const x of h.slice(0, S.histN)) { const k = dkey(new Date(x.t)); if (!days.has(k)) days.set(k, []); days.get(k).push(x); }
   const yest = dkey(new Date(d0 - DAY / 2));
-  const label = (k) => (k === today ? 'Aujourd’hui' : k === yest ? 'Hier' : new Date(k + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }));
+  const label = (k) => (k === today ? 'Aujourd’hui' : k === yest ? 'Hier' : F_WDLONG(new Date(k + 'T12:00:00')));
   const isPz = (x) => x.k === 'm' || x.k === 'l';
   const sum = (l) => { const z = l.filter((x) => isPz(x) && !x.re), dr = l.filter((x) => x.k === 'd').length, cv = l.filter((x) => x.k === 'c').length, ol = l.filter((x) => x.k === 'o').length, ii = l.filter((x) => x.k === 'i').length, fi = l.filter((x) => x.k === 'f').length, ru = l.filter((x) => x.k === 'r').length, rv = l.filter((x) => isPz(x) && x.re).length; return [z.length ? `${pl(z.length, 'puzzle')}, ${z.filter((x) => x.r === 2).length} du premier coup` : '', rv ? pl(rv, 'révision') : '', dr ? pl(dr, 'échauffement') : '', cv ? pl(cv, 'partie rejouée').replace('parties rejouée', 'parties rejouées') : '', ol ? `${ol} ligne${ol > 1 ? 's' : ''} d’ouverture` : '', ii ? pl(ii, 'idée') + ' de plan' : '', fi ? pl(fi, 'finale') : '', ru ? pl(ru, 'rush') : ''].filter(Boolean).join(' · '); };
   return head + tiles + `<div class="legend"><span style="--c:var(--good)">Du premier coup</span><span style="--c:var(--warn)">Trouvé avec aide</span><span style="--c:var(--bad)">Solution vue</span></div>`
@@ -640,7 +654,7 @@ const GAMES_TABS = (on) => tabs(on, [['parties', '#parties', 'Parties'], ['ouv',
 const allLineKeys = () => OPENINGS.flatMap((o) => o.lines.map((_, k) => lineKey(o, k)));
 const lineHref = (key, voir) => '#ligne/' + key.replace(':', '/') + (voir ? '/voir' : '');
 const opGames = (o) => (S.data ? S.data.games.filter((g) => matchGame(o, g)) : []);
-const dshort = (t) => new Date(t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+const dshort = (t) => F_DSHORT(t);
 function lineChip(key) {
   const s = progress.lineState(key);
   if (!s) return ''; // ligne jamais jouée : rien à signaler, la liste reste serrée
@@ -1205,7 +1219,7 @@ function goalBlock() {
   const html = `<div class="card"><h2>Objectif ${g.elo} en Rapide ${status}</h2>
     <div class="row" style="align-items:baseline"><span class="big num">${tr.cur}</span><span class="sub">Elo actuel${gap > 0 ? `, il manque <b class="num">${gap}</b> points` : ''}</span></div>
     <div class="goalbar" aria-hidden="true"><i style="width:${Math.max(3, Math.min(100, (100 * tr.cur) / g.elo))}%"></i></div>
-    <details class="gd" ${innerWidth >= 860 ? 'open' : ''}><summary>Détail de l’objectif</summary><dl class="kv"><dt>Échéance</dt><dd>${new Date(g.date).toLocaleDateString('fr-FR')} (${days} j)</dd>
+    <details class="gd" ${innerWidth >= 860 ? 'open' : ''}><summary>Détail de l’objectif</summary><dl class="kv"><dt>Échéance</dt><dd>${F_DNUM(new Date(g.date))} (${days} j)</dd>
     ${gap > 0 ? `<dt>Rythme nécessaire</dt><dd>+${Math.ceil(gap / weeks)} pts / semaine</dd>` : ''}
     <dt>30 derniers jours</dt><dd>${tr.delta30 == null ? 'aucune partie' : (tr.delta30 >= 0 ? '+' : '') + tr.delta30 + ' pts sur ' + tr.recent + ' parties'}</dd>
     ${proj != null ? `<dt>Projection à l’échéance</dt><dd>${proj}</dd>` : ''}
@@ -1214,11 +1228,16 @@ function goalBlock() {
   return { html, tr, g };
 }
 
+// Calcul lourd (statistiques de toutes les parties) et appelé à chaque en-tête, donc gardé par memo() : il ne dépend que des
+// parties, des analyses, du filtre et du jour. Le résultat ne se modifie jamais. session() elle-même ne se garde pas :
+// elle lit aussi l'entraînement du jour (puzzles faits, échauffement en cours), qui change sans toucher aux parties.
 function priorityLessons() {
-  const gs = games(), es = st.engineStats(gs, S.an), sig = st.signals(gs, S.an);
-  const ids = es.themes.map((t) => t.id);
-  for (const w of sig.faiblesses) if (w.lesson && LESSONS[w.lesson] && !ids.includes(w.lesson)) ids.push(w.lesson);
-  return { ids, es, sig };
+  return memo('priority', () => {
+    const gs = games(), es = st.engineStats(gs, S.an), sig = st.signals(gs, S.an);
+    const ids = es.themes.map((t) => t.id);
+    for (const w of sig.faiblesses) if (w.lesson && LESSONS[w.lesson] && !ids.includes(w.lesson)) ids.push(w.lesson);
+    return { ids, es, sig };
+  });
 }
 
 function nextLesson(ids) {
@@ -1336,7 +1355,7 @@ function goalStrip() {
   // Ordinateur (17/11) : les chiffres de l'objectif dans des encarts sous la barre, comme le bilan de « Parties » ;
   // téléphone : une ligne, la série est dans la barre du haut.
   const tile = (lab, v, sub = '', cls = '', tip = '') => `<div class="glt"${tip ? ` title="${tip}"` : ''}><span class="small">${lab}</span><b class="num ${cls}">${v}</b>${sub ? `<span class="small">${sub}</span>` : ''}</div>`;
-  const tiles = `<div class="glsum gtiles d-only">${tile('Il manque', gap > 0 ? `${gap} pts` : 'Atteint', `pour atteindre ${g.elo}`, gap > 0 ? '' : 'up')}${tile('Échéance', `${days} j`, new Date(g.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }))}${gap > 0 ? tile('Rythme nécessaire', pace.replace(' pts / sem.', ''), 'points par semaine') : ''}${tile('30 derniers jours', tr.delta30 ? `${tr.delta30 > 0 ? '+' : ''}${tr.delta30}` : '0', elo30(), tr.delta30 > 0 ? 'up' : tr.delta30 < 0 ? 'dn' : '')}${tile('Série', `${stk} j`, weekDots(), stk ? 'warn' : '', 'Jours consécutifs avec au moins un puzzle ou un cours')}${nextReview()}</div>`;
+  const tiles = `<div class="glsum gtiles d-only">${tile('Il manque', gap > 0 ? `${gap} pts` : 'Atteint', `pour atteindre ${g.elo}`, gap > 0 ? '' : 'up')}${tile('Échéance', `${days} j`, F_DMY(new Date(g.date)))}${gap > 0 ? tile('Rythme nécessaire', pace.replace(' pts / sem.', ''), 'points par semaine') : ''}${tile('30 derniers jours', tr.delta30 ? `${tr.delta30 > 0 ? '+' : ''}${tr.delta30}` : '0', elo30(), tr.delta30 > 0 ? 'up' : tr.delta30 < 0 ? 'dn' : '')}${tile('Série', `${stk} j`, weekDots(), stk ? 'warn' : '', 'Jours consécutifs avec au moins un puzzle ou un cours')}${nextReview()}</div>`;
   return `<section class="gstrip"><a class="gnum" href="#bilan" title="Détail de l’objectif"><b class="num">${tr.cur}</b><span class="goalbar" aria-hidden="true"><i style="width:${Math.max(3, Math.min(100, (100 * tr.cur) / g.elo))}%"></i></span><b class="num">${g.elo}</b></a>
     <span class="gmeta m-only">${gap > 0 ? `<span>Il manque <b class="num">${gap}</b></span><span>${days} j</span>` : ''}<span>${pace}</span>${d30}</span>${tiles}</section>`;
 }
@@ -1349,7 +1368,7 @@ function elo30() {
 function weekDots() {
   const played = {}; for (const g of S.data?.games || []) { const k = dkey(new Date(g.t * 1000)); played[k] = (played[k] || 0) + 1; }
   const today = dkey();
-  return `<span class="week">${progress.week().map((x) => { const p = played[x.d] || 0, lab = new Date(x.t).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'short' }); return `<i class="${x.n ? 'on' : p ? 'pl' : ''}${x.d === today ? ' now' : ''}" title="${lab} : ${x.n ? pl(x.n, 'exercice') : 'pas d’entraînement'}${p ? ', ' + pl(p, 'partie') : ''}"></i>`; }).join('')}</span>`;
+  return `<span class="week">${progress.week().map((x) => { const p = played[x.d] || 0, lab = F_WDSHORT(new Date(x.t)); return `<i class="${x.n ? 'on' : p ? 'pl' : ''}${x.d === today ? ' now' : ''}" title="${lab} : ${x.n ? pl(x.n, 'exercice') : 'pas d’entraînement'}${p ? ', ' + pl(p, 'partie') : ''}"></i>`; }).join('')}</span>`;
 }
 // Prochaine révision (accueil, ordinateur) : lignes d'ouverture et finales dues aujourd'hui, sinon la prochaine à venir.
 function nextReview() {
@@ -1442,22 +1461,30 @@ function viewAccueil() {
 
 // ---------- Mon jeu : objectif, chantier, points forts et faibles, tendance, bilan ----------
 // Quand et comment tu perds (insights.js, comme les « Insights » de Chess.com) : phase, pièce, heure, rang dans la session.
-// Calcul gardé tant que les parties et les analyses ne changent pas (la phase demande de rejouer chaque partie).
-let insMemo = { key: '', v: null };
+// Calcul gardé par memo() tant que les parties, les analyses, le filtre et le jour ne changent pas. La phase demande de rejouer
+// chaque partie : elle se calcule par tranches quand le navigateur est libre (phaseJob), la carte montre un bloc gris d'ici là
+// puis se remplit sur place. Le reste de la page ne l'attend pas.
 function insightsOf(gs) {
-  const key = gs.length + ':' + (gs[gs.length - 1]?.t || 0) + ':' + Object.keys(S.an).length + ':' + S.f.tc + ':' + S.f.days;
-  if (insMemo.key !== key) insMemo = { key, v: { phases: phaseStats(gs, S.an), pieces: pieceStats(gs, S.an), hours: hourStats(gs), sessions: sessionStats(gs) } };
-  return insMemo.v;
+  return memo('insights', () => ({ job: phaseJob(gs, S.an), pieces: pieceStats(gs, S.an), hours: hourStats(gs), sessions: sessionStats(gs) }));
+}
+function runPhases(I) {
+  idle(function step(dl) {
+    if (!S.data || insightsOf(games()) !== I) return; // les données ont changé : un nouveau calcul prendra le relais
+    I.job.step(Math.max(0, dl.timeRemaining() - 2));
+    if (!I.job.done) { idle(step); return; }
+    const el = $('#ins');
+    if (el && route()[0] === 'bilan' && !exo.live()) el.outerHTML = insightsCard(games());
+  });
 }
 function insightsCard(gs) {
-  const I = insightsOf(gs), lines = insightText(I), every = (r) => (r ? `1 tous les ${Math.round(1 / r)} coups` : 'aucune');
+  const J = insightsOf(gs), I = { ...J, phases: J.job.done ? J.job.result() : null }, lines = insightText({ ...I, phases: I.phases || [] }), every = (r) => (r ? `1 tous les ${Math.round(1 / r)} coups` : 'aucune');
   const row = (label, n, val, cls = '') => `<tr><td>${label}</td><td class="r small">${n}</td><td class="r ${cls}"><b>${val}</b></td></tr>`;
   const sc = (x) => (x.n >= 5 ? (x.score >= 55 ? 'ok' : x.score <= 42 ? 'ko' : '') : '');
   const pcs = I.pieces.filter((p) => p.moves >= 10).slice(0, 4);
-  return `<div class="card"><h2>Quand et comment tu perds <span class="small">${TC[S.f.tc] || 'toutes cadences'}</span></h2>
+  return `<div class="card" id="ins"><h2>Quand et comment tu perds <span class="small">${TC[S.f.tc] || 'toutes cadences'}</span></h2>
     ${lines.length ? `<div class="stack">${lines.map((t) => `<p class="ins">${esc(t)}</p>`).join('')}</div>` : '<p class="small">Pas encore d’écart net : il faut au moins 8 parties de chaque côté pour en tirer une règle.</p>'}
     <div class="grid ins-grid">
-      <div><h3>Par phase <span class="small">fautes graves</span></h3><table><tbody>${I.phases.map((x) => row(x.label, x.n ? x.n + ' coups' : '—', x.n ? every(x.rate) : '—')).join('')}</tbody></table></div>
+      <div><h3>Par phase <span class="small">fautes graves</span></h3><table><tbody>${I.phases ? I.phases.map((x) => row(x.label, x.n ? x.n + ' coups' : '—', x.n ? every(x.rate) : '—')).join('') : `<tr><td>${skel('Calcul en cours', 70, 50, 60)}</td></tr>`}</tbody></table></div>
       <div><h3>Par pièce jouée <span class="small">fautes graves</span></h3><table><tbody>${pcs.length ? pcs.map((x) => row(x.name[0].toUpperCase() + x.name.slice(1), x.moves + ' coups', every(x.rate))).join('') : '<tr><td class="small">Analyse plus de parties.</td></tr>'}</tbody></table></div>
       <div><h3>Selon l’heure <span class="small">score</span></h3><table><tbody>${I.hours.map((x) => row(x.label, pl(x.n, 'partie'), x.n ? x.score + ' %' : '—', sc(x))).join('')}</tbody></table></div>
       <div><h3>Dans la session <span class="small">score</span></h3><table><tbody>${I.sessions.map((x) => row(x.label, pl(x.n, 'partie'), x.n ? x.score + ' %' : '—', sc(x))).join('')}</tbody></table></div>
@@ -1492,6 +1519,8 @@ function viewBilan() {
   ${insightsCard(gs)}` : `<div class="card"><p class="sub">Aucune partie pour ce filtre (${TC[S.f.tc]}). Change la cadence ou la période.</p></div>`}`;
 }
 function mountBilan() {
+  const I = S.data && games().length ? insightsOf(games()) : null;
+  if (I && !I.job.done) runPhases(I);
 
   const fcEl = $('#fchart'), f = ls.get('focus', null);
   if (fcEl && f) {
@@ -1740,7 +1769,7 @@ function partieRow(g, fx, allTc) {
   const a = S.an[g.id], ok = a && !a.bad, acc = ok && a.acc != null ? a.acc : g.acc;
   const nG = ok ? a.errs.filter((e) => e.kind === 'gaffe').length : null, nE = ok ? a.errs.filter((e) => e.kind === 'erreur').length : null;
   const res = g.out === 'W' ? ['good', 'Victoire'] : g.out === 'L' ? ['bad', 'Défaite'] : ['', 'Nulle'];
-  const d = new Date(g.t * 1000), hh = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const d = new Date(g.t * 1000), hh = F_HM(d);
   // Fautes (17/11) : deux pastilles de largeur fixe, toujours présentes (0 en gris), pour qu'elles s'alignent d'une ligne à l'autre
   const flt = (n, sym, cls, lab) => `<span class="flt ${n ? cls : ''}" title="${pl(n, lab)}"><b>${n}</b>${sym}</span>`;
   const fau = !ok ? '<span class="small">non analysée</span>' : flt(nG, '??', 'bad', 'gaffe') + flt(nE, '?', 'warn', 'erreur');
@@ -1755,7 +1784,7 @@ function partieRow(g, fx, allTc) {
 }
 // Détail d'une ouverture jouée (#monouv/<w|b>/<famille>) : chiffres, usage dans le temps, suites, variantes, erreurs, parties.
 const famHref = (fam, w) => `#monouv/${w ? 'w' : 'b'}/${encodeURIComponent(fam)}`;
-const perName = (k, unit) => (unit === 'semaine' ? 'sem. du ' + new Date(((k * 7) - 3) * 86400000).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', timeZone: 'UTC' }) : unit === 'mois' ? new Date(Date.UTC(Math.floor(k / 12), k % 12, 1)).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric', timeZone: 'UTC' }) : `T${(k % 12) / 3 + 1} ${Math.floor(k / 12)}`);
+const perName = (k, unit) => (unit === 'semaine' ? 'sem. du ' + F_DSHORT_UTC(new Date(((k * 7) - 3) * 86400000)) : unit === 'mois' ? F_MY_UTC(new Date(Date.UTC(Math.floor(k / 12), k % 12, 1))) : `T${(k % 12) / 3 + 1} ${Math.floor(k / 12)}`);
 const scoreChip = (s) => { const sc = st.score(s); return `<span class="chip ${s.n >= 2 && sc >= 55 ? 'good' : s.n >= 2 && sc <= 42 ? 'bad' : ''}">${sc} %</span>`; };
 const resChip = (g) => `<span class="chip ${g.out === 'W' ? 'good' : g.out === 'L' ? 'bad' : ''}">${g.out === 'W' ? 'Victoire' : g.out === 'L' ? 'Défaite' : 'Nulle'}</span>`;
 function viewMonOuv(c, enc) {
@@ -1905,24 +1934,24 @@ function gvMoves(v) {
 }
 // Elo estimé de la partie (insights.js) : repère personnel, d'après ta précision moyenne et ton classement moyen dans cette cadence.
 function perfOf(g, a) {
-  const ref = perfRef(S.data.games.filter((x) => x.tc === g.tc), S.an), e = gameRating(a.acc, ref);
+  const ref = memo('ref:' + g.tc, () => perfRef(S.data.games.filter((x) => x.tc === g.tc), S.an)), e = gameRating(a.acc, ref);
   return e ? { e, tip: `Repère : ta précision moyenne (${ref.acc} %) vaut ton classement moyen (${ref.elo}) ; chaque point de précision en plus ou en moins compte pour 25 points.` } : null;
 }
 function perfChip(g, a) { const p = perfOf(g, a); return p ? `<span class="chip" title="${p.tip}">Elo estimé ${p.e}</span>` : ''; }
 // ---------- Idées de plan : sur une position calme de tes parties, choisir la bonne idée (ideas.js) ----------
-function ideaPool() { return ideaPositions(S.data.games.filter((g) => g.tc === targetTc()), S.an).sort((a, b) => b.g.t - a.g.t || b.e.ply - a.e.ply); }
+// Positions d'une partie, gardées tant que son analyse ne change pas (WeakMap sur l'analyse : touch() n'invalide que ce qui a bougé).
+const IDEAS = new WeakMap();
+const ideasOf = (g) => { const a = S.an[g.id]; if (!a) return []; let v = IDEAS.get(a); if (!v) IDEAS.set(a, (v = ideaPositionsOf(g, a))); return v; };
+const ideaGames = () => S.data.games.filter((g) => g.tc === targetTc());
+const ideaDone = () => new Set(progress.hist().filter((h) => h.k === 'i').map((h) => h.id));
 function ideaCur() {
-  const pool = ideaPool(); if (!pool.length) return null;
-  if (!S.idea || !pool.some((p) => p.id === S.idea.cur)) {
-    const done = new Set(progress.hist().filter((h) => h.k === 'i').map((h) => h.id));
-    S.idea = { cur: (pool.find((x) => !done.has(x.id)) || pool[0]).id };
-  }
-  return pool.find((p) => p.id === S.idea.cur);
+  const p = ideaStart(ideaGames(), ideasOf, S.idea?.cur, ideaDone());
+  if (!p) return null;
+  S.idea = { cur: p.id };
+  return p;
 }
 function ideaNext() {
-  const pool = ideaPool(), done = new Set(progress.hist().filter((h) => h.k === 'i').map((h) => h.id)), i = pool.findIndex((p) => p.id === S.idea?.cur);
-  const rest = [...pool.slice(i + 1), ...pool.slice(0, Math.max(0, i))];
-  S.idea = { cur: (rest.find((x) => !done.has(x.id)) || rest[0] || pool[0])?.id };
+  S.idea = { cur: ideaFollow(ideaGames(), ideasOf, S.idea?.cur, ideaDone())?.id };
   render();
 }
 function viewIdees() {
@@ -2317,8 +2346,8 @@ function viewPlan() {
   ].filter(Boolean);
   const g = goal();
   return `<h1>Plan et réglages</h1>
-  <div class="card m-only stack"><h2>Tes données</h2><p class="sub">Compte ${esc(S.user)}. Dernière mise à jour le ${new Date(S.data.fetchedAt).toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}.</p><div class="stack filters">${filtersHtml()}</div></div>
-  <div class="card"><h2>Semaine du ${new Date(wk + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}</h2>
+  <div class="card m-only stack"><h2>Tes données</h2><p class="sub">Compte ${esc(S.user)}. Dernière mise à jour le ${F_FETCH(new Date(S.data.fetchedAt))}.</p><div class="stack filters">${filtersHtml()}</div></div>
+  <div class="card"><h2>Semaine du ${F_DLONG(new Date(wk + 'T00:00:00'))}</h2>
       <div class="row"><label for="hrs" class="sub">Temps disponible</label><select id="hrs">${[3, 4, 5, 6, 8, 10].map((h) => `<option value="${h}" ${h === hours ? 'selected' : ''}>${h} h par semaine</option>`).join('')}</select></div>
       <div class="stack"><b>Jouer : <span class="num">${played} / ${target}</span> parties rapides cette semaine</b>
         <div class="goalbar" aria-hidden="true"><i style="width:${Math.min(100, (100 * played) / target)}%"></i></div>
@@ -2363,7 +2392,7 @@ async function restoreFrom(file) {
   if (!file) return;
   try {
     const b = await backup.readFile(file), x = backup.summary(b);
-    const ok = confirm(`Remplacer les données de cet appareil par la sauvegarde de ${b.user}${x.date ? ' du ' + x.date.toLocaleDateString('fr-FR') : ''} ?\n${x.games} parties, ${x.an} analysées, ${x.pz} puzzles suivis, ${x.h} exercices au journal.\nLa clé du coach reste celle de cet appareil.`);
+    const ok = confirm(`Remplacer les données de cet appareil par la sauvegarde de ${b.user}${x.date ? ' du ' + F_DNUM(x.date) : ''} ?\n${x.games} parties, ${x.an} analysées, ${x.pz} puzzles suivis, ${x.h} exercices au journal.\nLa clé du coach reste celle de cet appareil.`);
     if (!ok) return;
     S.job.stop = true;
     await backup.restore(b);
@@ -2594,7 +2623,7 @@ document.addEventListener('click', (ev) => {
   else if (act === 'bakimp') $('#bakfile')?.click();
   else if (act === 'look') { const k = el.dataset.k, v = el.dataset.v; look.setLook({ [k]: k === 'coords' ? v === 'true' : k === 'size' ? null : v }); render(true); }
   else if (act === 'reset') {
-    if (el.dataset.sure) { const u = S.user; ls.clear(['key', 'model', 'goal', 'hours', 'look']); dbDel('data:' + u); dbDel('an:' + u); dbDel('ai:' + u); S.ai = {}; S.li = null; S.liKeep = null; S.dr = null; S.cv = null; S.gen = null; S.cl = null; LINES.clear(); S.job.stop = true; S.user = null; S.data = null; S.an = {}; S.pz = null; location.hash = '#accueil'; render(); }
+    if (el.dataset.sure) { const u = S.user; ls.clear(['key', 'model', 'goal', 'hours', 'look']); dbDel('data:' + u); dbDel('an:' + u); dbDel('ai:' + u); S.ai = {}; S.li = null; S.liKeep = null; S.dr = null; S.cv = null; S.gen = null; S.cl = null; LINES.clear(); S.job.stop = true; S.user = null; S.data = null; S.an = {}; touch(); S.pz = null; location.hash = '#accueil'; render(); }
     else { el.dataset.sure = '1'; el.textContent = 'Confirmer : effacer parties, analyses et progression (réglages et clé du coach conservés)'; }
   }
 });

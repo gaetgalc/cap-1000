@@ -296,6 +296,23 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   await ctx.route('https://explorer.lichess.ovh/**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ white: 60, draws: 10, black: 30, moves: [{ uci: 'e2e4', san: 'e4', white: 40, draws: 5, black: 15 }, { uci: 'd2d4', san: 'd4', white: 20, draws: 5, black: 15 }] }) }));
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#ouvertures`); await sleep(1000);
   check(/e4/.test(await bar('#lexp')) && /60 %/.test(await bar('#lexp')), 'ouvertures : explorateur Lichess à ton niveau');
+  // Cache périmé : une nouvelle partie servie, puis « Mettre à jour ». Les vues déjà calculées (memo, S.rev) doivent la compter.
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#accueil`); await sleep(1500);
+  await page.waitForFunction(() => !window.__cap.job.running && !window.__cap.importing, null, { timeout: 120000 });
+  await S(() => { location.hash = '#bilan'; }); await sleep(700); // Mon jeu et l'accueil sont calculés une première fois
+  await S(() => { location.hash = '#accueil'; }); await sleep(500);
+  const rev0 = await S(() => window.__cap.rev), nb0 = await S(() => window.__cap.data.games.length);
+  const NEW = { ...GAMES[0], url: 'https://www.chess.com/game/live/999999', end_time: Math.floor(Date.now() / 1000) - 120, black: { ...GAMES[0].black, username: 'advNOUVEAU' } };
+  await routeChessCom(ctx, { games: [...GAMES, NEW] });
+  await S(() => document.querySelector('[data-act="refresh"]').click());
+  await page.waitForFunction((n) => window.__cap.data.games.length > n && window.__cap.an[window.__cap.data.games.find((g) => g.opp === 'advNOUVEAU')?.id], nb0, { timeout: 120000 });
+  await page.waitForFunction(() => !window.__cap.job.running, null, { timeout: 60000 }); await sleep(600);
+  check(await S(() => window.__cap.data.games.length) === nb0 + 1 && await S(() => window.__cap.rev) > rev0, 'nouvelle partie : importée et analysée, la version des données (S.rev) a avancé');
+  check(/advNOUVEAU/.test(await bar('.lgame')), 'nouvelle partie : l’accueil montre la nouvelle dernière partie');
+  await S(() => { location.hash = '#parties'; }); await sleep(600);
+  check(/advNOUVEAU/.test(await bar('#view')), 'nouvelle partie : la liste des parties la compte');
+  await S(() => { location.hash = '#bilan'; }); await sleep(600);
+  check(await S((n) => [...document.querySelectorAll('#view dt')].some((d) => /Parties analysées/.test(d.textContent) && d.nextElementSibling.textContent.trim() === (n + 1) + ' sur ' + (n + 1)), nb0), 'nouvelle partie : Mon jeu compte une partie de plus, analysée comme les autres (rien de périmé)');
   check(errs.length === 0, 'aucune erreur JavaScript' + (errs.length ? ' : ' + errs.join(' | ') : ''));
   await browser.close(); stopServer();
   console.log(failed ? `\n${failed} échec(s)` : '\nTout passe.');
