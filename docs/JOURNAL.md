@@ -470,8 +470,9 @@ Comparaison des rubriques de Chess.com (Jouer, Puzzles, Apprendre, Analyse, Insi
 
 Suite (« oui mets les joueurs autour de l'échiquier comme chess.com […] essaye de mieux exploiter l'espace ») :
 - **Joueurs autour de l'échiquier** (ordinateur) : adversaire au-dessus, toi au-dessous avec le résultat, pendule au coup affiché (celle du camp au trait en clair, `clocksAt` dans `review.js`, `gvClocks`). `exo.screen` accepte `above` / `below`.
-- **Commentaire dans la colonne de droite** sur ordinateur (`capSide`, hauteur fixe de 112 px pour que rien ne saute d'un coup à l'autre) : l'échiquier grandit (environ 450 px au lieu de 400 en 1366 × 768) malgré les deux bandeaux. Sur téléphone, le bandeau reste sous l'échiquier ; au passage d'une largeur à l'autre, la relecture se reconstruit.
+- **Commentaire dans la colonne de droite** sur ordinateur (`capSide`) : l'échiquier grandit (environ 450 px au lieu de 400 en 1366 × 768) malgré les deux bandeaux. Sur téléphone, le bandeau reste sous l'échiquier ; au passage d'une largeur à l'autre, la relecture se reconstruit.
 - En-tête réduit à une ligne (ouverture, date, cadence, Débrief, Chess.com), légende de la courbe passée en info-bulle : la liste des coups gagne environ 4 lignes.
+- (« centre tout + je veux pas avoir à défiler en haut à droite ») Le commentaire prend la hauteur de son contenu (112 px au moins, jamais de défilement ; la liste des coups absorbe l'écart), sans le bouton « Débrief de la partie » en double ; boutons du bas centrés ; colonnes de coups resserrées (150 px), temps à droite.
 
 ## 43. Liste des parties plus claire (17/11)
 

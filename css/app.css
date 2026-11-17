@@ -283,14 +283,17 @@ cg-board { background-color: var(--sq-light); background-image: repeating-conic-
   .gvbar b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .gvbar .num { color: var(--ink3); }
   .gvclk { margin-left: auto; min-width: 96px; padding: var(--s-1) var(--s-3); border-radius: var(--r-s); background: var(--surface); color: var(--ink2); font: 600 var(--t-l) var(--mono); text-align: right; }
   .gvclk.on { background: var(--ink); color: var(--bg); }
-  body.fit .fitside > .cap { flex: none; height: 112px; }
+  /* Commentaire à droite : hauteur de son contenu, jamais de défilement (demande du 17/11) ; la liste des coups absorbe l'écart */
+  body.fit .fitside > .cap { flex: none; min-height: 112px; overflow: visible; }
+  .fitside > .cap [data-act="dbgo"] { display: none; } /* Débrief : déjà dans l'en-tête */
+  .bwrap.gv + .fitside .actbar { justify-content: center; }
   .gvch > .small { display: none; } /* légende dans l'info-bulle de la courbe */
   .gvm { flex: 1 1 auto; min-height: 96px; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; padding: var(--s-1) 0; background: var(--surface); border: 1px solid transparent; border-radius: var(--r); }
-  .gvr { display: grid; grid-template-columns: 52px minmax(0, 1fr) minmax(0, 1fr) minmax(96px, 180px); align-items: center; gap: var(--s-1); padding: 2px var(--s-3); }
+  .gvr { display: grid; grid-template-columns: 52px minmax(0, 150px) minmax(0, 150px) minmax(96px, 1fr); align-items: center; gap: var(--s-1); padding: 2px var(--s-3); }
   .gvr:nth-of-type(even) { background: color-mix(in srgb, var(--surface), var(--ink) 3%); }
   .gvr .mv { font-size: var(--t-m); justify-self: start; }
   .gvm .n { align-self: center; padding-left: 6px; }
-  .gvt { display: flex; flex-direction: column; gap: 2px; }
+  .gvt { display: flex; flex-direction: column; gap: 2px; width: 100%; max-width: 200px; justify-self: end; }
   .gvtm { display: grid; grid-template-columns: minmax(0, 1fr) 48px; align-items: center; gap: var(--s-2); }
   .gvtm i { justify-self: end; height: 4px; border-radius: var(--r-s); background: var(--ink2); }
   .gvtm.b i { background: var(--neutral); }
