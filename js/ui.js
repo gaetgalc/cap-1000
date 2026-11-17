@@ -1,7 +1,17 @@
 // Aides d'affichage sans état : sélection dans la page, échappement, formats, icônes, bulle du coach.
 export const $ = (s, r = document) => r.querySelector(s);
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-export const dfmt = (t) => new Date(t * 1000).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+// Un Intl.DateTimeFormat par jeu d'options : en créer un à chaque appel coûte cher (des milliers par courbe).
+const FMT = new Map();
+export const datef = (opts) => {
+  const k = JSON.stringify(opts);
+  let f = FMT.get(k);
+  if (!f) FMT.set(k, f = new Intl.DateTimeFormat('fr-FR', opts));
+  const g = f;
+  return (ms) => g.format(ms);
+};
+const DFMT = datef({ day: '2-digit', month: '2-digit', year: '2-digit' });
+export const dfmt = (t) => DFMT(t * 1000);
 export const TC = { rapid: 'Rapide', blitz: 'Blitz', bullet: 'Bullet', daily: 'Différé', all: 'Toutes cadences' };
 export const HOW = { checkmated: 'mat', timeout: 'temps', resigned: 'abandon', abandoned: 'partie quittée', stalemate: 'pat', agreed: 'nulle par accord', repetition: 'répétition', insufficient: 'matériel insuffisant', '50move': '50 coups', timevsinsufficient: 'temps contre matériel insuffisant' };
 export const coach = (html, cls = '') => `<div class="coach ${cls}"><span class="coach-av" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="7" r="3.6" fill="currentColor"/><path d="M8 20c0-4 1.5-6 4-8.5 2.5 2.5 4 4.500 4 8.500z" fill="currentColor"/><rect x="6" y="19.500" width="12" height="2.500" rx="1" fill="currentColor"/></svg></span><div class="coach-b">${html}</div></div>`;

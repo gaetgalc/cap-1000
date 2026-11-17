@@ -1,12 +1,13 @@
 // Page « Stats » : toutes les données depuis la première partie, sans filtre de période.
 import { tally, score, pct, clockErrors } from './stats.js';
-import { esc, dfmt, TC, HOW, wdl, WDL_LEGEND } from './ui.js';
+import { esc, dfmt, datef, TC, HOW, wdl, WDL_LEGEND } from './ui.js';
 import { lineChart } from './charts.js';
 import { fr } from './explain.js';
 
 const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 const SLOTS = [['Nuit (0 h à 6 h)', 0, 6], ['Matin (6 h à 12 h)', 6, 12], ['Après-midi (12 h à 18 h)', 12, 18], ['Soir (18 h à 24 h)', 18, 24]];
-const nf = (n) => Math.round(n).toLocaleString('fr-FR');
+const NF = new Intl.NumberFormat('fr-FR');
+const nf = (n) => NF.format(Math.round(n));
 
 function streaks(games) {
   let w = 0, l = 0, bw = 0, bl = 0;
@@ -67,7 +68,8 @@ export function viewStats(S) {
   const mk = [...byMonth.keys()].sort((a, b) => a - b);
   const months = []; for (let k = mk[0]; k <= mk[mk.length - 1]; k++) months.push(k);
   const maxM = Math.max(...months.map((k) => byMonth.get(k)?.length || 0));
-  const mName = (k) => new Date(Math.floor(k / 12), k % 12, 1).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
+  const MFMT = datef({ month: 'short', year: 'numeric' });
+  const mName = (k) => MFMT(new Date(Math.floor(k / 12), k % 12, 1).getTime());
   const bars = months.map((k) => { const g = byMonth.get(k) || []; const s = tally(g); return `<i style="height:${Math.max(g.length ? 3 : 0, (100 * g.length) / maxM)}%" data-tip="${mName(k)} : ${g.length} partie${g.length > 1 ? 's' : ''}${g.length ? ', ' + score(s) + ' % de score' : ''}"></i>`; }).join('');
   const byYear = group((g) => new Date(g.t * 1000).getFullYear());
   const years = [...byYear.keys()].sort().map((y) => { const g = byYear.get(y); const r = g.filter((x) => x.rated && x.r && (sel === 'all' ? x.tc === 'rapid' : true)); return row(y, tally(g), `<td class="r">${r.length ? r[r.length - 1].r : '—'}</td>`); });

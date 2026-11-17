@@ -1,4 +1,5 @@
 // Règles de la mémoire d'entraînement, sans navigateur : node --test tests/
+process.env.TZ = 'Europe/Paris'; // fuseau de Gaëtan, avant toute création de Date
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeProgress, DAY } from '../js/progress.js';
@@ -259,4 +260,17 @@ test('week : les 7 derniers jours, du plus ancien à aujourd’hui, avec le nomb
   assert.equal(w.length, 7);
   assert.equal(w[6].d, P.dkey());
   assert.deepEqual(w.map((x) => x.n), [0, 0, 0, 0, 1, 0, 3]);
+});
+
+test('dkey : AAAA-MM-JJ local, identique à toLocaleDateString(\'sv\') autour du changement d\'heure et de minuit', () => {
+  assert.equal(new Date(2026, 5, 1, 12).getTimezoneOffset(), -120, 'TZ=Europe/Paris pris en compte');
+  const { P } = setup();
+  for (let h = 0; h < 72; h++) {
+    const d = new Date(2026, 2, 28, h); // 28/03 00:00 à 30/03 23:00, dont le passage à l'heure d'été du 29
+    assert.equal(P.dkey(d), d.toLocaleDateString('sv'), d.toString());
+  }
+  for (const [y, m, j] of [[2026, 2, 29], [2026, 11, 31], [2027, 0, 1], [2026, 9, 25]]) {
+    for (const d of [new Date(y, m, j, 23, 59, 59), new Date(y, m, j, 0, 0, 0)]) assert.equal(P.dkey(d), d.toLocaleDateString('sv'));
+  }
+  assert.equal(P.dkey(new Date(2026, 0, 5, 23, 59)), '2026-01-05');
 });

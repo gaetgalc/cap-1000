@@ -10,7 +10,7 @@ const KEEP = 600, KEEP_LICHESS = 60;
 
 // Résultat d'un puzzle : 2 = trouvé du premier coup, 1 = trouvé après une erreur ou un indice, 0 = solution vue.
 export function makeProgress(store = ls, now = () => Date.now()) {
-  const dkey = (d = new Date(now())) => d.toLocaleDateString('sv'); // jour local, AAAA-MM-JJ
+  const dkey = (d = new Date(now())) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; // jour local, AAAA-MM-JJ
   const dayStart = (t = now()) => { const x = new Date(t); x.setHours(0, 0, 0, 0); return x.getTime(); };
 
   // ---- Activité par jour (séance du jour, série) ----
