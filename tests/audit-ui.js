@@ -179,6 +179,7 @@ async function visit(ctx, size, report) {
     await page.goto(base + '#' + hash); await sleep(900);
     const m = await page.evaluate(measure, [!!size.mobile, !!size.hc]);
     m.route = hash; m.errors = errs.splice(0);
+    await page.screenshot({ path: path.join(OUT, size.id, name + '.png') });
     // Défilés jusqu'en bas : plus de bord estompé sur la dernière ligne.
     m.edgeEnd = await page.evaluate(async () => {
       const bad = [], fr = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -189,7 +190,6 @@ async function visit(ctx, size, report) {
       }
       return bad;
     });
-    await page.screenshot({ path: path.join(OUT, size.id, name + '.png') });
     report[size.id][name] = m;
   }
   await page.close();
