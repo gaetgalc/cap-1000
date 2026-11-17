@@ -1333,8 +1333,12 @@ function goalStrip() {
   const days = Math.max(0, Math.ceil((new Date(g.date + 'T23:59:59') - Date.now()) / DAY)), gap = g.elo - tr.cur;
   const pace = gap > 0 ? `+${Math.ceil(gap / Math.max(days / 7, 1 / 7))} pts / sem.` : 'Objectif atteint';
   const d30 = !tr.delta30 ? '' : `<span class="chip ${tr.delta30 > 0 ? 'good' : tr.delta30 < 0 ? 'bad' : ''}">${tr.delta30 >= 0 ? '+' : ''}${tr.delta30} sur 30 j</span>`;
+  // Ordinateur (17/11) : les chiffres de l'objectif dans des encarts sous la barre, comme le bilan de « Parties » ;
+  // téléphone : une ligne, la série est dans la barre du haut.
+  const tile = (lab, v, sub = '', cls = '', tip = '') => `<div class="glt"${tip ? ` title="${tip}"` : ''}><span class="small">${lab}</span><b class="num ${cls}">${v}</b>${sub ? `<span class="small">${sub}</span>` : ''}</div>`;
+  const tiles = `<div class="glsum gtiles d-only">${tile('Il manque', gap > 0 ? `${gap} pts` : 'Atteint', `pour atteindre ${g.elo}`, gap > 0 ? '' : 'up')}${tile('Échéance', `${days} j`, new Date(g.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }))}${gap > 0 ? tile('Rythme nécessaire', pace.replace(' pts / sem.', ''), 'points par semaine') : ''}${tile('30 derniers jours', tr.delta30 ? `${tr.delta30 > 0 ? '+' : ''}${tr.delta30}` : '0', 'points', tr.delta30 > 0 ? 'up' : tr.delta30 < 0 ? 'dn' : '')}${tile('Série', `${stk} j`, 'puzzle ou cours chaque jour', stk ? 'warn' : '', 'Jours consécutifs avec au moins un puzzle ou un cours')}</div>`;
   return `<section class="gstrip"><a class="gnum" href="#bilan" title="Détail de l’objectif"><b class="num">${tr.cur}</b><span class="goalbar" aria-hidden="true"><i style="width:${Math.max(3, Math.min(100, (100 * tr.cur) / g.elo))}%"></i></span><b class="num">${g.elo}</b></a>
-    <span class="gmeta">${gap > 0 ? `<span>Il manque <b class="num">${gap}</b></span><span>${days} j</span>` : ''}<span>${pace}</span>${d30}${serie}</span></section>`;
+    <span class="gmeta m-only">${gap > 0 ? `<span>Il manque <b class="num">${gap}</b></span><span>${days} j</span>` : ''}<span>${pace}</span>${d30}</span>${tiles}</section>`;
 }
 function sessionCard(steps, nDone) {
   const cur = steps.find((x) => !x.done), all = nDone === steps.length;

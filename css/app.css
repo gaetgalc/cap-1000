@@ -478,7 +478,8 @@ body.homefit .view { flex: 1; min-height: 0; width: 100%; padding-bottom: 16px; 
   body.homefit .home { flex: none; }
   .home .stepper { display: none; }
   .home { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; }
-  .gstrip { grid-column: 1 / -1; }
+  .gstrip { grid-column: 1 / -1; padding: var(--s-3) var(--s-4) var(--s-4); background: var(--surface); border-radius: var(--r); gap: var(--s-3) var(--s-4); }
+  .gtiles { flex: 1 1 100%; } /* encarts de l'objectif sous la barre (17/11) */
   .today { padding: 24px; gap: 20px; }
   .now b { font-size: var(--t-xl); }
   .hside { gap: 16px; }

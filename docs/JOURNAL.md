@@ -480,6 +480,12 @@ Suite (« oui mets les joueurs autour de l'échiquier comme chess.com […] essa
 - Fautes : deux pastilles de largeur fixe et fond teinté (`.flt` : gaffes en rouge, erreurs en orange), toujours présentes, 0 en gris ; elles s'alignent d'une ligne à l'autre. Nombre au survol (« 2 gaffes »).
 - Colonnes chiffrées (coups, précision, fautes, pendule) centrées sous leur titre ; la date reste à droite.
 
+## 44. Accueil : encarts de l'objectif (17/11)
+
+> pareil sur la home ajoute un encart pour tous les points en haut à droite. que rajouter dessus pour remplir l'espace ?
+
+- Ordinateur : l'objectif devient une carte, barre 735 → 1000 en haut, puis 5 encarts (Il manque, Échéance, Rythme nécessaire, 30 derniers jours, Série), comme le bilan de « Parties ». Téléphone inchangé (ligne sous la barre, série dans la barre du haut), la page ne défile toujours pas.
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |
