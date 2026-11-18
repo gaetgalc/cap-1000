@@ -61,6 +61,7 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   check(await S(() => location.hash === '#entrainer'), 'onglet S’entraîner après #puzzles puis retour : mène à la vue d’ensemble, pas à l’écran immersif');
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#accueil`); await sleep(600);
   await page.tap('.lgame a[href^="#erreur/"]'); await sleep(700);
+  check(await S(() => location.hash.startsWith('#erreur/')), 'accueil : « Rejouer l’erreur » ouvre l’écran de l’erreur');
   await S(() => history.back()); await sleep(600);
   await page.tap('#nh-ent'); await sleep(500);
   check(await S(() => location.hash === '#entrainer'), 'onglet S’entraîner après « Rejouer l’erreur » puis retour : mène à la vue d’ensemble');
@@ -383,7 +384,7 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   await page.click('#fly-pro a[href="#stats"]'); await sleep(500);
   check(await S(() => location.hash === '#stats' && document.querySelector('#nh-pro').getAttribute('aria-expanded') === 'false'), 'ordinateur : un lien du volet mène à sa page et le referme');
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#plan`); await sleep(800);
-  check(await S(() => [...document.querySelectorAll('#view label')].some((l) => /Cadence suivie/.test(l.textContent) && document.getElementById(l.htmlFor)?.tagName === 'SELECT') && /À jour : /.test(document.querySelector('#view').innerText) && !!document.querySelector('#view [data-act="refresh"]')), 'Plan : « Cadence suivie » avec son libellé, mise à jour et « À jour : »');
+  check(await S(() => [...document.querySelectorAll('#view label')].some((l) => /Cadence suivie/.test(l.textContent) && document.getElementById(l.htmlFor)?.tagName === 'SELECT') && /À jour, /.test(document.querySelector('#view').innerText) && !!document.querySelector('#view [data-act="refresh"]')), 'Plan : « Cadence suivie » avec son libellé, mise à jour et « À jour, … »');
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#bilan`); await sleep(800);
   check(await S(() => document.querySelectorAll('#view .seg2.mini [data-f="days"]').length === 3), 'Mon jeu : sélecteur de période Tout · 90 j · 30 j');
   await page.click('#view .seg2.mini [data-f="days"][data-v="30"]'); await sleep(500);
@@ -401,6 +402,10 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   await page.waitForFunction(() => !window.__cap.importing, null, { timeout: 30000 }); await sleep(300);
   check(await S(() => [...document.querySelectorAll('.toast')].some((t) => /^Mise à jour impossible/.test(t.textContent))), '« Mettre à jour » en échec : message éphémère');
   await ctx.unroute('https://api.chess.com/**'); await routeChessCom(ctx);
+  // Chess.com de nouveau joignable : « Mettre à jour » efface l'échec et la ligne d'état revient à « À jour, … »
+  await page.click('#view [data-act="refresh"]');
+  await page.waitForFunction(() => !window.__cap.importing, null, { timeout: 30000 }); await sleep(300);
+  check(await S(() => location.hash === '#parties' && /^À jour, /.test(document.querySelector('#upd')?.innerText || '') && window.__cap.upErr == null), '« Mettre à jour » réussi après un échec : ligne d’état « À jour, … »');
   // Retour sur l'onglet, données périmées : l'import se fait sans reconstruire l'exercice en cours
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#drill/sur`); await page.waitForSelector('#xb', { timeout: 20000 }); await sleep(500);
   await S(() => { document.querySelector('#xb').dataset.keep = '1'; window.__cap.data.fetchedAt = 0; document.dispatchEvent(new Event('visibilitychange')); });

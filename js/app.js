@@ -760,7 +760,7 @@ function viewLigne(id, k, mode) {
   const key = lineKey(o, +k), voir = mode === 'voir', mv = movesOf(l), side = l.side === 'w' ? 'Blancs' : 'Noirs';
   const mine = mv.filter((_, i) => (i % 2 === 0) === (l.side === 'w')).length;
   S.lnCur = { o, l, k: +k, key, voir };
-  const chips = `<span class="chip">${voir ? 'Découverte' : 'De mémoire'}</span><span class="chip">Ligne ${+k + 1} / ${o.lines.length}</span>`;
+  const chips = `<span class="chip lnmode">${voir ? 'Découverte' : 'De mémoire'}</span><span class="chip">Ligne ${+k + 1} / ${o.lines.length}</span>`;
   return exo.screen({
     live: true, top: () => chips,
     head: `<div class="pzhead main"><h1>${esc(o.nom)}</h1><div class="row">${chips}</div></div>`
@@ -1194,9 +1194,9 @@ function cadenceField() {
   const has = new Set(S.data.games.map((g) => g.tc));
   return `<label class="sub" for="tcsel">Cadence suivie</label><select id="tcsel" data-f="tc">${['rapid', 'blitz', 'bullet', 'daily'].filter((k) => has.has(k)).map((k) => `<option value="${k}" ${S.f.tc === k ? 'selected' : ''}>${TC[k]}</option>`).join('')}<option value="all" ${S.f.tc === 'all' ? 'selected' : ''}>Toutes cadences</option></select>`;
 }
-// Période : Tout · 90 j · 30 j, dans chaque vue qui la lit (Mon jeu, Parties).
+// Période : Tout · 90 j · 30 j, dans chaque vue qui la lit (Mon jeu, Parties, Mes ouvertures, détail d'une ouverture).
 const periodSeg = () => `<div class="seg2 mini" role="group" aria-label="Période">${[[0, 'Tout'], [90, '90 j'], [30, '30 j']].map(([v, l]) => `<button data-f="days" data-v="${v}" aria-pressed="${(S.f.days || 0) === v}" class="${(S.f.days || 0) === v ? 'on' : ''}">${l}</button>`).join('')}</div>`;
-const upToDate = () => (S.upErr ? `Mise à jour impossible, dernière réussie ${S.data?.fetchedAt ? agoFr(Date.now() - S.data.fetchedAt) : 'jamais'}`
+const upToDate = () => (S.upErr ? (S.data?.fetchedAt ? `Mise à jour impossible, dernière réussie ${agoFr(Date.now() - S.data.fetchedAt)}` : 'Mise à jour impossible')
   : S.data?.fetchedAt ? `À jour, ${agoFr(Date.now() - S.data.fetchedAt)}` : 'Pas encore mis à jour');
 const refreshBtn = () => `<button class="btn ico" data-act="refresh" aria-label="Mettre à jour" title="Récupérer les nouvelles parties de ${esc(S.user)}" ${S.importing && !S.importing.err ? 'aria-busy="true"' : ''}>${ico('refresh')}</button>`;
 function header() {
@@ -1276,8 +1276,7 @@ function nextLesson(ids) {
 function focus(es) {
   let f = ls.get('focus', null);
   if (f && st.THEMES[f.id]) return f;
-  const all = es;
-  const top = all.themes[0]?.id;
+  const top = es.themes[0]?.id;
   if (!top) return null;
   f = { id: top, since: Math.floor(Date.now() / 1000) };
   ls.set('focus', f);
@@ -2366,7 +2365,7 @@ function viewPlan() {
   const target = Math.max(4, Math.round((hours * 60 * 0.5) / 25));
   const g = goal();
   return `${tabs('plan', PRO_TABS)}<h1>Plan et réglages</h1>
-  <div class="card stack"><h2>Tes données</h2><p class="sub">Compte ${esc(S.user)}. Les nouvelles parties sont récupérées toutes seules.</p><div class="row">${cadenceField()}</div><div class="row"><button class="btn" data-act="refresh" ${S.importing && !S.importing.err ? 'aria-busy="true"' : ''}>Mettre à jour</button><span class="sub">${S.upErr ? upToDate() : S.data.fetchedAt ? `À jour : ${agoFr(Date.now() - S.data.fetchedAt)}` : 'Pas encore mis à jour'}</span></div></div>
+  <div class="card stack"><h2>Tes données</h2><p class="sub">Compte ${esc(S.user)}. Les nouvelles parties sont récupérées toutes seules.</p><div class="row">${cadenceField()}</div><div class="row"><button class="btn" data-act="refresh" ${S.importing && !S.importing.err ? 'aria-busy="true"' : ''}>Mettre à jour</button><span class="sub">${upToDate()}</span></div></div>
   <div class="card"><h2>Semaine du ${F_DLONG(new Date(wk + 'T00:00:00'))}</h2>
       <div class="row"><label for="hrs" class="sub">Temps disponible</label><select id="hrs">${[3, 4, 5, 6, 8, 10].map((h) => `<option value="${h}" ${h === hours ? 'selected' : ''}>${h} h par semaine</option>`).join('')}</select></div>
       <div class="stack"><b>Jouer : <span class="num">${played} / ${target}</span> parties rapides cette semaine</b>
@@ -2464,7 +2463,7 @@ const ROUTES = {
   monouv: { view: viewMonOuv, mount: mountMonOuv, title: 'Mon ouverture', back: '#ouvertures' },
   parties: { view: viewParties },
   // Relecture : au passage ordinateur / téléphone, le bandeau change de colonne (vue reconstruite), sinon mise à jour sur place
-  partie: { view: viewPartie, mount: mountPartie, title: 'Partie', back: '#parties', resize: () => { if (S.gv?.cg) { if (!!$('.fitside #xcap') !== exo.wide()) render(true); else gvSync(); } } },
+  partie: { view: viewPartie, mount: mountPartie, title: 'Partie', back: '#parties', resize: () => { if (S.gv?.cg) gvSync(); } }, // exercise.js change le bandeau de colonne sur place au passage ordinateur / téléphone ; gvSync recale l'affichage
   jouer: { view: viewJouer, mount: mountJouer, title: 'Jouer', back: (a) => '#partie/' + a },
   bilan: { view: viewBilan, mount: mountBilan, resize: mountBilan },
   stats: { view: () => tabs('stats', PRO_TABS) + viewStats(S) /* viewStats vit dans alltime.js : les onglets sont ajoutés ici */, mount: () => mountStats(S), resize: () => mountStats(S) },

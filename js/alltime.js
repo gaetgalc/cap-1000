@@ -136,9 +136,9 @@ export function viewStats(S) {
   ].join('');
   const H4 = ['', 'Parties', 'Résultats', 'Score'];
 
-  return `<div class="row" style="justify-content:space-between"><h1>Stats depuis le début</h1>
+  return `<div class="vhead"><h1>Stats depuis le début</h1>
     <div class="row" role="group" aria-label="Cadence">${['all', ...['rapid', 'blitz', 'bullet', 'daily'].filter((k) => has.includes(k))].map((k) => `<button class="btn sm ${sel === k ? 'pri' : ''}" data-act="stattc" data-tc="${k}">${k === 'all' ? 'Toutes' : TC[k]}</button>`).join('')}</div></div>
-  <p class="sub">Depuis ta première partie du ${dfmt(first.t)}. Cette page ignore le filtre de période.</p>
+  <p class="sub">Depuis ta première partie du ${dfmt(first.t)}.</p>
   <div class="tiles">${tiles}</div>
   <div class="card"><h2>Par cadence</h2>${tbl(['Cadence', 'Parties', 'Résultats', 'Score', 'Elo actuel', 'Record', 'Plus bas'], cad)}${WDL_LEGEND}</div>
   <div class="grid">${['rapid', 'blitz', 'bullet', 'daily'].filter((k) => all.filter((g) => g.tc === k && g.rated && g.r).length >= 2).map((k) => `<div class="card"><h2>Classement ${TC[k]}</h2><div class="chart" data-rc="${k}"></div></div>`).join('')}</div>

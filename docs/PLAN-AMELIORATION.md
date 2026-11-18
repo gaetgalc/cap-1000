@@ -1,6 +1,6 @@
 # Plan d'amélioration (17/11)
 
-**État (18/11) : fait, sauf les tâches 14 (revue écran par écran) et 15 (un module par écran), abandonnées sur décision de Gaëtan pour économiser les jetons. La tâche 12 (commentaire de la relecture) était déjà réglée par la revue HIG (panneau qui défile avec bord estompé). Voir `docs/JOURNAL.md` §48.**
+**État (18/11) : fait, sauf les tâches 14 (revue écran par écran) et 15 (un module par écran), abandonnées sur décision de Gaëtan pour économiser les jetons. La tâche 12 (commentaire de la relecture) était déjà réglée par la revue HIG (panneau qui défile avec bord estompé). Voir `docs/JOURNAL.md` §49.**
 
 > **Pour les agents :** exécuté par des sous-agents Sonnet, orchestrés depuis la conversation principale (`superpowers:subagent-driven-development`). Chaque tâche se coche (`- [ ]`). Un sous-agent ne committe ni ne pousse : il rend ses fichiers modifiés, ses mesures avant / après et ses doutes ; l'orchestrateur vérifie, committe sur `claude/sleepy-darwin-5alsv1`, puis fusionne dans `main` (règle de `CLAUDE.md`).
 
