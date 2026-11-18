@@ -1182,13 +1182,25 @@ function header() {
   const imm = !!S.data && (!!exo.current() || r === 'erreur' || (r === 'cours' && !!a) || (r === 'ouvertures' && !!a && a !== 'apprendre') || r === 'monouv' || r === 'avantpartie'); // écran d'exercice ou page de cours : barre du haut avec retour
   document.body.classList.toggle('imm', imm);
   document.body.classList.toggle('homefit', !!S.data && r === 'accueil');
-  $('#ttl').textContent = imm ? TITLES[r] : '';
+  pageTitle(imm, r);
   if (!S.data) { t.innerHTML = ''; return; }
   const tr = st.trend(rapidAll()), stk = streak();
   // Sur téléphone, pendant un exercice, la barre du haut montre l'avancée (puzzles du jour, position de la série).
+  // L'accueil n'y met pas l'Elo : son bandeau d'objectif le montre déjà.
   const top = exo.top();
-  t.innerHTML = `${top ? `<span class="m-only row chips">${top}</span>` : `<span class="m-only row chips">${tr ? `<span class="chip">${tr.cur} Elo</span>` : ''}<span class="chip ${stk ? 'warn' : ''}">Série ${stk} j</span></span>`}${exo.current() ? sndBtn() : ''}`;
+  t.innerHTML = `${top ? `<span class="m-only row chips">${top}</span>` : `<span class="m-only row chips">${tr && r !== 'accueil' ? `<span class="chip">${tr.cur} Elo</span>` : ''}<span class="chip ${stk ? 'warn' : ''}">Série ${stk} j</span></span>`}${exo.current() ? sndBtn() : ''}`;
   navBadges();
+}
+// Titre de la barre du haut. Écran à retour (imm) : TITLES. Téléphone, hors accueil (revue HIG, tâche 6) : le texte du
+// premier h1 de la vue, à la place du logo (body.titled) ; le h1 reste dans la page pour les lecteurs d'écran (.vh) et le
+// titre de la barre leur est caché pour ne pas être lu deux fois. Lu après l'écriture de la vue : header() vient après.
+function pageTitle(imm, r) {
+  const ttl = $('#ttl'), h = imm ? null : $('#view h1');
+  const bar = !!h && !!S.data && r !== 'accueil' && phoneNav.matches;
+  if (h) h.classList.toggle('vh', bar);
+  document.body.classList.toggle('titled', bar);
+  ttl.textContent = imm ? TITLES[r] : bar ? h.textContent.replace(/\s+/g, ' ').trim() : '';
+  if (bar) ttl.setAttribute('aria-hidden', 'true'); else ttl.removeAttribute('aria-hidden');
 }
 // Bouton son / muet d'un écran d'exercice : barre du haut sur téléphone, bas de la colonne d'icônes sur ordinateur.
 const sndAttrs = (b) => { const on = sound.enabled(); b.setAttribute('aria-pressed', on); b.title = on ? 'Couper les sons' : 'Activer les sons'; b.innerHTML = ico(on ? 'snd' : 'mute'); };
@@ -2478,7 +2490,7 @@ function navFill(g) {
   if (g.dataset.menu === 'acc') { const { steps } = session(); for (const x of steps) { if (x.k === 'dr') set('drill', x.cta[1]); if (x.k === 'les') set('cours', x.cta[1]); } }
   if (g.dataset.menu === 'ent') { const due = progress.linesDue(allLineKeys()); set('lignes', due.length ? lineHref(due[0]) : '#ouvertures/apprendre'); }
 }
-navAria(); phoneNav.addEventListener('change', navAria);
+navAria(); phoneNav.addEventListener('change', () => { navAria(); header(); }); // passage ordinateur / téléphone : menus et titre de la barre
 const navItems = (g) => [...g.querySelectorAll('.fly a')];
 navGroups().forEach((g) => {
   const h = g.querySelector('.grp-h');
