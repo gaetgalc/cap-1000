@@ -26,7 +26,19 @@ const TOUTES_TAILLES = [
 const liste = (v) => (v || '').split(',').map((x) => x.trim()).filter(Boolean);
 const SIZES = liste(process.env.SIZES).length ? TOUTES_TAILLES.filter((z) => liste(process.env.SIZES).includes(z.id)) : TOUTES_TAILLES;
 
-// Écrans : route fixe, ou fonction qui la calcule sur l'état chargé (window.__cap).
+// Écrans : route fixe, ou fonction qui la calcule sur l'état chargé (window.__cap) ; act : gestes faits avant la capture.
+const ERREUR = () => { const s = window.__cap; for (const g of s.data.games) { const e = s.an[g.id]?.errs?.[0]; if (e) return 'erreur/' + g.t + '/' + e.ply; } return 'puzzles'; };
+// Erreur après « Solution » (body.solved, bandeau de la suite, panneau d'explication) : la bonne suite est menée au pas à
+// pas jusqu'à son dernier coup, pour une capture qui ne dépend pas de la vitesse de lecture.
+async function solveToEnd(page) {
+  await page.locator('#xbar [data-x="show"]').click();
+  await page.waitForSelector('#xcap.film', { timeout: 120000 });
+  for (let k = 0; k < 60; k++) {
+    const next = page.locator('#xbar [data-x="next"]');
+    if (await next.isDisabled()) break;
+    await next.click();
+  }
+}
 const TOUS_ECRANS = [
   ['accueil'], ['bilan'], ['plan'], ['puzzles'], ['historique'], ['exos'], ['drill-sur', 'drill/sur'], ['drill-compte', 'drill/compte'],
   ['cours'], ['cours-fiche', 'cours/en_prise_pose/fiche'], ['cours-prive', 'cours/en_prise_pose'],
@@ -38,7 +50,7 @@ const TOUS_ECRANS = [
   ['mon-ouverture', () => { const s = window.__cap, g = s.data.games.find((x) => x.w); return 'monouv/w/' + encodeURIComponent(g.fam); }],
   ['partie', () => { const s = window.__cap, g = s.data.games.find((x) => s.an[x.id] && !s.an[x.id].bad); return 'partie/' + g.t; }],
   ['partie-debrief', () => { const s = window.__cap, g = s.data.games.find((x) => s.an[x.id] && !s.an[x.id].bad); return 'partie/' + g.t + '/d'; }],
-  ['erreur', () => { const s = window.__cap; for (const g of s.data.games) { const e = s.an[g.id]?.errs?.[0]; if (e) return 'erreur/' + g.t + '/' + e.ply; } return 'puzzles'; }],
+  ['erreur', ERREUR],
   // Position d'un cours privé : cours simulé injecté dans l'état (jamais enregistré), sur la première erreur analysée.
   ['cours-position', () => {
     const s = window.__cap;
@@ -51,6 +63,8 @@ const TOUS_ECRANS = [
     }
     return 'cours';
   }],
+  // En dernier : la solution vue s'inscrit au journal, remis dans son état d'avant juste après la capture.
+  ['erreur-resolue', ERREUR, { act: solveToEnd }],
 ];
 const SCREENS = liste(process.env.ONLY).length ? TOUS_ECRANS.filter(([n]) => liste(process.env.ONLY).includes(n)) : TOUS_ECRANS;
 // Un nom inconnu (faute de frappe) ne doit pas donner un « rien à signaler » silencieux.
@@ -178,7 +192,10 @@ async function visit(ctx, size, report) {
   for (const [name, route = name, opt = {}] of SCREENS) {
     if (opt.mobileOnly && !size.mobile) continue;
     const hash = typeof route === 'function' ? await page.evaluate(route) : route;
-    await page.goto(base + '#' + hash); await sleep(900);
+    const saved = opt.act && await page.evaluate(() => JSON.stringify({ ...localStorage }));
+    await page.goto(base + '#' + hash);
+    if (opt.act) await opt.act(page);
+    await sleep(900);
     // Transition de vue et animations finies avant de mesurer et de photographier (sinon capture à mi-fondu sur une machine chargée).
     await page.evaluate(() => Promise.race([new Promise((r) => setTimeout(r, 4000)), Promise.all([document.activeViewTransition?.finished, ...document.getAnimations().filter((a) => isFinite(a.effect?.getComputedTiming().endTime)).map((a) => a.finished)].map((p) => Promise.resolve(p).catch(() => {})))])).catch(() => {});
     const m = await page.evaluate(measure, [!!size.mobile, !!size.hc]);
@@ -196,6 +213,7 @@ async function visit(ctx, size, report) {
       return bad;
     });
     report[size.id][name] = m;
+    if (saved) await page.evaluate((k) => { localStorage.clear(); Object.assign(localStorage, JSON.parse(k)); }, saved);
   }
   await page.close();
 }
