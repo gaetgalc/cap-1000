@@ -732,11 +732,17 @@ body.fit .cap { max-width: none; overflow-y: auto; }
   body.fit.solved .fitpanel .meta { display: none; }
 }
 
-/* Lecture animée : le bandeau sous l'échiquier garde la place du commentaire d'un coup (en-tête, progression, 3 lignes). */
+/* Bandeau sous l'échiquier sur ordinateur (capSide: false, aucun écran aujourd'hui) : l'échiquier lui laisse la place
+   du commentaire d'un coup pendant une lecture animée (en-tête, progression, 3 lignes). */
 @media (min-width: 860px) { body.fit { --capmin: 170px; } }
 /* Revue HIG (tâche 9) : sur ordinateur, le bandeau est en tête de la colonne de droite (capSide, js/exercise.js) ;
-   l'échiquier ne lui réserve plus de place et prend toute la hauteur (720 px en 1366 × 768). La relecture garde ses joueurs. */
-@media (min-width: 860px) { body.fit:has(.fitside > .cap):not(:has(.bwrap.gv)) { --capmin: 0px; } }
+   l'échiquier ne lui réserve plus de place et prend toute la hauteur (720 px en 1366 × 768). La relecture garde ses joueurs.
+   Hors relecture, le bandeau a une hauteur fixe (la même réserve de 170 px) : pendant une lecture, le panneau dessous
+   ne bouge pas ; un commentaire plus long défile dans le bandeau (data-edge). */
+@media (min-width: 860px) {
+  body.fit:has(.fitside > .cap):not(:has(.bwrap.gv)) { --capmin: 0px; }
+  body.fit:not(:has(.bwrap.gv)) .fitside > .cap { height: 170px; min-height: 170px; overflow-y: auto; }
+}
 @media (max-width: 859px) {
   body.fit.solved .bwrap .board { width: min(100cqw, 100cqh - 150px); height: min(100cqw, 100cqh - 150px); }
   body.fit.solved .cap { min-height: 150px; }

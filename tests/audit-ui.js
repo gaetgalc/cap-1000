@@ -210,6 +210,21 @@ async function visit(ctx, size, report) {
       }
       return bad;
     });
+    // Revue HIG, tâche 9 : sur ordinateur, le bandeau est au-dessus du panneau ; pendant une lecture automatique,
+    // le haut du panneau ne bouge pas (onglets des suites et boutons de « Pourquoi… » restent sous le pointeur).
+    if (name === 'erreur' && size.id === '1366x768') {
+      m.filmShift = 0; m.filmCap = [];
+      if (await page.$('#xbar [data-x="show"]')) {
+        await page.click('#xbar [data-x="show"]'); await sleep(400);
+        const tops = [];
+        for (let k = 0; k < 30; k++) {
+          const r = await page.evaluate(() => [document.querySelector('#xpanel')?.getBoundingClientRect().top, document.querySelector('#xcap')?.scrollHeight]);
+          tops.push(r[0]); m.filmCap.push(r[1]); await sleep(300);
+        }
+        m.filmShift = Math.round(Math.max(...tops) - Math.min(...tops));
+        m.scrollAfterFilm = await page.evaluate(() => document.scrollingElement.scrollHeight - innerHeight);
+      } else m.filmShift = -1;
+    }
     report[size.id][name] = m;
   }
   await page.close();
@@ -240,6 +255,9 @@ async function visit(ctx, size, report) {
   for (const [sid, r] of Object.entries(report)) {
     for (const [name, m] of Object.entries(r)) {
       const pb = [];
+      if (m.filmShift === -1) pb.push('lecture automatique : bouton Solution introuvable');
+      if (m.filmShift > 1) pb.push('lecture automatique : le panneau bouge de ' + m.filmShift + ' px');
+      if (m.scrollAfterFilm > 0) pb.push('défile de ' + m.scrollAfterFilm + ' px pendant la lecture');
       if (m.fit && m.scrollY > 0) pb.push('défile de ' + m.scrollY + ' px');
       if (m.scrollX > 0) pb.push('déborde de ' + m.scrollX + ' px');
       if (m.primaries > 1) pb.push(m.primaries + ' boutons pleins');
