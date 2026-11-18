@@ -95,7 +95,7 @@ async function doImport(user, manual) {
       // Échec : noté dans la ligne d'état (#upd) ; message éphémère seulement si l'élève a demandé la mise à jour,
       // pas à chaque retour sur l'onglet.
       S.importing = null; S.upErr = Date.now(); paintJob();
-      const u = $('#upd'); if (u) u.textContent = upToDate();
+      document.querySelectorAll('#upd, [data-upd]').forEach((u) => { u.textContent = upToDate(); });
       if (manual) toast('Mise à jour impossible : ' + (e.message || String(e)));
     }
   }
@@ -1198,6 +1198,9 @@ function cadenceField() {
 const periodSeg = () => `<div class="seg2 mini" role="group" aria-label="Période">${[[0, 'Tout'], [90, '90 j'], [30, '30 j']].map(([v, l]) => `<button data-f="days" data-v="${v}" aria-pressed="${(S.f.days || 0) === v}" class="${(S.f.days || 0) === v ? 'on' : ''}">${l}</button>`).join('')}</div>`;
 const upToDate = () => (S.upErr ? (S.data?.fetchedAt ? `Mise à jour impossible, dernière réussie ${agoFr(Date.now() - S.data.fetchedAt)}` : 'Mise à jour impossible')
   : S.data?.fetchedAt ? `À jour, ${agoFr(Date.now() - S.data.fetchedAt)}` : 'Pas encore mis à jour');
+// Bas de la colonne de gauche, ordinateur (18/11, demande de Gaëtan : « remets la barre mettre à jour en bas à gauche ») :
+// état de la mise à jour et bouton, sur toutes les pages hors exercice (body.fit cache .tools).
+const sideUpd = () => `<div class="sideupd d-only"><span class="small" data-upd>${upToDate()}</span><button class="btn sm" data-act="refresh" title="Récupérer les nouvelles parties de ${esc(S.user)}" ${S.importing && !S.importing.err ? 'aria-busy="true"' : ''}>${ico('refresh')}<span>Mettre à jour</span></button></div>`;
 const refreshBtn = () => `<button class="btn ico" data-act="refresh" aria-label="Mettre à jour" title="Récupérer les nouvelles parties de ${esc(S.user)}" ${S.importing && !S.importing.err ? 'aria-busy="true"' : ''}>${ico('refresh')}</button>`;
 function header() {
   const t = $('#tools'), [r, a] = route();
@@ -1210,7 +1213,7 @@ function header() {
   // Sur téléphone, pendant un exercice, la barre du haut montre l'avancée (puzzles du jour, position de la série).
   // L'accueil n'y met pas l'Elo : son bandeau d'objectif le montre déjà.
   const top = exo.top();
-  t.innerHTML = `${top ? `<span class="m-only row chips">${top}</span>` : `<span class="m-only row chips">${tr && r !== 'accueil' ? `<span class="chip">${tr.cur} Elo</span>` : ''}<span class="chip ${stk ? 'warn' : ''}">Série ${stk} j</span></span>`}${exo.current() ? sndBtn() : ''}`;
+  t.innerHTML = `${top ? `<span class="m-only row chips">${top}</span>` : `<span class="m-only row chips">${tr && r !== 'accueil' ? `<span class="chip">${tr.cur} Elo</span>` : ''}<span class="chip ${stk ? 'warn' : ''}">Série ${stk} j</span></span>`}${exo.current() ? sndBtn() : ''}${sideUpd()}`;
   navBadges();
 }
 // Titre de la barre du haut. Écran à retour (imm) : title de ROUTES. Téléphone, hors accueil (revue HIG, tâche 6) : le texte du

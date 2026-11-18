@@ -622,6 +622,8 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
   .nav a.on { color: var(--ink); background: color-mix(in srgb, var(--sec) 12%, var(--sunken)); box-shadow: inset 3px 0 0 var(--sec); }
   .fly a.on { box-shadow: none; }
   .tools { margin: auto 0 0; flex-direction: column; align-items: stretch; }
+  .sideupd { display: flex; flex-direction: column; gap: var(--s-2); padding: var(--s-3) var(--s-2) 0; border-top: 1px solid var(--line); }
+  .sideupd .btn { justify-content: flex-start; gap: var(--s-2); }
   /* Mise en page */
   .split { grid-template-columns: minmax(0, 520px) minmax(0, 1fr); }
   .hero { grid-template-columns: 320px 1fr; }
