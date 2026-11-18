@@ -531,6 +531,8 @@ Plan dans `docs/PLAN-AMELIORATION.md`, exécuté par des sous-agents (Sonnet pui
 | Échauffement | 287 ms | ≈ 60 ms | rejeu des parties (`replay` en cache, parties réchauffées d'abord) |
 | Relecture | 113 ms | ≈ 65 ms | Elo de référence gardé |
 
+Sur les 6 125 vraies parties de gaetcc (hors dépôt, plus longue tâche, ordinateur / téléphone) : Mon jeu 333 / 276 → moins de 50 ms ; Stats 494 / 427 → 62 / 56 ms ; Idées 292 / 266 → 50 ms au plus ; Échauffement 389 / 329 → 42 / 14 ms. Restent : l'échauffement ouvert avant la toute première analyse (≈ 350 ms : aucune partie rejouée d'avance), la relecture vers 100 ms (création de l'échiquier) et le rechargement (7 à 8 tâches de 55 à 115 ms, comme avant).
+
 Aussi : `memo()` / `touch()` (calculs gardés tant que parties, analyses, filtre et jour ne changent pas), préchargement de tout le graphe de modules et des polices du premier écran, repli de `idle` pour Safari (tranches de 12 ms décomptées à l'horloge).
 
 **Code** : polices Sora et IBM Plex supprimées (110 Ko) ; feuille de style en un bloc ordinateur et un bloc téléphone (37 blocs `@media` avant), un seul bloc de survol, règles mortes et doublons retirés (90,2 → 86,8 Ko, l'objectif de 70 Ko était trop optimiste : presque toute la feuille sert) ; table `ROUTES` à la place des quatre chaînes de routage ; aides `tile`, `resChip`, `tabs` ; quatre morceaux de code jamais exécuté retirés (couverture V8). `app.js` : 240,0 → 238,1 Ko après la fusion de la revue HIG (qui avait ajouté 3,4 Ko).
