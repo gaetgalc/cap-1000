@@ -16,13 +16,14 @@ let pending = null, cur = null;
 //   top       () => HTML : avancée montrée dans la barre du haut sur téléphone
 //   rail      HTML placé dans le cadre de l'échiquier, avant lui (barre d'évaluation de la relecture) ; wrap : classe du cadre
 //   above, below  HTML au-dessus et au-dessous de l'échiquier, dans son cadre (joueurs de la relecture, ordinateur)
-//   capSide   true : sur ordinateur, le bandeau passe en tête de la colonne de droite (relecture, comme Chess.com)
+//   capSide   false : le bandeau reste sous l'échiquier sur ordinateur ; par défaut il passe en tête de la colonne de droite
+//             (relecture comme Chess.com, puis tous les exercices : revue HIG, tâche 9, échiquier de 640 px en 1366 × 768)
 //   live      true si un rendu d'arrière-plan ne doit pas reconstruire l'écran (exercice en cours)
 //   autres champs : libres, retrouvés au montage dans X.spec
 export const wide = () => matchMedia('(min-width: 860px)').matches;
 export function screen(spec) {
   pending = spec;
-  const cap = `<div class="cap ${spec.capClass || ''}" id="xcap" data-edge>${spec.cap || ''}</div>`, side = spec.capSide && wide();
+  const cap = `<div class="cap ${spec.capClass || ''}" id="xcap" data-edge>${spec.cap || ''}</div>`, side = spec.capSide !== false && wide();
   return `<div class="bwrap ${spec.wrap || ''}">${spec.rail || ''}${spec.above || ''}<div class="board" id="xb"></div>${spec.below || ''}${side ? '' : cap}</div>
     <div class="fitside"><div class="fithead">${spec.head || ''}</div>${side ? cap : ''}<div class="stack fitpanel" id="xpanel" data-edge>${spec.panel || ''}</div><div class="actbar" id="xbar">${spec.bar || ''}</div></div>`;
 }
@@ -38,6 +39,11 @@ export function attach() {
   return cur;
 }
 export const current = () => (cur && cur.alive() ? cur : null);
+// Passage ordinateur / téléphone sans rechargement : le bandeau change de colonne sur place (même nœud, X.cap reste valable).
+matchMedia('(min-width: 860px)').addEventListener('change', () => {
+  const X = current(), c = $('#xcap'); if (!X || !c || X.spec.capSide === false) return;
+  if (wide()) $('#xpanel')?.before(c); else $('#view > .bwrap')?.append(c);
+});
 // Point d'appel neutre pour les sons (et tout autre retour) : 'good' bon coup, 'bad' coup faux, 'goal' objectif du jour atteint.
 // Un module de sons peut l'écouter sans que les exercices le connaissent.
 export const feedback = (kind) => document.dispatchEvent(new CustomEvent('cap:feedback', { detail: kind }));

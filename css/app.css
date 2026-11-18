@@ -734,6 +734,9 @@ body.fit .cap { max-width: none; overflow-y: auto; }
 
 /* Lecture animée : le bandeau sous l'échiquier garde la place du commentaire d'un coup (en-tête, progression, 3 lignes). */
 @media (min-width: 860px) { body.fit { --capmin: 170px; } }
+/* Revue HIG (tâche 9) : sur ordinateur, le bandeau est en tête de la colonne de droite (capSide, js/exercise.js) ;
+   l'échiquier ne lui réserve plus de place et prend toute la hauteur (720 px en 1366 × 768). La relecture garde ses joueurs. */
+@media (min-width: 860px) { body.fit:has(.fitside > .cap):not(:has(.bwrap.gv)) { --capmin: 0px; } }
 @media (max-width: 859px) {
   body.fit.solved .bwrap .board { width: min(100cqw, 100cqh - 150px); height: min(100cqw, 100cqh - 150px); }
   body.fit.solved .cap { min-height: 150px; }

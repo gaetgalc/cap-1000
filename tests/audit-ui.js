@@ -4,7 +4,8 @@
 // tailles de texte, texte sous 13 px, contraste du texte, cibles tactiles sous 44 px, boutons pleins, arrondis,
 // barre du haut du téléphone (titre de la page hors accueil, logo sur l'accueil seulement : revue HIG, tâche 6).
 // Échiquier (lot 1 du 16/11) : coordonnées dans leur case et sans chevauchement (échiquier retourné compris), largeur de
-// l'échiquier de la relecture et des cours (.xwide) d'au moins 360 px en 390 de large. Les coordonnées (12 px) sont dans
+// l'échiquier de la relecture et des cours (.xwide) d'au moins 360 px en 390 de large ; échiquier d'exercice d'au moins
+// 640 px en 1366 × 768 et 1280 × 860 (revue HIG, tâche 9). Les coordonnées (12 px) sont dans
 // cg-container, donc hors de la mesure « texte sous 13 px » : exception assumée, documentée dans css/app.css (--t-coord).
 /* eslint-disable no-console */
 const { chromium } = require('playwright');
@@ -250,6 +251,8 @@ async function visit(ctx, size, report) {
       if (m.wide && sid.startsWith('390x') && m.board < 360) pb.push('échiquier de ' + m.board + ' px (360 au moins)');
       if (m.wraps.length) pb.push('libellé sur deux lignes : ' + m.wraps.slice(0, 3).join(', '));
       if (m.bar.length) pb.push('barre du haut : ' + m.bar.join(', '));
+      // Revue HIG, tâche 9 : sur ordinateur, le bandeau passe à droite et l'échiquier d'exercice garde au moins 640 px.
+      if ((sid === '1366x768' || sid === '1280x860') && m.fit && m.board < 640) pb.push('échiquier de ' + m.board + ' px (640 au moins)');
       if (sid === '312x531' && m.fit && m.board && m.board < (name.startsWith('partie') ? 200 : 240)) pb.push('échiquier de ' + m.board + ' px (' + (name.startsWith('partie') ? 200 : 240) + ' au moins)');
       if (m.noEdge.length) pb.push('panneau qui défile sans bord : ' + m.noEdge.slice(0, 3).join(', '));
       if (m.edgeEnd.length) pb.push('bord estompé gardé en bas du défilement : ' + m.edgeEnd.join(', '));
