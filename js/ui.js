@@ -7,8 +7,7 @@ export const datef = (opts) => {
   const k = JSON.stringify(opts);
   let f = FMT.get(k);
   if (!f) FMT.set(k, f = new Intl.DateTimeFormat('fr-FR', opts));
-  const g = f;
-  return (ms) => g.format(ms);
+  return (ms) => f.format(ms);
 };
 const DFMT = datef({ day: '2-digit', month: '2-digit', year: '2-digit' });
 export const dfmt = (t) => DFMT(t * 1000);
@@ -58,6 +57,16 @@ export function wdl(s) {
   if (!s.n) return '';
   return `<span class="wdl" title="${s.w} victoires, ${s.d} nulles, ${s.l} défaites">${s.w ? `<i class="w" style="flex:${s.w}"></i>` : ''}${s.d ? `<i class="d" style="flex:${s.d}"></i>` : ''}${s.l ? `<i class="l" style="flex:${s.l}"></i>` : ''}</span>`;
 }
+// Encart chiffré (.glt) : libellé, valeur (cls : sa couleur), sous-titre en HTML, bulle tip ; lien « revue » quand href est donné.
+export const tile = (lab, v, { sub = '', cls = '', tip = '', href } = {}) => {
+  const t = href ? 'a' : 'div';
+  return `<${t} class="glt${href ? ' revue' : ''}"${href ? ` href="${href}"` : ''}${tip ? ` title="${esc(tip)}"` : ''}><span class="small">${lab}</span><b class="num ${cls}">${v}</b>${sub ? `<span class="small">${sub}</span>` : ''}</${t}>`;
+};
+// Résultat d'une partie (out : W, L ou D) : le mot, ou la pastille colorée suivie de la manière de finir quand how est donné.
+export const resWord = (out) => (out === 'W' ? 'Victoire' : out === 'L' ? 'Défaite' : 'Nulle');
+export const resChip = (out, how) => `<span class="chip ${out === 'W' ? 'good' : out === 'L' ? 'bad' : ''}">${resWord(out)}${HOW[how] ? ` (${HOW[how]})` : ''}</span>`;
+// Onglets en liens (.seg2 pztabs) : items = [[clé, adresse, libellé], …], on = clé de l'onglet allumé.
+export const tabs = (on, items) => `<div class="seg2 pztabs">${items.map(([k, href, t]) => `<a class="${on === k ? 'on' : ''}" href="${href}">${t}</a>`).join('')}</div>`;
 export const WDL_LEGEND = '<div class="legend"><span style="--c:var(--good)">Victoires</span><span style="--c:var(--neutral)">Nulles</span><span style="--c:var(--bad)">Défaites</span></div>';
 
 // Bord estompé des panneaux qui défilent : `edge-b` tant qu'il reste du contenu dessous, `edge-t` dès qu'on a défilé.

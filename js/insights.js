@@ -10,6 +10,21 @@ const ok = (a) => a && !a.bad;
 
 export const PHASES = [['ouverture', 'Ouverture'], ['milieu', 'Milieu de partie'], ['finale', 'Finale']];
 // Précision (100 moins la perte moyenne de chances de gain) et fautes graves (10 points ou plus), par phase de jeu.
+// Contribution d'une partie (par phase : coups, perte, fautes graves), gardée sur l'objet analyse : une reprise du calcul
+// après un changement de données ne refait que les parties dont l'analyse a changé.
+// La clé est l'objet analyse : valable parce qu'une analyse correspond à une seule partie et n'est jamais modifiée sur place
+// (une nouvelle analyse remplace l'objet).
+const PH = new WeakMap();
+function tally(g, a) {
+  const r = replay(g); if (!r) return null;
+  const by = {}, pov = (cp) => (g.w ? cp : -cp);
+  for (let j = 0; j < r.mv.length && j + 1 < a.ev.length; j++) {
+    if ((j % 2 === 0) !== g.w) continue;
+    const d = Math.max(0, winPct(pov(a.ev[j])) - winPct(pov(a.ev[j + 1]))), k = phase(r.fens[j], j), b = (by[k] ||= [k, 0, 0, 0]);
+    b[1]++; b[2] += d; if (d >= 10) b[3]++;
+  }
+  return Object.values(by);
+}
 export function phaseStats(games, an) {
   const job = phaseJob(games, an);
   job.step(Infinity);
@@ -23,13 +38,9 @@ export function phaseJob(games, an) {
   const one = (g) => {
     const a = an[g.id];
     if (!ok(a) || !a.ev) return;
-    const r = replay(g); if (!r) return;
-    const pov = (cp) => (g.w ? cp : -cp);
-    for (let j = 0; j < r.mv.length && j + 1 < a.ev.length; j++) {
-      if ((j % 2 === 0) !== g.w) continue;
-      const d = Math.max(0, winPct(pov(a.ev[j])) - winPct(pov(a.ev[j + 1]))), b = by[phase(r.fens[j], j)];
-      b.n++; b.drop += d; if (d >= 10) b.bad++;
-    }
+    let t = PH.get(a);
+    if (!t) { t = tally(g, a); if (t) PH.set(a, t); }
+    for (const [k, n, drop, bad] of t || []) { const b = by[k]; b.n += n; b.drop += drop; b.bad += bad; }
   };
   return {
     get done() { return i >= games.length; },
