@@ -2336,22 +2336,11 @@ function lookCard() {
 }
 function weekKey() { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return dkey(d); }
 function viewPlan() {
-  const hours = ls.get('hours', 6), wk = weekKey(), done = ls.get('plan:' + wk, {});
-  const fcs = ls.get('focus', null), pri = priorityLessons().ids;
-  const ids = fcs && LESSONS[fcs.id] ? [fcs.id, ...pri.filter((x) => x !== fcs.id)] : pri;
+  // Liste à cocher de la semaine retirée le 18/11 (la séance du jour fait ce travail) : les clés plan:<semaine> restent stockées.
+  const hours = ls.get('hours', 6), wk = weekKey();
   const monday = new Date(wk + 'T00:00:00').getTime() / 1000;
   const played = rapidAll().filter((g) => g.t >= monday).length;
   const target = Math.max(4, Math.round((hours * 60 * 0.5) / 25));
-  const sessions = Math.max(3, Math.min(7, Math.round((hours * 60 * 0.25) / 15)));
-  const weakOp = [true, false].flatMap((w) => st.openings(rapidAll(), w).filter((o) => o.n >= 5 && st.score(o) <= 42).map((o) => `${o.fam} (${w ? 'Blancs' : 'Noirs'})`))[0];
-  const items = [
-    ['dr', 'Un échauffement de 2 minutes avant chaque session de parties', '#exos'],
-    ...Array.from({ length: sessions }, (_, i) => [`pz${i}`, `Séance de puzzles ${i + 1} : 15 minutes sur tes erreurs`, '#puzzles']),
-    ids[0] ? ['l1', `${fcs ? 'Cours de ton chantier' : 'Cours de la semaine'} : ${LESSONS[ids[0]].titre}`, '#cours/' + ids[0]] : null,
-    ids[1] ? ['l2', `Deuxième cours : ${LESSONS[ids[1]].titre}`, '#cours/' + ids[1]] : null,
-    ['rev', 'Revoir tes 3 dernières défaites coup par coup', '#parties'],
-    weakOp ? ['op', `Explorer ton ouverture la plus fragile : ${weakOp}`, '#ouvertures'] : null,
-  ].filter(Boolean);
   const g = goal();
   return `<h1>Plan et réglages</h1>
   <div class="card stack"><h2>Tes données</h2><p class="sub">Compte ${esc(S.user)}. Les nouvelles parties sont récupérées toutes seules.</p><div class="row">${cadenceField()}</div><div class="row"><button class="btn" data-act="refresh" ${S.importing && !S.importing.err ? 'aria-busy="true"' : ''}>Mettre à jour</button><span class="sub">${S.data.fetchedAt ? `À jour : ${agoFr(Date.now() - S.data.fetchedAt)}` : 'Pas encore mis à jour'}</span></div></div>
@@ -2360,7 +2349,6 @@ function viewPlan() {
       <div class="stack"><b>Jouer : <span class="num">${played} / ${target}</span> parties rapides cette semaine</b>
         <div class="goalbar" aria-hidden="true"><i style="width:${Math.min(100, (100 * played) / target)}%"></i></div>
         <p class="small">Compté automatiquement à chaque mise à jour. Cadence conseillée : 15|10, l’incrément laisse le temps de vérifier chaque coup.</p></div>
-      <div class="stack">${items.map(([id, label, href]) => `<label class="check ${done[id] ? 'done' : ''}"><input type="checkbox" data-plan="${id}" ${done[id] ? 'checked' : ''}><span>${esc(label)} <a href="${href}">Ouvrir</a></span></label>`).join('')}</div>
     </div>
   <div class="grid">
     <div class="card"><h2>Avant chaque coup</h2><ol class="routine"><li>Que menace le dernier coup adverse ?</li><li>Ai-je un échec, une capture ou une menace ?</li><li>La case où je vais est-elle attaquée ?</li><li>Après mon coup, qu’est-ce que je laisse sans défense ?</li></ol></div>
@@ -2382,7 +2370,6 @@ function mountPlan() {
   $('#gelo').onchange = save; $('#gdate').onchange = save;
   const cm = $('#cmodel'); if (cm) cm.onchange = () => ls.set('model', cm.value);
   board($('#lookb'), { fen: LOOK_FEN, viewOnly: true, lastMove: ['h5', 'f7'] });
-  document.querySelectorAll('[data-plan]').forEach((c) => { c.onchange = () => { const k = 'plan:' + weekKey(), d = ls.get(k, {}); d[c.dataset.plan] = c.checked; ls.set(k, d); c.closest('.check').classList.toggle('done', c.checked); }; });
 }
 
 // ---------- État de l'écran, conservé quand on quitte ou recharge la page ----------
