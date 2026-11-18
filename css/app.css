@@ -303,8 +303,9 @@ textarea { font: var(--t-xs)/1.4 ui-monospace, Menlo, monospace; color: var(--in
 .card.ghost { background: none; border-style: dashed; }
 .seg2 { display: flex; background: var(--surface); border-radius: var(--r); padding: 3px; gap: 3px; }
 .lookrow .seg2 { flex-wrap: wrap; } .lookrow .seg2 button { flex: 1 1 auto; padding: 8px 6px; } /* 5 jeux de pièces : la rangée passe à la ligne sur téléphone */
-.seg2 button { flex: 1; font: 600 var(--t-s) var(--body); color: var(--ink2); background: none; border: 0; border-radius: var(--r-s); padding: 9px 8px; cursor: pointer; }
-.seg2 button.on { background: var(--raised); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+.seg2 button, .seg2 a { flex: 1; font: 600 var(--t-s) var(--body); color: var(--ink2); border-radius: var(--r-s); padding: 9px 8px; }
+.seg2 button { background: none; border: 0; cursor: pointer; } .seg2 a { text-align: center; text-decoration: none; }
+.seg2 button.on, .seg2 a.on { background: var(--raised); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.3); }
 ol.line { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 ol.line li { display: grid; grid-template-columns: 74px 1fr; gap: 10px; padding: 9px 10px; border-radius: var(--r-s); cursor: pointer; font-size: var(--t-s); border-left: 3px solid transparent; }
 ol.line li b { font-family: var(--display); font-size: var(--t-m); white-space: nowrap; } ol.line li span { color: var(--ink2); }
@@ -398,8 +399,6 @@ details.gd summary { cursor: pointer; font-size: var(--t-s); color: var(--accent
 cg-board square.last-move { background-color: var(--sq-last) !important; }
 cg-board square.selected { background-color: var(--sq-sel) !important; }
 
-.seg2 a { flex: 1; text-align: center; font: 600 var(--t-s) var(--body); color: var(--ink2); text-decoration: none; border-radius: var(--r-s); padding: 9px 8px; }
-.seg2 a.on { background: var(--raised); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.3); }
 
 /* Cases où la pièce choisie peut aller : point sur une case libre, anneau sur une pièce à prendre */
 cg-board square.move-dest { background: radial-gradient(var(--sq-dot) 17%, transparent 18.5%); }
@@ -926,20 +925,15 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
   .btn:where([disabled]:not(.pri)):hover { background: var(--btn2-hover); border-color: var(--btn2-hover); }
   .btn.pri:hover { filter: brightness(1.12); }
   .btn:not(.pri):not([disabled]):hover { background: var(--btn2-hover); border-color: var(--hover-line); color: var(--ink); }
-  .btn.pri:not([disabled]):hover { filter: brightness(1.15); }
-  .seg2 button:not(.on):hover, .seg2 a:not(.on):hover { background: var(--hover); color: var(--ink); }
-  .nav a:not(.on):hover, .grp:hover .grp-h:not(.on) { background: var(--hover); color: var(--ink); }
+  .btn.pri:not([disabled]):hover, .opdue:hover, .gnum:hover, a.revue:hover, .pzprog:hover, .lgpos:hover, .brand:hover, .hbar:hover .track i { filter: brightness(1.15); }
+  .seg2 button:not(.on):hover, .seg2 a:not(.on):hover, .nav a:not(.on):hover, .grp:hover .grp-h:not(.on), .moves button:not(.cur):hover, .gvm .mv:not(.cur):hover, .gvnote:hover, .ent-log:hover { background: var(--hover); color: var(--ink); }
   .nav a:hover > svg, .grp:hover .grp-h > svg { color: var(--sec); filter: brightness(1.12); } /* icône plus vive sous la souris */
   .mrow:hover, a.card:hover, .fmini:hover { background: var(--hover); border-color: var(--hover-line); }
   .oprow:hover, .check:hover, tr.click:hover td, ol.line li:hover, .gl:not(.head):hover { background: var(--hover); }
-  .opdue:hover, .gnum:hover, a.revue:hover, .pzprog:hover, .lgpos:hover, .brand:hover { filter: brightness(1.15); }
-  .moves button:not(.cur):hover, .gvm .mv:not(.cur):hover, .gvnote:hover { background: var(--hover); color: var(--ink); }
   a.card.lesson:hover { border-color: var(--accent); transform: translateY(-2px); }
-  .hbar:hover .track i { filter: brightness(1.15); }
   .bars i:hover { filter: brightness(1.25); }
   cg-board square.move-dest:hover { background: var(--sq-hover); }
   .ent-tile, .ent-log { transition: background-color var(--m-in) var(--ease), border-color var(--m-in) var(--ease); }
   .ent-tile:hover { background: var(--hover); border-color: color-mix(in srgb, var(--sec) 55%, var(--line)); }
-  .ent-log:hover { background: var(--hover); color: var(--ink); }
   a:not(.btn):not(.card):not(.gl):not(.mrow):not(.oprow):not(.opdue):not(.fmini):not(.gnum):not(.pzprog):not(.lgpos):not(.brand):hover { text-decoration-thickness: 2px; }
 }
