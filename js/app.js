@@ -421,7 +421,7 @@ function viewPuzzles(force) {
   z.redo = (z.redo || []).filter((id) => pzById(id));
   if (z.redo.length) {
     return workScreen(pzById(z.redo[0]), {
-      head: tabs('mine', PZ_TABS) + `<div class="pzhead"><h1>Tes ratés du jour</h1><div class="row"><span class="chip warn">Révision : encore ${z.redo.length}</span><button class="btn sm" data-act="pzredostop">Arrêter</button></div></div>`,
+      head: tabs('mine', PZ_TABS) + `<div class="pzhead"><h1>Ratés du jour</h1><div class="row"><span class="chip warn">Révision : encore ${z.redo.length}</span><button class="btn sm" data-act="pzredostop">Arrêter</button></div></div>`,
       next: `<button class="btn" data-act="pznext">${z.redo.length > 1 ? 'Raté suivant ›' : 'Terminer ›'}</button>`,
     });
   }
@@ -1140,7 +1140,7 @@ function viewRush(m) {
     return `<h1>Rush ${RUSH[m].t.toLowerCase()}</h1><div class="card"><div class="row" style="align-items:baseline"><span class="big num">${R.ok}</span><span class="sub">bonne${R.ok > 1 ? 's' : ''} réponse${R.ok > 1 ? 's' : ''} sur ${R.n}${R.rec ? ' · nouveau record' : ` · record : ${best[m]}`}</span></div>
       ${coach(R.rec ? 'Nouveau record. Le réflexe s’installe : garde-le en partie, à chaque coup.' : R.n && R.ok / R.n < 0.7 ? 'Trop de fautes : ralentis un peu, la justesse compte plus que le nombre.' : 'Bonne série. Refais-en une demain pour fixer le réflexe.')}
       <div class="row"><button class="btn pri" data-act="rushagain">Rejouer</button><a class="btn" href="#rush">Autre mode</a></div></div>
-      ${R.missed.length ? `<div class="card"><h2>Tes fautes</h2>${R.missed.slice(0, 8).map((x) => `<div class="hrow"><i class="hres r0"></i><span class="stepc"><b>${x.q}</b><span>${esc(x.text)}</span></span></div>`).join('')}</div>` : ''}`;
+      ${R.missed.length ? `<div class="card"><h2>Fautes</h2>${R.missed.slice(0, 8).map((x) => `<div class="hrow"><i class="hres r0"></i><span class="stepc"><b>${x.q}</b><span>${esc(x.text)}</span></span></div>`).join('')}</div>` : ''}`;
   }
   if (R.i >= R.items.length - 2) rushFill(R);
   const it = R.items[R.i];
@@ -1313,7 +1313,7 @@ function focusCard(fc, es) {
   const fs = focusStats(fc), nEx = es.themes.find((t) => t.id === fc.id)?.n || 0;
   const state = fs.ok ? '<span class="chip good">Chantier validé</span>' : fs.nAfter < 5 ? `<span class="chip">${fs.nAfter} / 5 parties depuis le début</span>` : '<span class="chip warn">En cours</span>';
   const others = es.themes.filter((t) => t.id !== fc.id);
-  return `<section class="card focus"><div class="row" style="justify-content:space-between"><span class="small">Ton chantier du moment</span>${state}</div>
+  return `<section class="card focus"><div class="row" style="justify-content:space-between"><span class="small">Chantier en cours</span>${state}</div>
     <h2>${st.THEMES[fc.id]}</h2>
     <p class="rulet">« ${RULES[fc.id]} »</p>
     <div class="fmet"><div><span>Avant</span><b>${fs.base == null ? '—' : f1(fs.base)}</b><span>par partie</span></div>
@@ -1328,14 +1328,14 @@ function focusCard(fc, es) {
 // Ton portrait : où, quand et comment tu perds tes points (portrait.js).
 function portraitCard() {
   const p = portrait(S.data.games.filter((g) => g.tc === targetTc()), S.an);
-  return p.length ? `<div class="card"><h2>Ton portrait</h2><ul class="portrait">${p.map((x) => `<li>${esc(x.t)}</li>`).join('')}</ul></div>` : '';
+  return p.length ? `<div class="card"><h2>Portrait</h2><ul class="portrait">${p.map((x) => `<li>${esc(x.t)}</li>`).join('')}</ul></div>` : '';
 }
 // Programme de 4 semaines du chantier et bilan de la semaine passée (program.js).
 function programCard(fc) {
   if (!fc) return '';
   const w = programWeek(fc.since), gs = S.data.games.filter((g) => g.tc === targetTc()), hist = progress.hist();
   const wk = (from, to) => weekStats({ games: gs, an: S.an, hist, themeId: fc.id, from, to });
-  return `<div class="card"><h2>Ton programme <span class="small">${w.i < 4 ? `semaine ${w.i + 1} sur 4` : 'terminé'}</span></h2>
+  return `<div class="card"><h2>Programme <span class="small">${w.i < 4 ? `semaine ${w.i + 1} sur 4` : 'terminé'}</span></h2>
     <ol class="dayplan">${STAGES.map((x, i) => `<li class="${i < w.i ? 'done' : i === w.i ? 'on' : ''}"><i aria-hidden="true">${i < w.i ? '✓' : i + 1}</i><span><b>Semaine ${i + 1} · ${x.t}${i === w.i ? ' <span class="chip">en cours</span>' : ''}</b><span>${x.d}</span></span></li>`).join('')}</ol>
     <p class="sub">${w.i === 0 ? 'Premier bilan lundi prochain, ici et sur l’accueil.' : esc(reviewText(wk(w.prev, w.start), wk(w.prev - 7 * DAY, w.prev), st.THEMES[fc.id]))}</p>
     ${w.i >= 4 ? `<p class="small">${focusStats(fc).ok ? 'Chantier validé : passe au suivant.' : 'Quatre semaines passées sans diviser l’erreur par deux : le chantier continue, reprends à la semaine 1.'}</p>` : ''}</div>`;
@@ -1360,7 +1360,7 @@ function trendCard(gs) {
   const tr = st.themeTrend(gs, S.an);
   if (!tr.rows.length) return '';
   const chip = (r) => (r.before == null ? '' : r.now < r.before - 0.05 ? '<span class="chip good">En baisse</span>' : r.now > r.before + 0.05 ? '<span class="chip bad">En hausse</span>' : '<span class="chip">Stable</span>');
-  return `<div class="card"><h2>Tes erreurs graves par partie</h2>
+  return `<div class="card"><h2>Erreurs graves par partie</h2>
     <div class="scroll"><table><thead><tr><th>Type d’erreur</th><th class="r">${tr.nPrev >= 5 ? 'Avant' : ''}</th><th class="r">Maintenant</th><th></th></tr></thead><tbody>
     ${tr.rows.map((r) => `<tr class="click" data-act="goto-cours" data-id="${r.id}"><td>${st.THEMES[r.id]}</td><td class="r">${r.before == null ? '' : f1(r.before)}</td><td class="r"><b>${f1(r.now || 0)}</b></td><td class="r">${chip(r)}</td></tr>`).join('')}
     </tbody></table></div>
@@ -1403,8 +1403,8 @@ function nextReview() {
   const fins = ENDGAMES.map((e) => { const st0 = progress.endgameState(e.id); return st0 && { due: st0.due, href: '#finale/' + e.id, t: e.t, k: 'Finale' }; });
   const all = [...lines, ...fins].filter(Boolean).sort((a, b) => a.due - b.due), now = Date.now(), due = all.filter((x) => x.due <= now);
   // Encart cliquable, sixième de la carte de l'objectif : la page d'accueil n'a pas de place pour une ligne de plus.
-  if (due.length) return tile('À réviser', due.length, { sub: esc(`${due[0].k} · ${due[0].t}`), href: due[0].href, tip: due.map((x) => `${x.k} : ${x.t}`).join('\n'), cls: 'warn' });
-  if (all.length) { const x = all[0], d = Math.max(1, Math.ceil((x.due - now) / DAY)); return tile('Prochaine révision', `${d} j`, { sub: esc(`${x.k} · ${x.t}`), href: x.href, tip: `${x.k} : ${x.t}` }); }
+  if (due.length) return tile('À réviser', due.length, { sub: esc(due[0].t), href: due[0].href, tip: due.map((x) => `${x.k} : ${x.t}`).join('\n'), cls: 'warn' });
+  if (all.length) { const x = all[0], d = Math.max(1, Math.ceil((x.due - now) / DAY)); return tile('Prochaine révision', `${d} j`, { sub: esc(x.t), href: x.href, tip: `${x.k} : ${x.t}` }); }
   return tile('Révisions', '—', { sub: 'Apprends une ligne', href: '#ouvertures/apprendre', tip: 'Une ligne apprise revient ici le jour où il faut la réviser' });
 }
 function sessionCard(steps, nDone) {
@@ -1422,7 +1422,7 @@ function sessionCard(steps, nDone) {
   }
   // Sur ordinateur, le programme complet sous le bouton : chaque étape, son état, sa consigne.
   const prog = `<ul class="dayplan d-only">${steps.map((x) => `<li class="${x.done ? 'done' : x === cur ? 'on' : ''}"><i aria-hidden="true">${x.done ? '✓' : ''}</i><span><b>${x.t}${x === cur ? ' <span class="chip">en cours</span>' : ''}</b>${x === cur ? '' : `<span>${esc(x.d)}</span>`}</span></li>`).join('')}</ul>`;
-  return `<section class="card today"><div class="row d-flex" style="justify-content:space-between"><h2>${all ? 'Séance du jour terminée' : 'Ta séance du jour'}</h2><span class="chip ${all ? 'good' : ''}">${nDone} / ${steps.length}</span></div>${dots}${body}${prog}</section>`;
+  return `<section class="card today"><div class="row d-flex" style="justify-content:space-between"><h2>${all ? 'Séance du jour terminée' : 'Séance du jour'}</h2><span class="chip ${all ? 'good' : ''}">${nDone} / ${steps.length}</span></div>${dots}${body}${prog}</section>`;
 }
 // Mot du coach : ce que je vois dans tes parties, ce qu'on fait aujourd'hui, à quoi on saura que ça marche (brief.js).
 // Le détail chiffré reste dans « Mon jeu ».
@@ -1436,8 +1436,8 @@ function selfGame(fc) {
 function briefCard(fc, steps) {
   if (!fc) return '';
   const fs = focusStats(fc), cur = steps.find((x) => !x.done), th = st.THEMES[fc.id], sg = selfGame(fc);
-  if (sg && !sg.ans) return `<section class="card fmini brief"><span class="hlab">Le mot du coach · ta partie contre ${esc(sg.g.opp)}</span>
-    <span class="selfrow"><span class="bdiag">As-tu appliqué ta règle dans cette partie ?<span class="d-only"> « ${esc(RULES[fc.id])} »</span></span>
+  if (sg && !sg.ans) return `<section class="card fmini brief"><span class="hlab">Le mot du coach</span>
+    <span class="selfrow"><span class="bdiag">As-tu appliqué ta règle dans ta partie contre ${esc(sg.g.opp)} ?<span class="d-only"> « ${esc(RULES[fc.id])} »</span></span>
     <span class="selfq"><button class="btn" data-act="selfck" data-id="${esc(sg.g.id)}" data-v="1">Oui</button><button class="btn" data-act="selfck" data-id="${esc(sg.g.id)}" data-v="0">Non</button></span></span></section>`;
   const gs = S.data.games.filter((g) => g.tc === targetTc());
   const b = coachBrief({ facts: briefFacts(gs, S.an, fc.id), theme: th, rule: RULES[fc.id], fs, cause: progress.causes(), next: cur ? STEP_NEXT[cur.k] : null });
@@ -1447,7 +1447,7 @@ function briefCard(fc, steps) {
   // Le lundi, le bilan de la semaine passée remplace le diagnostic.
   else if (new Date().getDay() === 1 && w.i >= 1) b.diag = reviewText(weekStats({ games: gs, an: S.an, hist: progress.hist(), themeId: fc.id, from: w.prev, to: w.start }), weekStats({ games: gs, an: S.an, hist: progress.hist(), themeId: fc.id, from: w.prev - 7 * DAY, to: w.prev }), th);
   const stage = w.i < 4 ? ` Semaine ${w.i + 1} sur 4 : ${STAGES[w.i].t.toLowerCase()}.` : '';
-  return `<a class="card fmini brief" href="#bilan"><span class="hlab">Le mot du coach · chantier ${esc(th.toLowerCase())}${fs.ok ? ' <span class="chip good">validé</span>' : ''}<span class="chev" aria-hidden="true">›</span></span>
+  return `<a class="card fmini brief" href="#bilan"><span class="hlab">Le mot du coach${fs.ok ? ' <span class="chip good">validé</span>' : ''}<span class="chev" aria-hidden="true">›</span></span>
     <span class="bdiag">${esc(b.diag)}</span><span class="btodo d-only">${esc(b.todo + stage)}</span><span class="sub fnums">${esc(b.goal)}</span></a>`;
 }
 // Dernière partie de la cadence suivie : résultat et pire faute, à revoir ou à rejouer en un clic.
@@ -1458,16 +1458,19 @@ function lastGameCard() {
   const trail = gaffeTrail(S.data.games, S.an, targetTc());
   if (!trail.length) return '';
   const k = Math.max(0, Math.min(trail.length - 1, S.lg || 0)), { g, e, i, n, pending } = trail[k], a = S.an[g.id];
+  // Vocabulaire des échecs plutôt que pastilles (18/11) : résultat noté 1-0 / 0-1 / ½-½, faute annotée ?? ou ?.
+  const out = g.out === 'W' ? ['up', 'Victoire'] : g.out === 'L' ? ['dn', 'Défaite'] : ['', 'Nulle'];
+  const score = g.out === 'D' ? '½-½' : (g.out === 'W') === !!g.w ? '1-0' : '0-1', mk = e && moveMark(e);
   const body = pending ? (S.job.running ? skel('Analyse en cours', 80, 55) : '<span class="sub">Pas encore analysée.</span>')
     : !e ? `<span class="sub">Aucune gaffe ni erreur grave${a.acc != null ? `, précision ${a.acc.toFixed(0)} %` : ''}.</span>`
-    : `<span class="lgerr"><span class="chip ${e.kind === 'gaffe' ? 'bad' : 'warn'}">${e.kind !== 'gaffe' ? 'Erreur' : n > 1 ? `Gaffe ${i} sur ${n}` : 'Gaffe'}</span><span>Coup ${moveNo(e)} : <b>${esc(fr(e.played))}</b>, il fallait <b>${esc(fr(e.bestSan))}</b></span></span>`;
-  const head = `<span class="htitle">${resChip(g.out)} contre ${esc(g.opp)} <span class="sub">(${g.or}), ${g.w ? 'Blancs' : 'Noirs'}<span class="m-only-i">, ${dfmt(g.t)}</span></span></span>`;
+    : `<span class="lgerr"><span>Coup ${moveNo(e)} : <b>${esc(fr(e.played))}<span class="lgmk ${mk?.c === 'bad' ? 'dn' : 'warnc'}" title="${mk?.t || ''}">${mk?.s || ''}</span></b>, il fallait <b>${esc(fr(e.bestSan))}</b></span>${n > 1 ? `<span class="small">gaffe ${i} sur ${n}</span>` : ''}</span>`;
+  const head = `<span class="htitle"><span class="lgres ${out[0]}" title="${out[1]}"><span class="sr">${out[1]}, </span>${score}</span> contre ${esc(g.opp)} <span class="sub">(${g.or}), ${g.w ? 'Blancs' : 'Noirs'}<span class="m-only-i">, ${dfmt(g.t)}</span></span></span>`;
   // Ordinateur : la position de la faute, coup joué en rouge (la solution reste à trouver dans « Rejouer l'erreur »).
   const pos = e ? `<a class="lgpos d-only" href="#partie/${g.t}/${e.ply}" aria-label="Position avant ${esc(fr(e.played))}"><span class="board" id="lgb" data-t="${g.t}" data-ply="${e.ply}"></span></a>` : '';
   const nav = (d, lab, icon) => `<button class="btn ico" data-act="lgnav" data-d="${d}" aria-label="${lab}" title="${lab}" ${k + d < 0 || k + d >= trail.length ? 'disabled' : ''}>${ico(icon)}</button>`;
   const mid = e ? `<a class="btn" href="#partie/${g.t}/${e.ply}"><span class="d-only">Voir mon coup</span><span class="m-only">Mon coup</span></a><a class="btn" href="#erreur/${g.t}/${e.ply}"><span class="d-only">Rejouer l’erreur</span><span class="m-only">Rejouer</span></a>`
     : `<a class="btn wide" href="#partie/${g.t}">Revoir la partie</a>`;
-  return `<section class="card lgame"><span class="hlab d-flex">${k ? `Partie du ${dfmt(g.t)}` : 'Ta dernière partie'}<span class="small">${k + 1} / ${trail.length}${!k ? ` · ${dfmt(g.t)}` : ''}${a && !a.bad ? ` · <a href="#partie/${g.t}/d">Débrief</a>` : ''}</span></span>
+  return `<section class="card lgame"><span class="hlab d-flex">${k ? 'Partie' : 'Dernière partie'} du ${dfmt(g.t)}${a && !a.bad ? `<a class="small" href="#partie/${g.t}/d">Débrief</a>` : ''}</span>
     ${e ? `<div class="lgrow">${pos}<div class="lgtxt">${head}${body}</div></div>` : head + body}
     <div class="lgbtn">${nav(-1, 'Gaffe plus récente', 'prev')}${mid}${nav(1, 'Gaffe plus ancienne', 'next')}</div></section>`;
 }
@@ -1532,7 +1535,7 @@ function viewBilan() {
   const all = st.tally(gs);
   return `${tabs('bilan', PRO_TABS)}<div class="vhead"><h1>Mon jeu</h1>${periodSeg()}</div>
   <div class="hero">${gb.html}
-    <div class="card"><h2>Ton classement ${S.f.tc === 'all' ? 'Rapide' : TC[S.f.tc]}</h2><div class="chart" id="rc"></div></div></div>
+    <div class="card"><h2>Classement ${S.f.tc === 'all' ? 'Rapide' : TC[S.f.tc]}</h2><div class="chart" id="rc"></div></div></div>
   ${portraitCard()}
   ${focusCard(fc, es)}
   ${programCard(fc)}
@@ -1588,8 +1591,8 @@ function viewCours() {
   const others = Object.keys(LESSONS).filter((id) => !ids.includes(id));
   return `${tabs('cours', LEARN_TABS)}<h1>Cours</h1>
     ${coachKey() ? coach('Je prépare chaque cours à partir de tes propres positions : une idée, tes erreurs à rejouer, une règle à emporter. Ouvre un cours et demande-moi de le préparer.')
-    : `<div class="card"><h2>Ton coach privé</h2><p class="prose">Chaque cours peut devenir une leçon particulière : Claude étudie tes positions, te pose les bonnes questions avant de te laisser jouer, puis t’explique pourquoi ton coup échouait. Deux façons de faire : avec ton abonnement Claude (un copier-coller, proposé dans chaque cours), ou en un clic avec une clé API facturée à l’usage.</p><details class="manual"><summary>Activer la génération en un clic (clé API)</summary>${keyForm()}</details></div>`}
-    ${ids.length ? `<h2>Tes priorités</h2><div class="grid">${ids.map((id, i) => card(id, i < 3 ? i + 1 : 0)).join('')}</div>` : S.job.running ? `<h2>Tes priorités</h2><div class="grid">${[0, 1, 2].map((i) => `<div class="card">${skel(i ? '' : 'Analyse en cours : le classement des cours arrive.', 30, 75, 90, 60)}</div>`).join('')}</div>` : '<div class="card"><p class="sub">Lance l’analyse de tes parties pour classer les cours selon tes erreurs.</p></div>'}
+    : `<div class="card"><h2>Coach privé</h2><p class="prose">Chaque cours peut devenir une leçon particulière : Claude étudie tes positions, te pose les bonnes questions avant de te laisser jouer, puis t’explique pourquoi ton coup échouait. Deux façons de faire : avec ton abonnement Claude (un copier-coller, proposé dans chaque cours), ou en un clic avec une clé API facturée à l’usage.</p><details class="manual"><summary>Activer la génération en un clic (clé API)</summary>${keyForm()}</details></div>`}
+    ${ids.length ? `<h2>Priorités</h2><div class="grid">${ids.map((id, i) => card(id, i < 3 ? i + 1 : 0)).join('')}</div>` : S.job.running ? `<h2>Priorités</h2><div class="grid">${[0, 1, 2].map((i) => `<div class="card">${skel(i ? '' : 'Analyse en cours : le classement des cours arrive.', 30, 75, 90, 60)}</div>`).join('')}</div>` : '<div class="card"><p class="sub">Lance l’analyse de tes parties pour classer les cours selon tes erreurs.</p></div>'}
     <h2>Autres cours</h2><div class="grid">${others.map((id) => card(id, 0)).join('')}</div>`;
 }
 
@@ -1673,7 +1676,7 @@ function viewCoachLesson(id, L) {
   }
   if (stp === 'methode') {
     return head + `<div class="card rule"><span class="small">La règle du cours</span><p class="rulet">${txt(L.regle)}</p></div>
-      <div class="card"><h2>Ta routine avant chaque coup</h2><ol class="routine">${L.methode.map((m) => `<li>${txt(m)}</li>`).join('')}</ol></div>` + next(L.quiz.length ? 'Vérifier que j’ai compris' : 'Terminer le cours');
+      <div class="card"><h2>Routine avant chaque coup</h2><ol class="routine">${L.methode.map((m) => `<li>${txt(m)}</li>`).join('')}</ol></div>` + next(L.quiz.length ? 'Vérifier que j’ai compris' : 'Terminer le cours');
   }
   const answered = Object.keys(S.cl.quiz).length;
   return head + L.quiz.map((q, qi) => {
@@ -1752,12 +1755,12 @@ function viewOuvertures() {
   const side = st.tally(gs.filter((g) => g.w === S.white));
   const crumbs = path.map((s, i) => `<button class="btn sm" data-act="expath" data-n="${i + 1}">${i % 2 === 0 ? i / 2 + 1 + '. ' : ''}${fr(s)}</button>`).join('');
   const reps = st.repeatedErrors(gs, S.an).slice(0, 6);
-  const repCard = reps.length ? `<div class="card"><h2>Tes erreurs qui reviennent</h2><p class="small">Même position, même faute, dans plusieurs parties. Une position travaillée ici, c’est une erreur de moins dans toutes les parties qui y passent.</p>
+  const repCard = reps.length ? `<div class="card"><h2>Erreurs qui reviennent</h2><p class="small">Même position, même faute, dans plusieurs parties. Une position travaillée ici, c’est une erreur de moins dans toutes les parties qui y passent.</p>
     ${reps.map((r) => `<div class="hrow"><i class="dot ${r.w ? 'w' : 'b'}"></i><span class="stepc"><b>${esc(st.lineText(r.line, Math.max(0, r.line.length - 6)))}</b><span>${r.games} parties : ${esc(st.repText(r))}</span></span><a class="btn sm" href="#erreur/${r.last.g.t}/${r.last.e.ply}">Travailler</a></div>`).join('')}</div>` : '';
   return `${tabs('ouv', GAMES_TABS)}<div class="vhead"><h1>Ouvertures</h1>${periodSeg()}</div><div class="row" style="justify-content:flex-end"><div class="row" role="group" aria-label="Couleur">
     <button class="btn ${S.white ? 'on' : ''}" aria-pressed="${!!S.white}" data-act="color" data-w="1"><i class="dot w"></i>Blancs</button><button class="btn ${S.white ? '' : 'on'}" aria-pressed="${!S.white}" data-act="color" data-w="0"><i class="dot b"></i>Noirs</button></div></div>
   ${repCard}
-  <div class="card"><h2>Tes ouvertures avec les ${S.white ? 'Blancs' : 'Noirs'} <span class="small">${side.n} parties, ${st.score(side)} % de score</span></h2>
+  <div class="card"><h2>Ouvertures avec les ${S.white ? 'Blancs' : 'Noirs'} <span class="small">${side.n} parties, ${st.score(side)} % de score</span></h2>
     ${ops.length ? `<div class="scroll"><table><thead><tr><th>Ouverture</th><th class="r">Parties</th><th>Résultats</th><th class="r">Score</th><th class="r" title="Évaluation moyenne du moteur après 10 coups, de ton point de vue">Après 10 coups</th><th>Verdict</th></tr></thead><tbody>
     ${ops.slice(0, 12).map((o) => `<tr class="click" data-act="opfam" data-fam="${esc(o.fam)}" title="Détail de cette ouverture"><td><b>${esc(o.fam)}</b> <span class="chev" aria-hidden="true">›</span>${o.vars.size > 1 ? `<br><span class="small">${[...o.vars.values()].sort((a, b) => b.n - a.n).slice(0, 2).map((v) => esc(v.op.replace(o.fam, '').trim() || 'ligne principale') + ' (' + v.n + ')').join(', ')}</span>` : ''}</td>
       <td class="r">${o.n}</td><td style="min-width:110px">${wdl(o)}</td><td class="r"><b>${st.score(o)} %</b></td><td class="r">${exitEval(o.fam)}</td><td>${verdict(o)}</td></tr>`).join('')}
@@ -1797,7 +1800,7 @@ function partiesSummary(gs) {
   const s = st.listSummary(gs); if (!s.n) return '';
   // Encart propre à la synthèse, pas tile() de ui.js : sous-titre en chiffres alignés (small num)
   const sumTile = (lab, v, sub = '') => `<div class="glt"><span class="small">${lab}</span><b class="num">${v}</b>${sub ? `<span class="small num">${sub}</span>` : ''}</div>`;
-  return `<div class="glsum">${sumTile('Parties', s.n, `${s.w} V · ${s.d} N · ${s.l} D`)}${sumTile('Score', s.score + ' %')}
+  return `<div class="glsum">${sumTile('Parties', s.n, `${s.w} V, ${s.d} N, ${s.l} D`)}${sumTile('Score', s.score + ' %')}
     ${s.from != null ? sumTile('Mon Elo', `${s.to} <span class="${s.to > s.from ? 'up' : s.to < s.from ? 'dn' : ''}">${sgn(s.to - s.from)}</span>`, `depuis ${s.from}`) : ''}
     ${s.opp ? sumTile('Adversaires', s.opp, 'Elo moyen') : ''}${s.perf ? sumTile('Performance', s.perf, 'Elo estimé') : ''}</div>${wdl(s)}`;
 }
@@ -1848,7 +1851,7 @@ function viewMonOuv(c, enc) {
     <div class="row">${exBtn(d.prefix, 'Explorer mes coups', 'btn pri sm')}${cat ? `<a class="btn sm" href="#ouvertures/${cat.id}">Fiche : ${esc(cat.nom)}</a>` : ''}</div></div></div>
   <div class="mogrid">
   <div class="card"><h2>En chiffres</h2><dl class="kv">
-    <dt>Score</dt><dd>${st.score(d.tally)} % (${d.tally.w} V · ${d.tally.d} N · ${d.tally.l} D)</dd>
+    <dt>Score</dt><dd>${st.score(d.tally)} % (${d.tally.w} V, ${d.tally.d} N, ${d.tally.l} D)</dd>
     <dt>Part de tes parties ${white ? 'avec les Blancs' : 'avec les Noirs'}</dt><dd>${st.pct(gs.length, games().filter((g) => g.w === white).length)} %</dd>
     <dt>Première et dernière fois</dt><dd>${dfmt(gs[0].t)} · ${dfmt(gs[gs.length - 1].t)}</dd>
     ${elo ? `<dt>Classement moyen des adversaires</dt><dd>${elo}</dd>` : ''}
@@ -1859,10 +1862,10 @@ function viewMonOuv(c, enc) {
   <div class="card"><h2>Dans le temps <span class="small">par ${d.periods.unit}</span></h2><div class="chart" id="moc"></div>
     <p class="small">Nombre de parties dans cette ouverture. Survole un point pour le score et la part de tes parties.</p></div>
   </div>
-  ${d.lines.length ? `<div class="card"><h2>Tes suites les plus jouées</h2><table><tbody>${d.lines.map((l) => `<tr class="click" data-act="exline" data-w="${white ? 1 : 0}" data-san="${esc(l.san.join(' '))}" title="Ouvrir dans l’explorateur"><td>${esc(st.lineText(l.san, d.prefix.length))}</td><td class="r">${l.n}</td><td style="width:28%">${wdl(l)}</td><td class="r">${scoreChip(l)}</td></tr>`).join('')}</tbody></table>
+  ${d.lines.length ? `<div class="card"><h2>Suites les plus jouées</h2><table><tbody>${d.lines.map((l) => `<tr class="click" data-act="exline" data-w="${white ? 1 : 0}" data-san="${esc(l.san.join(' '))}" title="Ouvrir dans l’explorateur"><td>${esc(st.lineText(l.san, d.prefix.length))}</td><td class="r">${l.n}</td><td style="width:28%">${wdl(l)}</td><td class="r">${scoreChip(l)}</td></tr>`).join('')}</tbody></table>
     <p class="small">Après ${d.prefix.length ? esc(st.lineText(d.prefix)) : 'le début'}. Touche une suite pour la suivre coup par coup dans l’explorateur.</p></div>` : ''}
   ${d.vars.length > 1 ? `<div class="card"><h2>Variantes</h2><table><tbody>${d.vars.map((v) => `<tr><td>${esc(v.op.replace(fam, '').trim() || 'Ligne principale')}</td><td class="r">${v.n}</td><td style="width:28%">${wdl(v)}</td><td class="r">${scoreChip(v)}</td></tr>`).join('')}</tbody></table></div>` : ''}
-  ${opErrs.length ? `<div class="card"><h2>Tes fautes dans l’ouverture</h2>${topTh.length ? `<p class="small">Le plus souvent : ${topTh.map(([t, n]) => `${st.THEMES[t]} (${n})`).join(', ')}.</p>` : ''}
+  ${opErrs.length ? `<div class="card"><h2>Fautes dans l’ouverture</h2>${topTh.length ? `<p class="small">Le plus souvent : ${topTh.map(([t, n]) => `${st.THEMES[t]} (${n})`).join(', ')}.</p>` : ''}
     ${opErrs.slice(-4).reverse().map(({ g, e }) => `<div class="hrow"><i class="hres ${e.kind === 'gaffe' ? 'r0' : 'r1'}"></i><span class="stepc"><b>Coup ${moveNo(e)} : ${fr(e.played)} au lieu de ${fr(e.bestSan)}</b><span>${dfmt(g.t)} contre ${esc(g.opp)}${st.THEMES[e.theme] ? ' · ' + st.THEMES[e.theme] : ''}</span></span><a class="btn sm" href="#erreur/${g.t}/${e.ply}">Rejouer</a></div>`).join('')}</div>` : ''}
   <div class="card"><h2>Dernières parties</h2><div class="stack">${recent.map((g) => `<a class="row" href="#partie/${g.t}" style="justify-content:space-between"><span>${dfmt(g.t)} contre ${esc(g.opp)} (${g.or}) · ${Math.ceil(g.san.length / 2)} coups</span>${resChip(g.out)}</a>`).join('')}</div></div>`;
 }
@@ -2303,29 +2306,30 @@ function viewEntrainer() {
   if (n.kind === 'pz') {
     const { g, e } = n.p, left = d.goal - d.done;
     hero = `<section class="ent-now"><div class="ent-b"><div class="board" id="entb" data-id="${esc(n.p.id)}" aria-label="Position de ton prochain puzzle"></div></div>
-      <div class="ent-t"><span class="ent-k">À faire maintenant</span><h2>${left === d.goal ? 'Tes puzzles du jour' : `Encore ${pl(left, 'puzzle')} aujourd’hui`}</h2>
+      <div class="ent-t"><h2>${left === d.goal ? 'Puzzles du jour' : `Encore ${pl(left, 'puzzle')} aujourd’hui`}</h2>
       <p>Coup ${moveNo(e)} contre ${esc(g.opp)} : ton coup t’a coûté ${e.drop} points de chances de gain. ${st.THEMES[e.theme] ? `Thème : ${esc(st.THEMES[e.theme].toLowerCase())}.` : ''}</p>
       ${pzProg(d)}<button class="btn pri lg" data-act="pzfocus">${d.done ? 'Continuer mes puzzles' : 'Résoudre mes puzzles'}</button></div></section>`;
   } else if (n.kind === 'ln') {
-    hero = `<section class="ent-now noboard"><div class="ent-t"><span class="ent-k">À faire maintenant</span><h2>${pl(n.n, 'ligne')} d’ouverture à réviser</h2><p>Puzzles du jour faits. Récite tes lignes de mémoire : la répétition espacée les fixe.</p><a class="btn pri lg" href="${n.href}">Réciter mes lignes</a></div></section>`;
+    hero = `<section class="ent-now noboard"><div class="ent-t"><h2>${pl(n.n, 'ligne')} d’ouverture à réviser</h2><p>Puzzles du jour faits. Récite tes lignes de mémoire : la répétition espacée les fixe.</p><a class="btn pri lg" href="${n.href}">Réciter mes lignes</a></div></section>`;
   } else {
-    hero = `<section class="ent-now noboard"><div class="ent-t"><span class="ent-k">À faire maintenant</span><h2>${d.done >= d.goal ? 'Objectif du jour atteint' : 'Échauffe ton regard'}</h2><p>${d.done >= d.goal ? 'Tes puzzles sont faits. Deux minutes de vérification gardent le réflexe.' : 'Dix positions tirées de tes parties, deux minutes, pour vérifier avant de jouer.'}</p><a class="btn pri lg" href="#exos">Lancer un échauffement</a></div></section>`;
+    hero = `<section class="ent-now noboard"><div class="ent-t"><h2>${d.done >= d.goal ? 'Objectif du jour atteint' : 'Échauffe ton regard'}</h2><p>${d.done >= d.goal ? 'Tes puzzles sont faits. Deux minutes de vérification gardent le réflexe.' : 'Dix positions tirées de tes parties, deux minutes, pour vérifier avant de jouer.'}</p><a class="btn pri lg" href="#exos">Lancer un échauffement</a></div></section>`;
   }
-  const entTile = (href, icon, t, desc, tag, sec) => `<a class="ent-tile" href="${href}" style="--sec:var(${sec})"><span class="ent-i">${ico(icon)}</span><b>${t}</b><span class="ent-d">${desc}</span>${tag ? `<span class="ent-tag">${tag}</span>` : ''}</a>`;
+  // Sommaire plutôt que tuiles à icône (18/11, « pas AI slop ») : une ligne par exercice, ce qui t'attend à droite, en chiffres.
+  const entTile = (href, t, desc, tag) => `<a class="ent-row" href="${href}"><span class="ent-tt"><b>${t}</b><span class="ent-d">${desc}</span></span>${tag ? `<span class="ent-n">${tag}</span>` : ''}${ico('next')}</a>`;
   return `<h1>S’entraîner</h1>${hero}
-  <h2 class="ent-h">Pratiquer</h2><div class="ent-grid">
-    ${n.kind === 'pz' ? '' : entTile('#puzzles', 'tgt', 'Puzzles sur mes erreurs', 'Tes propres fautes, à corriger', d.due ? `${d.due} en attente` : '', '--c-train')}
-    ${entTile('#exos', 'clock', 'Échauffements', 'Vérifier avant de jouer, 2 minutes', '', '--c-train')}
-    ${entTile(due.length ? lineHref(due[0]) : '#ouvertures/apprendre', 'lines', 'Réciter mes lignes', 'Tes ouvertures, de mémoire', due.length ? `${due.length} à réviser` : '', '--c-learn')}
-    ${entTile('#rush', 'bolt', 'Rush', 'Vérifier vite, contre la montre', progress.rushBest().t3 ? 'Record : ' + progress.rushBest().t3 : '', '--c-train')}
-    ${entTile('#gagner', 'flag', 'Finir les parties gagnées', 'Convertir l’avantage contre le moteur', cv ? pl(cv, 'partie') : '', '--c-train')}
-    ${entTile('#finales', 'king', 'Finales de base', 'Mater, faire dame, tenir la nulle', egDue ? `${egDue} à refaire` : '', '--c-train')}
-    ${entTile('#inedits', 'spark', 'Positions inédites', 'Puzzles neufs sur ton chantier', '', '--c-train')}
-    ${entTile('#idees', 'bulb', 'Idées de plan', 'Choisir le bon plan dans tes positions calmes', '', '--c-train')}
+  <h2 class="ent-h">Pratiquer</h2><div class="ent-list">
+    ${n.kind === 'pz' ? '' : entTile('#puzzles', 'Puzzles sur mes erreurs', 'Tes propres fautes, à corriger', d.due ? `${d.due} en attente` : '')}
+    ${entTile('#exos', 'Échauffements', 'Vérifier avant de jouer, 2 minutes', '')}
+    ${entTile(due.length ? lineHref(due[0]) : '#ouvertures/apprendre', 'Réciter mes lignes', 'Tes ouvertures, de mémoire', due.length ? `${due.length} à réviser` : '')}
+    ${entTile('#rush', 'Rush', 'Vérifier vite, contre la montre', progress.rushBest().t3 ? 'Record : ' + progress.rushBest().t3 : '')}
+    ${entTile('#gagner', 'Finir les parties gagnées', 'Convertir l’avantage contre le moteur', cv ? `${pl(cv, 'partie')} à convertir` : '')}
+    ${entTile('#finales', 'Finales de base', 'Mater, faire dame, tenir la nulle', egDue ? `${egDue} à refaire` : '')}
+    ${entTile('#inedits', 'Positions inédites', 'Puzzles neufs sur ton chantier', '')}
+    ${entTile('#idees', 'Idées de plan', 'Choisir le bon plan dans tes positions calmes', '')}
   </div>
-  <h2 class="ent-h">Apprendre</h2><div class="ent-grid two">
-    ${entTile('#cours', 'book', 'Cours', les?.d ? esc(les.d) : 'Leçons illustrées par tes positions', '', '--c-learn')}
-    ${entTile('#ouvertures/apprendre', 'tree', 'Ouvertures', `${OPENINGS.length} fiches : idées, pièges, lignes`, '', '--c-learn')}
+  <h2 class="ent-h">Apprendre</h2><div class="ent-list">
+    ${entTile('#cours', 'Cours', les?.d ? esc(les.d) : 'Leçons illustrées par tes positions', '')}
+    ${entTile('#ouvertures/apprendre', 'Ouvertures', `${OPENINGS.length} fiches : idées, pièges, lignes`, '')}
   </div>
   <a class="ent-log" href="#historique">${ico('log')}<span>Historique</span><span class="small">${nh ? `${pl(nh, 'exercice')} noté${nh > 1 ? 's' : ''}` : 'Rien encore'}</span>${ico('next')}</a>`;
 }
@@ -2365,7 +2369,7 @@ function viewPlan() {
   const target = Math.max(4, Math.round((hours * 60 * 0.5) / 25));
   const g = goal();
   return `${tabs('plan', PRO_TABS)}<h1>Plan et réglages</h1>
-  <div class="card stack"><h2>Tes données</h2><p class="sub">Compte ${esc(S.user)}. Les nouvelles parties sont récupérées toutes seules.</p><div class="row">${cadenceField()}</div><div class="row"><button class="btn" data-act="refresh" ${S.importing && !S.importing.err ? 'aria-busy="true"' : ''}>Mettre à jour</button><span class="sub">${upToDate()}</span></div></div>
+  <div class="card stack"><h2>Données</h2><p class="sub">Compte ${esc(S.user)}. Les nouvelles parties sont récupérées toutes seules.</p><div class="row">${cadenceField()}</div><div class="row"><button class="btn" data-act="refresh" ${S.importing && !S.importing.err ? 'aria-busy="true"' : ''}>Mettre à jour</button><span class="sub">${upToDate()}</span></div></div>
   <div class="card"><h2>Semaine du ${F_DLONG(new Date(wk + 'T00:00:00'))}</h2>
       <div class="row"><label for="hrs" class="sub">Temps disponible</label><select id="hrs">${[3, 4, 5, 6, 8, 10].map((h) => `<option value="${h}" ${h === hours ? 'selected' : ''}>${h} h par semaine</option>`).join('')}</select></div>
       <div class="stack"><b>Jouer : <span class="num">${played} / ${target}</span> parties rapides cette semaine</b>
@@ -2375,7 +2379,7 @@ function viewPlan() {
   <div class="grid">
     <div class="card"><h2>Avant chaque coup</h2><ol class="routine"><li>Que menace le dernier coup adverse ?</li><li>Ai-je un échec, une capture ou une menace ?</li><li>La case où je vais est-elle attaquée ?</li><li>Après mon coup, qu’est-ce que je laisse sans défense ?</li></ol></div>
     <div class="card"><h2>Règles de session</h2><ol class="routine"><li>Deux défaites de suite : fin des parties pour aujourd’hui, place aux puzzles.</li><li>Jamais de partie classée en étant pressé ou fatigué.</li><li>Après chaque défaite, mise à jour ici et relecture des moments clés.</li></ol></div>
-    <div class="card"><h2>Ton objectif</h2><div class="row"><label for="gelo" class="sub">Elo visé</label><input type="number" id="gelo" value="${g.elo}" min="100" max="3000" step="50" style="width:100px"></div>
+    <div class="card"><h2>Objectif</h2><div class="row"><label for="gelo" class="sub">Elo visé</label><input type="number" id="gelo" value="${g.elo}" min="100" max="3000" step="50" style="width:100px"></div>
       <div class="row"><label for="gdate" class="sub">Échéance</label><input type="date" id="gdate" value="${g.date}"></div>
       <div><button class="btn sm" data-act="reset">Changer de pseudo ou effacer les données</button></div></div>
     <div class="card"><h2>Sons</h2><label class="check"><input type="checkbox" data-f="snd" ${sound.enabled() ? 'checked' : ''}><span>Sons des coups, des bonnes réponses et de l’objectif atteint <span class="small">Coupés par défaut. Aussi réglables pendant un exercice.</span></span></label></div>

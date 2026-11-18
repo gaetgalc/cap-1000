@@ -6,7 +6,7 @@ Site : https://gaetgalc.github.io/cap-1000/?u=gaetcc
 
 Le journal des échanges et des décisions est dans `docs/JOURNAL.md` : lire la section qui concerne l'écran touché.
 
-Refonte de l'interface en cours (depuis le 15/11) : décisions, état des lieux et étapes dans `docs/REFONTE.md`. Toute retouche visuelle suit ses règles (Geist, titres en Source Serif 4, cartes sans contour, jetons de `:root`, un bouton plein par vue, cibles de 44 px sur téléphone) et se vérifie avec `node tests/audit-ui.js`, qui doit rester sans écart. Revue selon les règles d'interface d'Apple (`docs/PLAN-HIG.md`, 17/11) réalisée le 18/11 avec les décisions D1 = A, D2 = B, D3 = A (JOURNAL §48) ; ses règles sont dans REFONTE § « Revue HIG ».
+Refonte de l'interface en cours (depuis le 15/11) : décisions, état des lieux et étapes dans `docs/REFONTE.md`. Toute retouche visuelle suit ses règles (Geist, titres en Besley, cartes sans contour, pas d'allure générée : REFONTE § « Pas d'allure générée », jetons de `:root`, un bouton plein par vue, cibles de 44 px sur téléphone) et se vérifie avec `node tests/audit-ui.js`, qui doit rester sans écart. Revue selon les règles d'interface d'Apple (`docs/PLAN-HIG.md`, 17/11) réalisée le 18/11 avec les décisions D1 = A, D2 = B, D3 = A (JOURNAL §48) ; ses règles sont dans REFONTE § « Revue HIG ».
 
 ## Ce que veut l'utilisateur
 
