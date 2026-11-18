@@ -41,7 +41,7 @@ const S = {
   user: ls.get('user', null), data: null, an: {},
   f: ls.get('filter', { tc: 'rapid', days: 0 }),
   job: { running: false, done: 0, total: 0, stop: false, msg: '' },
-  engine: null, play: null, ai: {}, gen: null, cl: null, white: true, path: [], pz: null, importing: null,
+  engine: null, play: null, ai: {}, gen: null, cl: null, white: true, path: [], pz: null, importing: null, upErr: null,
 };
 
 // ---------- Données ----------
@@ -69,15 +69,22 @@ async function doImport(user, manual) {
     await dbSet('data:' + d.user, d);
     S.an = (await dbGet('an:' + d.user)) || {};
     S.ai = (await dbGet('ai:' + d.user)) || {};
-    S.importing = null;
+    S.importing = null; S.upErr = null;
     if (!d.games.some((g) => g.tc === S.f.tc) && S.f.tc !== 'all') { S.f = { tc: 'all', days: 0 }; ls.set('filter', S.f); }
     if (first) render(); else if (route()[0] === 'partie') { paintJob(); header(); } else bgRender(); // relecture : les nouvelles parties ne changent pas la partie ouverte
-    if (first || manual || n > 0) toast(first ? `${pl(d.games.length, 'partie')} importée${d.games.length > 1 ? 's' : ''}` : n > 1 ? `${n} nouvelles parties importées` : n ? '1 nouvelle partie importée' : 'Aucune nouvelle partie');
+    // Message éphémère réservé à ce que l'élève vient de faire (revue HIG, 17/11) : un import automatique change les nombres sur place.
+    if (first || manual) toast(first ? `${pl(d.games.length, 'partie')} importée${d.games.length > 1 ? 's' : ''}` : n > 1 ? `${n} nouvelles parties importées` : n ? '1 nouvelle partie importée' : 'Aucune nouvelle partie');
     reclassify();
     autoAnalyse();
   } catch (e) {
     if (first) { S.importing = { err: e.message || String(e) }; render(); }
-    else { S.importing = null; S.job.msg = 'Mise à jour impossible : ' + (e.message || String(e)); paintJob(); }
+    else {
+      // Échec : noté dans la ligne d'état (#upd) ; message éphémère seulement si l'élève a demandé la mise à jour,
+      // pas à chaque retour sur l'onglet.
+      S.importing = null; S.upErr = Date.now(); paintJob();
+      const u = $('#upd'); if (u) u.textContent = upToDate();
+      if (manual) toast('Mise à jour impossible : ' + (e.message || String(e)));
+    }
   }
 }
 
@@ -130,12 +137,12 @@ function autoAnalyse() {
   if (list.length) runAnalysis(0, null, list);
 }
 // count parties de plus (les plus récentes non analysées d'abord), ou une seule (only), ou une liste précise (list).
-async function runAnalysis(count, only, list) {
+async function runAnalysis(count, only, list, manual) {
   if (S.job.running || !S.data) return;
   const pool = analysisPool();
   const queue = list || (only ? [only] : [...pool.filter((g) => !S.an[g.id]), ...pool.filter((g) => toRedo(S.an[g.id]))].slice(0, count));
   if (!queue.length) return;
-  S.job = { running: true, done: 0, part: 0, total: queue.length, stop: false, msg: '' };
+  S.job = { running: true, done: 0, part: 0, total: queue.length, stop: false, msg: '', manual: !!manual };
   const user = S.user, saveAn = () => (S.user === user ? dbSet('an:' + user, S.an) : null);
   paintJob();
   if (['accueil', 'cours'].includes(route()[0])) bgRender(); // « pas encore analysée » devient un bloc de chargement
@@ -168,7 +175,7 @@ async function runAnalysis(count, only, list) {
   S.job.running = false;
   bgRender();
   const n = S.job.done;
-  if (n && !S.job.msg && S.user === user) toast(`${pl(n, 'partie')} analysée${n > 1 ? 's' : ''}`);
+  if (n && S.job.manual && !S.job.msg && S.user === user) toast(`${pl(n, 'partie')} analysée${n > 1 ? 's' : ''}`);
 }
 // Bandeau d'avancement : import, puis analyse (parties finies + avancée dans la partie en cours).
 // La barre est mise à jour sur place (transform), sans reconstruire le bouton de pause sous le doigt.
@@ -1174,7 +1181,8 @@ function cadenceField() {
 }
 // Période : Tout · 90 j · 30 j, dans chaque vue qui la lit (Mon jeu, Parties).
 const periodSeg = () => `<div class="seg2 mini" role="group" aria-label="Période">${[[0, 'Tout'], [90, '90 j'], [30, '30 j']].map(([v, l]) => `<button data-f="days" data-v="${v}" aria-pressed="${(S.f.days || 0) === v}" class="${(S.f.days || 0) === v ? 'on' : ''}">${l}</button>`).join('')}</div>`;
-const upToDate = () => (S.data?.fetchedAt ? `À jour, ${agoFr(Date.now() - S.data.fetchedAt)}` : 'Pas encore mis à jour');
+const upToDate = () => (S.upErr ? `Mise à jour impossible, dernière réussie ${S.data?.fetchedAt ? agoFr(Date.now() - S.data.fetchedAt) : 'jamais'}`
+  : S.data?.fetchedAt ? `À jour, ${agoFr(Date.now() - S.data.fetchedAt)}` : 'Pas encore mis à jour');
 const refreshBtn = () => `<button class="btn ico" data-act="refresh" aria-label="Mettre à jour" title="Récupérer les nouvelles parties de ${esc(S.user)}" ${S.importing && !S.importing.err ? 'aria-busy="true"' : ''}>${ico('refresh')}</button>`;
 const TITLES = { idees: 'Idées de plan', avantpartie: 'Avant de jouer', ouvertures: 'Ouverture', ligne: 'Ouverture', puzzles: 'Puzzles', erreur: 'Comprendre', partie: 'Partie', cours: 'Cours', drill: 'Échauffement', inedits: 'Positions inédites', gagner: 'Gagner', monouv: 'Mon ouverture', rush: 'Rush', finale: 'Finale', jouer: 'Jouer' };
 function header() {
@@ -2337,7 +2345,7 @@ function viewPlan() {
   ].filter(Boolean);
   const g = goal();
   return `${PRO_TABS('plan')}<h1>Plan et réglages</h1>
-  <div class="card stack"><h2>Tes données</h2><p class="sub">Compte ${esc(S.user)}. Les nouvelles parties sont récupérées toutes seules.</p><div class="row">${cadenceField()}</div><div class="row"><button class="btn" data-act="refresh" ${S.importing && !S.importing.err ? 'aria-busy="true"' : ''}>Mettre à jour</button><span class="sub">${S.data.fetchedAt ? `À jour : ${agoFr(Date.now() - S.data.fetchedAt)}` : 'Pas encore mis à jour'}</span></div></div>
+  <div class="card stack"><h2>Tes données</h2><p class="sub">Compte ${esc(S.user)}. Les nouvelles parties sont récupérées toutes seules.</p><div class="row">${cadenceField()}</div><div class="row"><button class="btn" data-act="refresh" ${S.importing && !S.importing.err ? 'aria-busy="true"' : ''}>Mettre à jour</button><span class="sub">${S.upErr ? upToDate() : S.data.fetchedAt ? `À jour : ${agoFr(Date.now() - S.data.fetchedAt)}` : 'Pas encore mis à jour'}</span></div></div>
   <div class="card"><h2>Semaine du ${new Date(wk + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}</h2>
       <div class="row"><label for="hrs" class="sub">Temps disponible</label><select id="hrs">${[3, 4, 5, 6, 8, 10].map((h) => `<option value="${h}" ${h === hours ? 'selected' : ''}>${h} h par semaine</option>`).join('')}</select></div>
       <div class="stack"><b>Jouer : <span class="num">${played} / ${target}</span> parties rapides cette semaine</b>
@@ -2538,8 +2546,8 @@ document.addEventListener('click', (ev) => {
   const act = el.dataset.act;
   if (el.tagName === 'A') ev.preventDefault();
   if (act === 'refresh') doImport(S.user, true);
-  else if (act === 'analyse') runAnalysis(20);
-  else if (act === 'analyse1') runAnalysis(1, S.gv.g);
+  else if (act === 'analyse') runAnalysis(20, null, null, true);
+  else if (act === 'analyse1') runAnalysis(1, S.gv.g, null, true);
   else if (act === 'stattc') { S.statTc = el.dataset.tc; render(true); }
   else if (act === 'rushagain') { S.rush = null; render(); }
   else if (act === 'playhere') {

@@ -26,6 +26,8 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#accueil`);
   await page.waitForFunction(() => window.__cap?.data && window.__cap.job.total > 0 && !window.__cap.job.running, null, { timeout: 180000 });
   check(await S(() => Object.keys(window.__cap.an).length) === GAMES.length, 'import et analyse des parties simulées');
+  await sleep(500); // revue HIG, tâche 8 : une analyse lancée seule ne pousse pas de message éphémère
+  check(await S(() => ![...document.querySelectorAll('.toast')].some((t) => /analysée/.test(t.textContent))), 'analyse automatique : aucun message éphémère « parties analysées »');
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#accueil`); await sleep(600);
   check(await S(() => document.querySelectorAll('.home .stepper li').length === 4 && document.querySelectorAll('.home .btn.pri').length === 1 && !!document.querySelector('.gstrip') && !!document.querySelector('.lgame a[href^="#erreur/"]')), 'accueil : objectif, séance à un seul bouton, dernière partie avec son erreur');
   check(await S(() => document.documentElement.scrollHeight <= innerHeight && document.querySelector('.lgame').getBoundingClientRect().bottom <= document.querySelector('#nav').getBoundingClientRect().top), 'accueil : rien ne défile, tout est au-dessus de la barre du bas');
@@ -331,6 +333,16 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   await page.click('#view .seg2.mini [data-f="days"][data-v="0"]'); await sleep(400);
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#parties`); await sleep(800);
   check(await S(() => /^À jour, /.test(document.querySelector('#upd')?.innerText || '') && document.querySelector('#view [data-act="refresh"]')?.getAttribute('aria-label') === 'Mettre à jour'), 'Parties : ligne d’état « À jour, … » et bouton Mettre à jour');
+  // Revue HIG, tâche 8 : un import automatique qui échoue le dit dans la ligne d'état, sans message éphémère
+  await ctx.unroute('https://api.chess.com/**');
+  await ctx.route('https://api.chess.com/**', (r) => r.fulfill({ status: 403, headers: { 'access-control-allow-origin': '*' }, body: '' }));
+  await S(() => { window.__cap.data.fetchedAt = Date.now() - 3 * 3600000; document.dispatchEvent(new Event('visibilitychange')); });
+  await page.waitForFunction(() => window.__cap.upErr && !window.__cap.importing, null, { timeout: 30000 }); await sleep(300);
+  check(await S(() => /^Mise à jour impossible, dernière réussie il y a 3 h/.test(document.querySelector('#upd')?.innerText || '') && !document.querySelector('.toast') && document.querySelector('#job').hidden), 'import automatique en échec : ligne d’état, ni message éphémère ni bandeau');
+  await page.click('#view [data-act="refresh"]');
+  await page.waitForFunction(() => !window.__cap.importing, null, { timeout: 30000 }); await sleep(300);
+  check(await S(() => [...document.querySelectorAll('.toast')].some((t) => /^Mise à jour impossible/.test(t.textContent))), '« Mettre à jour » en échec : message éphémère');
+  await ctx.unroute('https://api.chess.com/**'); await routeChessCom(ctx);
   // Retour sur l'onglet, données périmées : l'import se fait sans reconstruire l'exercice en cours
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#drill/sur`); await page.waitForSelector('#xb', { timeout: 20000 }); await sleep(500);
   await S(() => { document.querySelector('#xb').dataset.keep = '1'; window.__cap.data.fetchedAt = 0; document.dispatchEvent(new Event('visibilitychange')); });
