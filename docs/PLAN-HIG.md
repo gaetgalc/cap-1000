@@ -265,7 +265,7 @@ test('tabTarget', () => {
 
 ### Fin
 
-- [x] `superpowers:verification-before-completion`, puis `/code-review` et `/simplify` sur l'ensemble.
+- [x] `superpowers:verification-before-completion` (tests, parcours, audit complet sans écart), relecture de toute la branche (Opus) et vague de corrections ; `/simplify` non lancé.
 - [x] `docs/JOURNAL.md` : un paragraphe par tâche faite ; ce plan passe en « fait » avec la date.
 
 ---
