@@ -727,7 +727,7 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
   details.gd summary { min-height: var(--hit); }
   /* Cibles tactiles de 44 px sur les éléments qui ne sont pas des boutons */
   .brand, .gnum, .tools .pzprog, a.row, .sig a { min-height: var(--hit); display: flex; align-items: center; }
-  td a, p.small > a:only-child, .meta.small > a:only-child, .kv dd > a { min-height: var(--hit); display: inline-flex; align-items: center; }
+  td a, p.small > a:only-child, .meta.small > a:only-child, .kv dd > a, .rule > a { min-height: var(--hit); display: inline-flex; align-items: center; }
   tr.click td { height: var(--hit); }
   .stepper a, .stepper button, .stepper span { min-height: var(--hit); justify-content: center; }
   .hbar, ol.line li { min-height: var(--hit); }
