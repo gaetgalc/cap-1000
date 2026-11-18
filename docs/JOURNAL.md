@@ -538,6 +538,17 @@ Les 10 tâches de `docs/PLAN-HIG.md` sont faites, chacune avec sa mesure dans l'
 - Sur ordinateur, le bandeau à droite d'un exercice a une hauteur fixe de 170 px, pour que le panneau dessous ne bouge pas pendant une lecture : il paraît vide sur un texte court, et un texte long y défile.
 - À vérifier sur iPhone (jamais vu, l'audit simule) : Safari à 125 %, les palettes bois et bleu avec « Augmenter le contraste », et le bleu et le turquoise des icônes.
 
+## 49. Pas d'allure « générée par IA » (18/11)
+
+> https://github.com/Nutlope/inspo utilise pour trouver les skills utile à appliquer au repo. je ne veux pas qu'on se dise que le site fasse ai slop
+> B, montre-moi les polices côte à côte · besley. le reste vasy fais
+
+- **inspo** n'est pas un catalogue de skills : c'est une archive de 832 vrais sites (surtout des pages vitrines), interrogeable par MCP. Le serveur hébergé est bloqué depuis l'environnement de Claude ; le catalogue a été lu dans une copie du dépôt. Il dit lui-même de suivre les règles d'un projet qui en a déjà. Le contrôle utile est `sloplint`, du skill hallmark déjà installé.
+- **Constat** : titres en serif sur gris chaud avec Geist = l'allure de claude.ai (17 sites sombres sur 551 ont des titres à empattements dans inspo) ; grille de tuiles à icône ; 6 encarts chiffrés identiques ; trait coloré à gauche des cartes ; suites séparées par des points médians ; pastilles rondes devant « Défaite » et « Gaffe » ; surtitre coloré ; titres tous en « Ta / Ton / Tes ».
+- **Police des titres** : 3 candidates montrées sur l'accueil et Mon jeu (Besley, Antonio, Spline Sans Mono). Choix : **Besley** (variable, OFL, `vendor/fonts/besley-latin-wght-normal.woff2`), qui remplace Source Serif 4 dans `--serif`.
+- **Fait** : sommaire en lignes à la place des tuiles de S'entraîner (état chiffré à droite, plus d'icône) ; chiffres de l'objectif et de Parties en une bande séparée par des filets ; plus de trait à gauche (séance, tête de S'entraîner, signaux, regards croisés) ; plus de point devant les états (la couleur du texte suffit) ; dernière partie notée comme aux échecs (« 1-0 contre adv11 », « Ff3?? ») ; plus de point médian dans les en-têtes ; titres sans possessif (« Séance du jour », « Classement Rapide ») ; couleurs en jetons, bouton désactivé par fond, encre et curseur, marges sur l'échelle de 4 px.
+- `sloplint` (hallmark) : de 18 échecs, 123 réflexes et 5 alertes à 4, 17 et 3 ; ce qui reste est voulu (écran d'exercice sans défilement, hauteur de la barre du bas en `calc`, notation des coups en chasse fixe).
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |
@@ -554,6 +565,7 @@ Les 10 tâches de `docs/PLAN-HIG.md` sont faites, chacune avec sa mesure dans l'
 | Synchronisation | Fichier de sauvegarde, pas de serveur | Le site reste statique, sans compte |
 | Refonte | Système du skill taste-skill, sans sa partie site vitrine ; Geist ; bouton principal en relief ; 5 entrées, Progrès en volet | Maquette validée le 15/11, faite le 16/11 ; voir `docs/REFONTE.md` |
 | Explications positionnelles | Heuristiques (`plan.js`) d'abord, Claude à la demande | Gratuit et sans clé ; Claude seulement pour les positions où la règle ne suffit pas |
+| Allure | Besley pour les titres, vocabulaire des échecs plutôt que décorations, pas de tuile à icône ni de trait coloré | Ne pas ressembler à un site généré (18/11, §49) |
 | Puzzles flous | Écartés s'ils n'ont pas de motif tactique et que 3 coups tenaient | Un puzzle sans réponse nette n'apprend rien |
 
 ## Non vérifié à ce jour

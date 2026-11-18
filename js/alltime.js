@@ -28,7 +28,7 @@ function clockCard(gs, an) {
   if (!ce.games) return '';
   const max = Math.max(0.01, ...[...ce.left, ...ce.think].map((b) => b.rate || 0));
   const rows = (B) => B.map((b) => `<div class="hbar"><span>${b.label}</span><span class="track"><i style="width:${b.n ? (100 * b.rate) / max : 0}%;background:var(--bad)"></i></span><span class="v" style="white-space:nowrap">${b.n ? pct(b.bad, b.n) + ' %' : '—'} <span class="small">${nf(b.n)} coups</span></span></div>`).join('');
-  return `<div class="card"><h2>Tes erreurs et la pendule <span class="small">${ce.games} parties analysées</span></h2>
+  return `<div class="card"><h2>Erreurs et pendule <span class="small">${ce.games} parties analysées</span></h2>
     <h3>Selon le temps qui te restait</h3>${rows(ce.left)}
     <h3>Selon le temps pris pour jouer</h3>${rows(ce.think)}
     <p class="small">Part de tes coups qui sont des erreurs ou des gaffes, à partir du 9e coup. Si la barre grandit vers le bas, c’est la pendule ou la vitesse qui te coûte des points, pas la tactique.</p></div>`;
@@ -161,9 +161,9 @@ export function viewStats(S) {
     ${clockCard(gs, S.an)}
   </div>
   <div class="grid">
-    <div class="card"><h2>Tes coups <span class="small">${nf(played)} coups</span></h2>${hb(pieces, played)}
+    <div class="card"><h2>Coups joués <span class="small">${nf(played)} coups</span></h2>${hb(pieces, played)}
       <dl class="kv">${kv('Captures', nf(cap))}${kv('Échecs donnés', nf(chk))}${kv('Mats donnés', nf(mate))}${kv('Promotions', nf(promo))}${kv('Petits roques', `${nf(oo)} (${pct(oo, gs.length)} % des parties)`)}${kv('Grands roques', `${nf(ooo)} (${pct(ooo, gs.length)} %)`)}</dl></div>
-    <div class="card"><h2>Ton premier coup avec les Blancs</h2>${fm.length ? hb(fm, whiteN) : '<p class="sub">Aucune partie avec les Blancs.</p>'}
+    <div class="card"><h2>Premier coup avec les Blancs</h2>${fm.length ? hb(fm, whiteN) : '<p class="sub">Aucune partie avec les Blancs.</p>'}
       ${opp.length ? `<h2>Adversaires les plus fréquents</h2>${tbl(H4, opp)}` : ''}
       ${extra ? `<h2>Autres repères</h2><dl class="kv">${extra}</dl>` : ''}</div>
   </div>`;

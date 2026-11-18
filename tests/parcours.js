@@ -34,7 +34,7 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   // Navigation à 4 entrées (16/11) : volets sur ordinateur, onglets sur téléphone (voir plus bas)
   await page.click('.lgame [data-act="lgnav"][data-d="1"]'); await sleep(300);
   check(await S(() => window.__cap.lg === 1 && !!document.querySelector('.lgame [data-act="lgnav"][data-d="-1"]:not([disabled])')), 'dernière partie : la flèche remonte à la gaffe précédente, et l’autre flèche revient');
-  check(await S(() => { const c = document.querySelector('.lgame .lgerr .chip'); return !c || /^(Gaffe( \d+ sur \d+)?|Erreur)$/.test(c.textContent); }), 'dernière partie : la pastille dit « Gaffe 2 sur 3 » quand la partie en a plusieurs');
+  check(await S(() => { const m = document.querySelector('.lgame .lgerr .lgmk'), r = document.querySelector('.lgame .lgres'); return (!m || /^\?\??$/.test(m.textContent)) && /^(1-0|0-1|½-½)/.test(r.textContent.replace(/^.*, /, '')); }), 'dernière partie : résultat noté 1-0 / 0-1 / ½-½ et faute annotée ?? ou ?');
   await page.click('.lgame [data-act="lgnav"][data-d="-1"]'); await sleep(300);
   check(/dernières parties/.test(await bar('.brief .bdiag')) && /Objectif|Joue et analyse/.test(await bar('.brief .fnums')), 'accueil : le mot du coach donne un diagnostic chiffré et un objectif');
   await page.setViewportSize({ width: 390, height: 664 }); await sleep(300);
