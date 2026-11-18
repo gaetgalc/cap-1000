@@ -21,6 +21,7 @@ import { coachBrief, briefFacts, CAUSES, mainCause, selfVerdict } from './brief.
 import { ideaPositionsOf, ideaChoices, ideaStart, ideaFollow } from './ideas.js';
 import { STAGES, programWeek, weekStats, reviewText } from './program.js';
 import { portrait } from './portrait.js';
+import { importRecap } from './recap.js';
 import { theoryExits, planOf } from './theory.js';
 import { moments } from './debrief.js';
 import { intent } from './plan.js';
@@ -77,6 +78,9 @@ async function doImport(user, manual) {
     const prev = user === S.user ? S.data : await dbGet('data:' + user);
     const d = await importPlayer(user, prev, (a, b) => { S.importing = { done: a, total: b, err: null }; paintJob(); const el = $('#imp'); if (el) el.textContent = b ? `Import des parties : ${a} mois sur ${b}` : 'Connexion à Chess.com'; });
     const n = d.games.length - (prev?.games?.length || 0);
+    // Bilan de l'import (18/11) : parties arrivées, cumulées jusqu'à ce que l'élève ait lu le bilan (« J'ai lu »).
+    const known = new Set((prev?.games || []).map((g) => g.id)), fresh = d.games.filter((g) => !known.has(g.id)).map((g) => g.id);
+    if (fresh.length) { const r0 = ls.get('recap', null); ls.set('recap', { ids: [...new Set([...(r0?.ids || []), ...fresh])], t: Date.now() }); }
     S.user = d.user; S.data = d; ls.set('user', d.user);
     await dbSet('data:' + d.user, d);
     S.an = (await dbGet('an:' + d.user)) || {};
@@ -1477,6 +1481,25 @@ function lastGameCard() {
     ${e ? `<div class="lgrow">${pos}<div class="lgtxt">${head}${body}</div></div>` : head + body}
     <div class="lgbtn">${nav(-1, 'Gaffe plus récente', 'prev')}${mid}${nav(1, 'Gaffe plus ancienne', 'next')}</div></section>`;
 }
+// Bilan de l'import (18/11, demande de Gaëtan) : après chaque chargement de parties, une fois Stockfish passé sur les
+// nouvelles, points forts et faibles de l'ensemble des parties de la cadence suivie (recap.js), ce que l'import change,
+// et le bilan des nouvelles. Prend la place de la dernière partie jusqu'à « J'ai lu ». Téléphone : un point de chaque.
+function recapCard() {
+  const rc = ls.get('recap', null);
+  if (!rc?.ids?.length || !S.data) return '';
+  const gs = cadenceGames(), mine = new Set(gs.map((g) => g.id)), ids = rc.ids.filter((id) => mine.has(id));
+  if (!ids.length) return '';
+  const r = importRecap(gs, S.an, ids);
+  if (!r.ready) return '';
+  const li = (x) => `<li><b><span class="sr">${x === r.forces[0] || r.forces.includes(x) ? 'Point fort : ' : 'Point faible : '}</span>${esc(x.t)}</b>${x.neu ? ' <span class="small">nouveau</span>' : ''}<span class="rd d-only">${esc(x.d)}</span></li>`;
+  const col = (h, arr, cls) => `<div class="rcol ${cls}"><h3>${h}</h3><ul>${arr.slice(0, 2).map(li).join('')}</ul></div>`;
+  const sig = r.forces.length || r.faiblesses.length
+    ? `<div class="rcols">${col('Points forts', r.forces, 'rf')}${col('Points faibles', r.faiblesses, 'rw')}</div>`
+    : '<p class="sub">Points forts et faibles à partir de 10 parties analysées.</p>';
+  const fixed = r.goneWeak.length ? `<p class="small d-only">Disparu depuis l’import : ${esc(r.goneWeak.join(', ').toLowerCase())}.</p>` : '';
+  return `<section class="card ibilan"><span class="hlab">Bilan de tes parties</span><p class="rbatch"><span class="d-only-i">${esc(r.batch.text)}</span><span class="m-only-i">${r.batch.n > 1 ? r.batch.n + ' nouvelles parties' : '1 nouvelle partie'} : ${r.batch.w} V, ${r.batch.d} N, ${r.batch.l} D</span></p>${sig}${fixed}
+    <div class="rbtn"><a class="btn" href="#bilan">Détail<span class="d-only-i"> dans Mon jeu</span></a><button class="btn" data-act="recapok">J’ai lu</button></div></section>`;
+}
 // Mini-échiquier de la dernière partie : non interactif, créé seulement s'il est affiché (ordinateur).
 function mountAccueil() {
   const el = $('#lgb');
@@ -1487,7 +1510,7 @@ function mountAccueil() {
 }
 function viewAccueil() {
   const { steps, fc, nDone } = session();
-  return `<div class="home">${goalStrip()}${sessionCard(steps, nDone)}<div class="hside">${briefCard(fc, steps)}${lastGameCard()}</div></div>`;
+  return `<div class="home">${goalStrip()}${sessionCard(steps, nDone)}<div class="hside">${briefCard(fc, steps)}${recapCard() || lastGameCard()}</div></div>`;
 }
 
 // ---------- Mon jeu : objectif, chantier, points forts et faibles, tendance, bilan ----------
@@ -2659,6 +2682,7 @@ document.addEventListener('click', (ev) => {
   else if (act === 'dbgo') gvDb(+el.dataset.i);
   else if (act === 'dbend') gvGo(S.gv?.k ?? 0);
   else if (act === 'askpos') gvAsk();
+  else if (act === 'recapok') { ls.del('recap'); render(true); }
   else if (act === 'lgnav') { S.lg = Math.max(0, (S.lg || 0) + +el.dataset.d); render(true); }
   else if (act === 'selfck') { progress.recordSelf(el.dataset.id, el.dataset.v === '1'); render(true); }
   else if (act === 'askclose') { if (S.gv) { S.gv.ask = null; gvSync(); } }

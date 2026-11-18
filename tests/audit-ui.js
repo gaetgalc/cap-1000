@@ -42,7 +42,8 @@ async function solveToEnd(page) {
   }
 }
 const TOUS_ECRANS = [
-  ['accueil'], ['bilan'], ['plan'], ['puzzles'], ['historique'], ['exos'], ['drill-sur', 'drill/sur'], ['drill-compte', 'drill/compte'],
+  ['accueil-bilan', () => { const k = 'cap1000:recap', b = localStorage.getItem(k) || localStorage.getItem(k + '-audit'); if (b) { localStorage.setItem(k, b); localStorage.setItem(k + '-audit', b); } return 'accueil'; }],
+  ['accueil', () => { localStorage.removeItem('cap1000:recap'); return 'accueil'; }], ['bilan'], ['plan'], ['puzzles'], ['historique'], ['exos'], ['drill-sur', 'drill/sur'], ['drill-compte', 'drill/compte'],
   ['cours'], ['cours-fiche', 'cours/en_prise_pose/fiche'], ['cours-prive', 'cours/en_prise_pose'],
   ['gagner'], ['ouvertures'], ['ouvertures-apprendre', 'ouvertures/apprendre'], ['ouverture-fiche', 'ouvertures/italienne'],
   ['ligne-reciter', 'ligne/italienne/0'], ['ligne-voir', 'ligne/italienne/0/voir'],
@@ -217,7 +218,7 @@ async function visit(ctx, size, report) {
     if (opt.mobileOnly && !size.mobile) continue;
     const hash = typeof route === 'function' ? await page.evaluate(route) : route;
     const saved = opt.act && await page.evaluate(() => JSON.stringify({ ...localStorage }));
-    await page.goto(base + '#' + hash);
+    await page.goto(base + '#' + hash); if (name.startsWith('accueil')) await page.reload(); // même adresse : on recharge pour relire le bilan
     if (opt.act) await opt.act(page);
     await sleep(900);
     // Transition de vue et animations finies avant de mesurer et de photographier (sinon capture à mi-fondu sur une machine chargée).

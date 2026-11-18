@@ -575,6 +575,16 @@ Aussi : `memo()` / `touch()` (calculs gardés tant que parties, analyses, filtre
 - **Fait** : sommaire en lignes à la place des tuiles de S'entraîner (état chiffré à droite, plus d'icône) ; chiffres de l'objectif et de Parties en une bande séparée par des filets ; plus de trait à gauche (séance, tête de S'entraîner, signaux, regards croisés) ; plus de point devant les états (la couleur du texte suffit) ; dernière partie notée comme aux échecs (« 1-0 contre adv11 », « Ff3?? ») ; plus de point médian dans les en-têtes ; titres sans possessif (« Séance du jour », « Classement Rapide ») ; couleurs en jetons, bouton désactivé par fond, encre et curseur, marges sur l'échelle de 4 px.
 - `sloplint` (hallmark) : de 18 échecs, 123 réflexes et 5 alertes à 4, 17 et 3 ; ce qui reste est voulu (écran d'exercice sans défilement, hauteur de la barre du bas en `calc`, notation des coups en chasse fixe).
 
+## 51. Mise à jour en bas à gauche, bilan après chaque import (18/11)
+
+> remet la barre mettre à jour en bas à gauche, j'aimais bien. et aussi à chaque fois que je charge des parties je veux une analyse claire de l'ensemble des parties sur mes points forts et faibles
+> (forme choisie : carte sur l'accueil)
+
+- **Bas de la colonne de gauche** (ordinateur) : « À jour, il y a … » et un bouton « Mettre à jour », sur toutes les pages hors exercice (`sideUpd`). La revue HIG (tâche 5) les avait retirés ; seul le bouton revient, pas les filtres (la période reste dans chaque vue, la cadence dans Plan et réglages). Téléphone : inchangé (ligne d'état de Parties).
+- **Bilan de l'import** : les parties arrivées sont notées dans `cap1000:recap` (cumulées jusqu'à lecture). Une fois Stockfish passé dessus, la carte « Bilan de tes parties » remplace la dernière partie sur l'accueil : résultats des nouvelles et gaffes par partie contre avant, 2 points forts et 2 faibles de l'ensemble (cadence suivie, toute la période ; `signals` de `stats.js`), « nouveau » quand l'import les fait apparaître, faiblesses disparues. « Détail dans Mon jeu » ou « J'ai lu ». Téléphone : une ligne de résultats, un point fort et un faible.
+- Correctif : « Après , tu t'es trompé… » quand l'erreur qui revient est au premier coup ; dit maintenant « Dès le premier coup » (`repeatLead`).
+- À 312 × 531, la carte du bas de l'accueil (bilan ou dernière partie) passe sous la barre du bas, comme avant.
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |

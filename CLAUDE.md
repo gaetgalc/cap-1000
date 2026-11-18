@@ -23,7 +23,7 @@ Site statique sans build, servi par GitHub Pages depuis `main` (racine). Tout to
 
 - Coquille et vues : `index.html`, `css/app.css` (jetons de `:root`), `js/app.js` (état `S`, routage par hash, vues), `nav.js` (sections et onglets), `ui.js`, `charts.js`, `toast.js`, `look.js`, `sound.js`.
 - Échiquier et exercice : `board.js` (chessground), `exercise.js` (écran commun des six écrans à échiquier), `review.js`.
-- Analyse : `engine.js` (Stockfish), `classify.js` (classement pur, `VERSION`), `stats.js`, `insights.js`, `alltime.js`, `debrief.js`, `portrait.js`.
+- Analyse : `engine.js` (Stockfish), `classify.js` (classement pur, `VERSION`), `stats.js`, `insights.js`, `alltime.js`, `debrief.js`, `portrait.js`, `recap.js` (bilan après un import).
 - Explications : `explain.js`, `geom.js`, `plan.js`, `theory.js`.
 - Entraînement : `progress.js` (répétition espacée, journal), `program.js`, `drills.js`, `ideas.js`, `endgames.js`, `lichess.js`, `lessons.js`, `openings.js`, `explorer.js`.
 - Coach : `coach.js` (cours, demande au coach, clé API), `brief.js`.

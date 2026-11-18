@@ -169,6 +169,8 @@ export function repText(r) {
   return `${one ? `tu as joué ${mv(r.moves[0][0])} ${r.n} fois` : `tu t’es trompé ${r.n} fois (${r.moves.map(([s, k]) => `${mv(s)}${k > 1 ? ' ×' + k : ''}`).join(', ')})`}. Le bon coup : ${mv(r.bestSan)}.`;
 }
 // Une suite de coups en notation française : « 1.e4 e5 2.Cf3 Cc6 ».
+// Début de phrase d'une erreur qui revient : les derniers coups qui y mènent, ou le premier coup s'il n'y en a pas.
+export const repeatLead = (line) => (line.length ? `Après ${lineText(line, Math.max(0, line.length - 4))}` : 'Dès le premier coup');
 export const lineText = (san, from = 0) => san.slice(from).map((s, k) => { const i = from + k; return (i % 2 === 0 ? (i / 2 + 1) + '.' : (k === 0 ? Math.ceil(i / 2) + '…' : '')) + fr(s); }).join(' ');
 
 export function habits(games) {
@@ -294,7 +296,7 @@ export function signals(games, an) {
   if (lD.n >= 30 && calm.n >= 30 && lD.rate >= 2 * (calm.bad / calm.n) && lD.bad >= 4) W('Tu craques à la pendule', `Avec moins d’une minute, ${pct(lD.bad, lD.n)} % de tes coups sont des erreurs graves, contre ${pct(calm.bad, calm.n)} % quand il te reste plus de 2 minutes.`, 'temps');
   if (tA.n >= 40 && slow.n >= 40 && tA.rate >= 2 * (slow.bad / slow.n) && tA.bad >= 4) W('Coups joués trop vite', `${pct(tA.bad, tA.n)} % de tes coups joués en moins de 5 secondes sont des erreurs graves, contre ${pct(slow.bad, slow.n)} % quand tu prends plus de 15 secondes.`, 'temps');
   const rep = repeatedErrors(games, an)[0];
-  if (rep && rep.n >= 3) W('La même erreur, encore et encore', `Après ${lineText(rep.line, Math.max(0, rep.line.length - 4))}, ${repText(rep)}`, 'ouvertures');
+  if (rep && rep.n >= 3) W('La même erreur, encore et encore', `${repeatLead(rep.line)}, ${repText(rep)}`, 'ouvertures');
   const es = engineStats(games, an);
   if (es.n >= 5) {
     const perGame = es.gaffes / es.n;

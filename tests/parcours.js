@@ -29,6 +29,12 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   await sleep(500); // revue HIG, tâche 8 : une analyse lancée seule ne pousse pas de message éphémère
   check(await S(() => ![...document.querySelectorAll('.toast')].some((t) => /analysée/.test(t.textContent))), 'analyse automatique : aucun message éphémère « parties analysées »');
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#accueil`); await sleep(600);
+  // Bilan de l'import (18/11) : une fois les parties analysées, points forts et faibles à la place de la dernière partie ;
+  // « J'ai lu » le retire et la dernière partie revient.
+  check(await S(() => { const c = document.querySelector('.home .ibilan'); return !!c && /nouvelles parties :/.test(c.innerText) && c.querySelectorAll('.rcol').length === 2 && !document.querySelector('.home .lgame'); }), 'accueil : bilan de l’import (points forts et faibles) une fois les parties analysées');
+  check(await S(() => document.documentElement.scrollHeight <= innerHeight && document.querySelector('.ibilan [data-act="recapok"]').getBoundingClientRect().bottom <= innerHeight), 'accueil avec le bilan : rien ne défile, ses boutons sont visibles');
+  await page.click('.ibilan [data-act="recapok"]'); await sleep(300);
+  check(await S(() => !document.querySelector('.ibilan') && !!document.querySelector('.lgame') && localStorage.getItem('cap1000:recap') === null), 'bilan : « J’ai lu » le retire, la dernière partie revient');
   check(await S(() => document.querySelectorAll('.home .stepper li').length === 4 && document.querySelectorAll('.home .btn.pri').length === 1 && !!document.querySelector('.gstrip') && !!document.querySelector('.lgame a[href^="#erreur/"]')), 'accueil : objectif, séance à un seul bouton, dernière partie avec son erreur');
   check(await S(() => document.documentElement.scrollHeight <= innerHeight && document.querySelector('.lgame').getBoundingClientRect().bottom <= document.querySelector('#nav').getBoundingClientRect().top), 'accueil : rien ne défile, tout est au-dessus de la barre du bas');
   // Navigation à 4 entrées (16/11) : volets sur ordinateur, onglets sur téléphone (voir plus bas)

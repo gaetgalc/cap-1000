@@ -1,7 +1,7 @@
 // Statistiques de la pendule et erreurs répétées, sur des parties construites à la main. node --test tests/
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-const { clockErrors, incOf, repeatedErrors, lineText, gameFacts, listSummary } = await import('../js/stats.js');
+const { clockErrors, incOf, repeatedErrors, lineText, repeatLead, gameFacts, listSummary } = await import('../js/stats.js');
 
 test('incrément : lu à l’import, sinon déduit de la pendule', () => {
   assert.equal(incOf({ inc: 5, clk: [] }), 5);
@@ -105,4 +105,9 @@ test('détail d’une ouverture : tronc commun, suites jouées, variantes, usage
   const year = famDetail([gs[0], mk(ts(2027, 6), base, 'W')], 'Italian Game', true);
   assert.equal(year.periods.unit, 'trimestre', 'plus d’un an : par trimestre');
   assert.equal(famDetail(gs, 'Inconnue', true).games.length, 0);
+});
+
+test('erreur qui revient : début de phrase, même au premier coup', () => {
+  assert.equal(repeatLead([]), 'Dès le premier coup');
+  assert.equal(repeatLead(['e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Bc5']), 'Après 2.Cf3 Cc6 3.Fc4 Fc5');
 });
