@@ -1,9 +1,11 @@
 // Audit de l'interface : chaque écran, aux 4 tailles de référence, sur des parties simulées.
 // Lancer : node tests/audit-ui.js [dossier]   (par défaut tests/out/audit ; captures + audit.json + résumé à l'écran)
 // Mesures, d'après les règles de la refonte (docs/REFONTE.md) : défilement de la page, débordement horizontal,
-// tailles de texte, texte sous 13 px, contraste du texte, cibles tactiles sous 44 px, boutons pleins, arrondis.
+// tailles de texte, texte sous 13 px, contraste du texte, cibles tactiles sous 44 px, boutons pleins, arrondis,
+// barre du haut du téléphone (titre de la page hors accueil, logo sur l'accueil seulement : revue HIG, tâche 6).
 // Échiquier (lot 1 du 16/11) : coordonnées dans leur case et sans chevauchement (échiquier retourné compris), largeur de
-// l'échiquier de la relecture et des cours (.xwide) d'au moins 360 px en 390 de large. Les coordonnées (12 px) sont dans
+// l'échiquier de la relecture et des cours (.xwide) d'au moins 360 px en 390 de large ; échiquier d'exercice d'au moins
+// 640 px en 1366 × 768 et 1280 × 860 (revue HIG, tâche 9). Les coordonnées (12 px) sont dans
 // cg-container, donc hors de la mesure « texte sous 13 px » : exception assumée, documentée dans css/app.css (--t-coord).
 /* eslint-disable no-console */
 const { chromium } = require('playwright');
@@ -164,6 +166,24 @@ function measure([touch, hc]) {
     const h = rg.getBoundingClientRect().height;
     if (h > lh * 1.6) out.wraps.push('« ' + label(el) + ' » sur deux lignes');
   }
+  // Barre du haut du téléphone (revue HIG, tâche 6) : hors accueil et hors écran à retour (body.imm), le titre de la page
+  // est dans la barre (#ttl), sans le logo ni un h1 visible qui le répète ; l'accueil garde le logo et laisse l'Elo à son objectif.
+  out.bar = [];
+  if (touch) {
+    const shown = (el) => !!el && vis(el) && el.getBoundingClientRect().width > 1 && el.getBoundingClientRect().height > 1; // un h1 .vh mesure 1 × 1 px
+    const brand = document.querySelector('.brand'), ttl = document.querySelector('#ttl'), t = ttl.textContent.replace(/\s+/g, ' ').trim();
+    // Le titre s'abrège avant que les puces de la barre (Elo, série) ne passent sur deux rangs.
+    const tops = [...document.querySelectorAll('#tools .chip')].filter(shown).map((c) => Math.round(c.getBoundingClientRect().top));
+    if (tops.length > 1 && Math.max(...tops) - Math.min(...tops) > 4) out.bar.push('puces sur deux rangs');
+    if ((location.hash.slice(1).split('/')[0] || 'accueil') === 'accueil') {
+      if (!shown(brand)) out.bar.push('logo absent de l’accueil');
+      if ([...document.querySelectorAll('#tools .chip')].some((c) => shown(c) && /\bElo\b/.test(c.textContent))) out.bar.push('puce Elo sur l’accueil');
+    } else if (!document.body.classList.contains('imm')) {
+      if (shown(brand)) out.bar.push('logo visible');
+      if (!t || !shown(ttl)) out.bar.push('titre absent de la barre');
+      else if ([...document.querySelectorAll('h1')].some((h) => shown(h) && h.textContent.replace(/\s+/g, ' ').trim() === t)) out.bar.push('titre répété par un h1 visible');
+    }
+  }
   // Panneaux qui défilent : tant qu'il reste du contenu dessous, le bord du bas est estompé (classe edge-b).
   out.noEdge = [];
   for (const el of document.querySelectorAll('body *')) {
@@ -212,6 +232,21 @@ async function visit(ctx, size, report) {
       }
       return bad;
     });
+    // Revue HIG, tâche 9 : sur ordinateur, le bandeau est au-dessus du panneau ; pendant une lecture automatique,
+    // le haut du panneau ne bouge pas (onglets des suites et boutons de « Pourquoi… » restent sous le pointeur).
+    if (name === 'erreur' && size.id === '1366x768') {
+      m.filmShift = 0; m.filmCap = [];
+      if (await page.$('#xbar [data-x="show"]')) {
+        await page.click('#xbar [data-x="show"]'); await sleep(400);
+        const tops = [];
+        for (let k = 0; k < 30; k++) {
+          const r = await page.evaluate(() => [document.querySelector('#xpanel')?.getBoundingClientRect().top, document.querySelector('#xcap')?.scrollHeight]);
+          tops.push(r[0]); m.filmCap.push(r[1]); await sleep(300);
+        }
+        m.filmShift = Math.round(Math.max(...tops) - Math.min(...tops));
+        m.scrollAfterFilm = await page.evaluate(() => document.scrollingElement.scrollHeight - innerHeight);
+      } else m.filmShift = -1;
+    }
     report[size.id][name] = m;
     if (saved) await page.evaluate((k) => { localStorage.clear(); Object.assign(localStorage, JSON.parse(k)); }, saved);
   }
@@ -243,6 +278,9 @@ async function visit(ctx, size, report) {
   for (const [sid, r] of Object.entries(report)) {
     for (const [name, m] of Object.entries(r)) {
       const pb = [];
+      if (m.filmShift === -1) pb.push('lecture automatique : bouton Solution introuvable');
+      if (m.filmShift > 1) pb.push('lecture automatique : le panneau bouge de ' + m.filmShift + ' px');
+      if (m.scrollAfterFilm > 0) pb.push('défile de ' + m.scrollAfterFilm + ' px pendant la lecture');
       if (m.fit && m.scrollY > 0) pb.push('défile de ' + m.scrollY + ' px');
       if (m.scrollX > 0) pb.push('déborde de ' + m.scrollX + ' px');
       if (m.primaries > 1) pb.push(m.primaries + ' boutons pleins');
@@ -253,6 +291,11 @@ async function visit(ctx, size, report) {
       if (m.coords.length) pb.push('coordonnées : ' + m.coords.slice(0, 3).join(', '));
       if (m.wide && sid.startsWith('390x') && m.board < 360) pb.push('échiquier de ' + m.board + ' px (360 au moins)');
       if (m.wraps.length) pb.push('libellé sur deux lignes : ' + m.wraps.slice(0, 3).join(', '));
+      if (m.bar.length) pb.push('barre du haut : ' + m.bar.join(', '));
+      // Revue HIG, tâche 9 : sur ordinateur, le bandeau passe à droite et l'échiquier d'exercice garde au moins 640 px.
+      // La relecture a 600 px : ses deux bandeaux de joueurs et pendules (2 × 52 px) prennent la hauteur au-dessus et au-dessous.
+      const minD = name.startsWith('partie') ? 600 : 640;
+      if ((sid === '1366x768' || sid === '1280x860') && m.fit && m.board < minD) pb.push('échiquier de ' + m.board + ' px (' + minD + ' au moins)');
       // Seuil à 125 % : 200 px pour la relecture ; 170 px après la solution (erreur-resolue) tant que la taille de l'échiquier
       // après la solution n'est pas tranchée (point ouvert du 15/11 dans CLAUDE.md : explication réduite ou défilement permis).
       const minB = name.startsWith('partie') ? 200 : name === 'erreur-resolue' ? 170 : 240;

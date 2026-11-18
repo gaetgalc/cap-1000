@@ -27,6 +27,7 @@ import { intent } from './plan.js';
 import * as backup from './backup.js';
 import { toast } from './toast.js';
 import * as sound from './sound.js';
+import { sectionOf, tabTarget } from './nav.js';
 import * as look from './look.js';
 import { ENDGAMES, egById, GOAL_TXT } from './endgames.js';
 import { phaseJob, pieceStats, hourStats, sessionStats, perfRef, gameRating, insightText } from './insights.js';
@@ -48,7 +49,7 @@ const S = {
   user: ls.get('user', null), data: null, an: {}, rev: 0,
   f: ls.get('filter', { tc: 'rapid', days: 0 }),
   job: { running: false, done: 0, total: 0, stop: false, msg: '' },
-  engine: null, play: null, ai: {}, gen: null, cl: null, white: true, path: [], pz: null, importing: null,
+  engine: null, play: null, ai: {}, gen: null, cl: null, white: true, path: [], pz: null, importing: null, upErr: null,
 };
 
 // ---------- Données ----------
@@ -81,15 +82,22 @@ async function doImport(user, manual) {
     S.an = (await dbGet('an:' + d.user)) || {};
     S.ai = (await dbGet('ai:' + d.user)) || {};
     touch();
-    S.importing = null;
+    S.importing = null; S.upErr = null;
     if (!d.games.some((g) => g.tc === S.f.tc) && S.f.tc !== 'all') { S.f = { tc: 'all', days: 0 }; ls.set('filter', S.f); }
     if (first) render(); else if (route()[0] === 'partie') { paintJob(); header(); } else bgRender(); // relecture : les nouvelles parties ne changent pas la partie ouverte
-    if (first || manual || n > 0) toast(first ? `${pl(d.games.length, 'partie')} importée${d.games.length > 1 ? 's' : ''}` : n > 1 ? `${n} nouvelles parties importées` : n ? '1 nouvelle partie importée' : 'Aucune nouvelle partie');
+    // Message éphémère réservé à ce que l'élève vient de faire (revue HIG, 17/11) : un import automatique change les nombres sur place.
+    if (first || manual) toast(first ? `${pl(d.games.length, 'partie')} importée${d.games.length > 1 ? 's' : ''}` : n > 1 ? `${n} nouvelles parties importées` : n ? '1 nouvelle partie importée' : 'Aucune nouvelle partie');
     reclassify();
     autoAnalyse();
   } catch (e) {
     if (first) { S.importing = { err: e.message || String(e) }; render(); }
-    else { S.importing = null; S.job.msg = 'Mise à jour impossible : ' + (e.message || String(e)); paintJob(); }
+    else {
+      // Échec : noté dans la ligne d'état (#upd) ; message éphémère seulement si l'élève a demandé la mise à jour,
+      // pas à chaque retour sur l'onglet.
+      S.importing = null; S.upErr = Date.now(); paintJob();
+      const u = $('#upd'); if (u) u.textContent = upToDate();
+      if (manual) toast('Mise à jour impossible : ' + (e.message || String(e)));
+    }
   }
 }
 
@@ -144,12 +152,12 @@ function autoAnalyse() {
   if (list.length) runAnalysis(0, null, list);
 }
 // count parties de plus (les plus récentes non analysées d'abord), ou une seule (only), ou une liste précise (list).
-async function runAnalysis(count, only, list) {
+async function runAnalysis(count, only, list, manual) {
   if (S.job.running || !S.data) return;
   const pool = analysisPool();
   const queue = list || (only ? [only] : [...pool.filter((g) => !S.an[g.id]), ...pool.filter((g) => toRedo(S.an[g.id]))].slice(0, count));
   if (!queue.length) return;
-  S.job = { running: true, done: 0, part: 0, total: queue.length, stop: false, msg: '' };
+  S.job = { running: true, done: 0, part: 0, total: queue.length, stop: false, msg: '', manual: !!manual };
   const user = S.user, saveAn = () => (S.user === user ? dbSet('an:' + user, S.an) : null);
   paintJob();
   if (['accueil', 'cours'].includes(route()[0])) bgRender(); // « pas encore analysée » devient un bloc de chargement
@@ -183,7 +191,7 @@ async function runAnalysis(count, only, list) {
   S.job.running = false;
   bgRender();
   const n = S.job.done;
-  if (n && !S.job.msg && S.user === user) toast(`${pl(n, 'partie')} analysée${n > 1 ? 's' : ''}`);
+  if (n && S.job.manual && !S.job.msg && S.user === user) toast(`${pl(n, 'partie')} analysée${n > 1 ? 's' : ''}`);
 }
 // Bandeau d'avancement : import, puis analyse (parties finies + avancée dans la partie en cours).
 // La barre est mise à jour sur place (transform), sans reconstruire le bouton de pause sous le doigt.
@@ -655,6 +663,7 @@ function mountPuzzle() {
 // Onglets internes (refonte du 16/11) : Cours / Ouvertures, Parties / Mes ouvertures. Ils doublent le volet de la navigation, utile sur téléphone.
 const LEARN_TABS = [['cours', '#cours', 'Cours'], ['ouv', '#ouvertures/apprendre', 'Ouvertures']];
 const GAMES_TABS = [['parties', '#parties', 'Parties'], ['ouv', '#ouvertures', 'Mes ouvertures']];
+const PRO_TABS = [['bilan', '#bilan', 'Mon jeu'], ['stats', '#stats', 'Stats'], ['plan', '#plan', 'Plan']];
 const allLineKeys = () => OPENINGS.flatMap((o) => o.lines.map((_, k) => lineKey(o, k)));
 const lineHref = (key, voir) => '#ligne/' + key.replace(':', '/') + (voir ? '/voir' : '');
 const opGames = (o) => (S.data ? S.data.games.filter((g) => matchGame(o, g)) : []);
@@ -1187,20 +1196,33 @@ function cadenceField() {
 }
 // Période : Tout · 90 j · 30 j, dans chaque vue qui la lit (Mon jeu, Parties).
 const periodSeg = () => `<div class="seg2 mini" role="group" aria-label="Période">${[[0, 'Tout'], [90, '90 j'], [30, '30 j']].map(([v, l]) => `<button data-f="days" data-v="${v}" aria-pressed="${(S.f.days || 0) === v}" class="${(S.f.days || 0) === v ? 'on' : ''}">${l}</button>`).join('')}</div>`;
-const upToDate = () => (S.data?.fetchedAt ? `À jour, ${agoFr(Date.now() - S.data.fetchedAt)}` : 'Pas encore mis à jour');
+const upToDate = () => (S.upErr ? `Mise à jour impossible, dernière réussie ${S.data?.fetchedAt ? agoFr(Date.now() - S.data.fetchedAt) : 'jamais'}`
+  : S.data?.fetchedAt ? `À jour, ${agoFr(Date.now() - S.data.fetchedAt)}` : 'Pas encore mis à jour');
 const refreshBtn = () => `<button class="btn ico" data-act="refresh" aria-label="Mettre à jour" title="Récupérer les nouvelles parties de ${esc(S.user)}" ${S.importing && !S.importing.err ? 'aria-busy="true"' : ''}>${ico('refresh')}</button>`;
 function header() {
   const t = $('#tools'), [r, a] = route();
   const imm = !!S.data && (!!exo.current() || r === 'erreur' || (r === 'cours' && !!a) || (r === 'ouvertures' && !!a && a !== 'apprendre') || r === 'monouv' || r === 'avantpartie'); // écran d'exercice ou page de cours : barre du haut avec retour
   document.body.classList.toggle('imm', imm);
   document.body.classList.toggle('homefit', !!S.data && r === 'accueil');
-  $('#ttl').textContent = imm ? ROUTES[r]?.title : '';
+  pageTitle(imm, r);
   if (!S.data) { t.innerHTML = ''; return; }
   const tr = st.trend(rapidAll()), stk = streak();
   // Sur téléphone, pendant un exercice, la barre du haut montre l'avancée (puzzles du jour, position de la série).
+  // L'accueil n'y met pas l'Elo : son bandeau d'objectif le montre déjà.
   const top = exo.top();
-  t.innerHTML = `${top ? `<span class="m-only row chips">${top}</span>` : `<span class="m-only row chips">${tr ? `<span class="chip">${tr.cur} Elo</span>` : ''}<span class="chip ${stk ? 'warn' : ''}">Série ${stk} j</span></span>`}${exo.current() ? sndBtn() : ''}`;
+  t.innerHTML = `${top ? `<span class="m-only row chips">${top}</span>` : `<span class="m-only row chips">${tr && r !== 'accueil' ? `<span class="chip">${tr.cur} Elo</span>` : ''}<span class="chip ${stk ? 'warn' : ''}">Série ${stk} j</span></span>`}${exo.current() ? sndBtn() : ''}`;
   navBadges();
+}
+// Titre de la barre du haut. Écran à retour (imm) : title de ROUTES. Téléphone, hors accueil (revue HIG, tâche 6) : le texte du
+// premier h1 de la vue, à la place du logo (body.titled) ; le h1 reste dans la page pour les lecteurs d'écran (.vh) et le
+// titre de la barre leur est caché pour ne pas être lu deux fois. Lu après l'écriture de la vue : header() vient après.
+function pageTitle(imm, r) {
+  const ttl = $('#ttl'), h = imm ? null : $('#view h1');
+  const bar = !!h && !!S.data && r !== 'accueil' && phoneNav.matches;
+  if (h) h.classList.toggle('vh', bar);
+  document.body.classList.toggle('titled', bar);
+  ttl.textContent = imm ? ROUTES[r]?.title : bar ? h.textContent.replace(/\s+/g, ' ').trim() : '';
+  if (bar) ttl.setAttribute('aria-hidden', 'true'); else ttl.removeAttribute('aria-hidden');
 }
 // Bouton son / muet d'un écran d'exercice : barre du haut sur téléphone, bas de la colonne d'icônes sur ordinateur.
 const sndAttrs = (b) => { const on = sound.enabled(); b.setAttribute('aria-pressed', on); b.title = on ? 'Couper les sons' : 'Activer les sons'; b.innerHTML = ico(on ? 'snd' : 'mute'); };
@@ -1509,7 +1531,7 @@ function viewBilan() {
   const { es, sig, fc } = session();
   const sigHtml = (arr, c, empty) => (arr.length ? arr.slice(0, 4).map((x) => `<div class="sig" style="--c:var(--${c})"><b>${esc(x.t)}</b><span>${esc(x.d)}</span>${x.lesson ? `<a href="#${x.lesson === 'ouvertures' ? 'ouvertures' : 'cours/' + x.lesson}">${x.lesson === 'ouvertures' ? 'Voir tes ouvertures' : 'Ouvrir le cours'}</a>` : ''}</div>`).join('') : `<p class="sub">${empty}</p>`);
   const all = st.tally(gs);
-  return `<div class="vhead"><h1>Mon jeu</h1>${periodSeg()}</div>
+  return `${tabs('bilan', PRO_TABS)}<div class="vhead"><h1>Mon jeu</h1>${periodSeg()}</div>
   <div class="hero">${gb.html}
     <div class="card"><h2>Ton classement ${S.f.tc === 'all' ? 'Rapide' : TC[S.f.tc]}</h2><div class="chart" id="rc"></div></div></div>
   ${portraitCard()}
@@ -2343,8 +2365,8 @@ function viewPlan() {
   const played = rapidAll().filter((g) => g.t >= monday).length;
   const target = Math.max(4, Math.round((hours * 60 * 0.5) / 25));
   const g = goal();
-  return `<h1>Plan et réglages</h1>
-  <div class="card stack"><h2>Tes données</h2><p class="sub">Compte ${esc(S.user)}. Les nouvelles parties sont récupérées toutes seules.</p><div class="row">${cadenceField()}</div><div class="row"><button class="btn" data-act="refresh" ${S.importing && !S.importing.err ? 'aria-busy="true"' : ''}>Mettre à jour</button><span class="sub">${S.data.fetchedAt ? `À jour : ${agoFr(Date.now() - S.data.fetchedAt)}` : 'Pas encore mis à jour'}</span></div></div>
+  return `${tabs('plan', PRO_TABS)}<h1>Plan et réglages</h1>
+  <div class="card stack"><h2>Tes données</h2><p class="sub">Compte ${esc(S.user)}. Les nouvelles parties sont récupérées toutes seules.</p><div class="row">${cadenceField()}</div><div class="row"><button class="btn" data-act="refresh" ${S.importing && !S.importing.err ? 'aria-busy="true"' : ''}>Mettre à jour</button><span class="sub">${S.upErr ? upToDate() : S.data.fetchedAt ? `À jour : ${agoFr(Date.now() - S.data.fetchedAt)}` : 'Pas encore mis à jour'}</span></div></div>
   <div class="card"><h2>Semaine du ${F_DLONG(new Date(wk + 'T00:00:00'))}</h2>
       <div class="row"><label for="hrs" class="sub">Temps disponible</label><select id="hrs">${[3, 4, 5, 6, 8, 10].map((h) => `<option value="${h}" ${h === hours ? 'selected' : ''}>${h} h par semaine</option>`).join('')}</select></div>
       <div class="stack"><b>Jouer : <span class="num">${played} / ${target}</span> parties rapides cette semaine</b>
@@ -2445,9 +2467,10 @@ const ROUTES = {
   partie: { view: viewPartie, mount: mountPartie, title: 'Partie', back: '#parties', resize: () => { if (S.gv?.cg) { if (!!$('.fitside #xcap') !== exo.wide()) render(true); else gvSync(); } } },
   jouer: { view: viewJouer, mount: mountJouer, title: 'Jouer', back: (a) => '#partie/' + a },
   bilan: { view: viewBilan, mount: mountBilan, resize: mountBilan },
-  stats: { view: () => viewStats(S), mount: () => mountStats(S), resize: () => mountStats(S) },
+  stats: { view: () => tabs('stats', PRO_TABS) + viewStats(S) /* viewStats vit dans alltime.js : les onglets sont ajoutés ici */, mount: () => mountStats(S), resize: () => mountStats(S) },
   plan: { view: viewPlan, mount: mountPlan },
 };
+const navLast = {}; // section -> dernière page vue (en mémoire, pas de stockage)
 function render(keepScroll) {
   const y = scrollY;
   destroyBoards();
@@ -2456,10 +2479,9 @@ function render(keepScroll) {
   const v = $('#view'), [r, a, b, c] = route();
   paintJob();
   $('#nav').hidden = !S.data;
-  const navKey = r === 'ouvertures' ? (a ? 'apprendre' : 'mesouvertures') : r; // les 4 sections : data-grp de index.html
-  const here = '#' + route().join('/');
-  // Entrée de section : d'après data-grp ; page d'un volet : son adresse exacte, ou sa route pour une page à une seule partie (#cours/x allume « Cours »)
-  document.querySelectorAll('#nav a').forEach((x) => { const h = x.getAttribute('href'); x.classList.toggle('on', x.dataset.grp ? x.dataset.grp.split(' ').includes(navKey) : h === here || (h === '#' + r && r !== 'ouvertures' && !x.dataset.fill)); });
+  const here = '#' + route().join('/'), sec = sectionOf(here);
+  // Entrée de section : sa section (js/nav.js) ; page d'un volet : son adresse exacte, ou sa route pour une page à une seule partie (#cours/x allume « Cours »)
+  document.querySelectorAll('#nav a').forEach((x) => { const h = x.getAttribute('href'); x.classList.toggle('on', x.classList.contains('grp-h') ? x.closest('.grp').dataset.menu === sec : h === here || (h === '#' + r && r !== 'ouvertures' && !x.dataset.fill)); });
   if (!S.data) { v.innerHTML = viewWelcome(); exo.attach(); header(); const f = $('#wf'); f.onsubmit = (ev) => { ev.preventDefault(); const u = $('#wu').value.trim(); if (u) doImport(u); }; return; }
   if (r !== 'partie') S.gv = null;
   if (r !== 'rush') clearInterval(rushTimer);
@@ -2469,18 +2491,27 @@ function render(keepScroll) {
   exo.attach(); // avant de créer les échiquiers : ils naissent à leur taille définitive
   R.mount?.(a, b, c);
   header();
+  if (sec && !document.body.classList.contains('imm')) navLast[sec] = here; // dernière page vue de la section, barre du bas visible seulement : l'onglet du téléphone y revient (un écran immersif sans barre mènerait à une impasse)
   keepUi();
   if (keepScroll) scrollTo(0, y); else scrollTo(0, 0);
 }
 // Volets de la navigation (16/11) : chaque entrée ouvre la liste de ses pages.
 // Ordinateur (souris) : survol, focus clavier ou flèche bas ; le clic sur l'entrée mène à la page principale de la section.
-// Téléphone : le premier appui ouvre le volet au-dessus de la barre du bas, un second appui ou un appui ailleurs le ferme.
+// Téléphone (revue HIG, tâche 4) : pas de volet, l'onglet mène à la dernière page vue de sa section, ou à son entrée si l'on y est déjà (tabTarget).
 const phoneNav = matchMedia('(max-width: 859px)');
 const navGroups = () => [...document.querySelectorAll('#nav .grp')];
 function navOpen(g, on) {
   if (on) { navFill(g); navGroups().forEach((o) => o !== g && navOpen(o, false)); }
   g.classList.toggle('open', on);
-  g.querySelector('.grp-h').setAttribute('aria-expanded', on);
+  if (!phoneNav.matches) g.querySelector('.grp-h').setAttribute('aria-expanded', on);
+}
+// Menus d'ordinateur seulement : aria-haspopup et aria-expanded n'existent pas sur un onglet du téléphone
+function navAria() {
+  navGroups().forEach((g) => {
+    const h = g.querySelector('.grp-h');
+    if (phoneNav.matches) { navOpen(g, false); ['aria-haspopup', 'aria-expanded', 'aria-controls'].forEach((a) => h.removeAttribute(a)); }
+    else { h.setAttribute('aria-haspopup', 'true'); h.setAttribute('aria-controls', 'fly-' + g.dataset.menu); h.setAttribute('aria-expanded', g.classList.contains('open')); }
+  });
 }
 function navClose() { navGroups().forEach((g) => navOpen(g, false)); }
 // Pastilles « reste à faire » (16/11) : étapes de la séance du jour sur Aujourd'hui, lignes d'ouverture à réviser sur S'entraîner ;
@@ -2508,6 +2539,7 @@ function navFill(g) {
   if (g.dataset.menu === 'acc') { const { steps } = session(); for (const x of steps) { if (x.k === 'dr') set('drill', x.cta[1]); if (x.k === 'les') set('cours', x.cta[1]); } }
   if (g.dataset.menu === 'ent') { const due = progress.linesDue(allLineKeys()); set('lignes', due.length ? lineHref(due[0]) : '#ouvertures/apprendre'); }
 }
+navAria(); phoneNav.addEventListener('change', () => { navAria(); header(); }); // passage ordinateur / téléphone : menus et titre de la barre
 const navItems = (g) => [...g.querySelectorAll('.fly a')];
 navGroups().forEach((g) => {
   const h = g.querySelector('.grp-h');
@@ -2516,12 +2548,16 @@ navGroups().forEach((g) => {
   // Focus au clavier (Tab) : le volet s'ouvre, sauf juste après Échap (g.shut, levé quand le focus sort de l'entrée)
   g.addEventListener('focusin', () => { if (!phoneNav.matches && !g.shut && !g.classList.contains('open') && h.matches(':focus-visible')) navOpen(g, true); });
   g.addEventListener('focusout', (ev) => { if (g.contains(ev.relatedTarget)) return; g.shut = false; if (!phoneNav.matches) navOpen(g, false); });
-  // Appui au doigt (téléphone, ou tablette en grand) : l'entrée ouvre et ferme le volet ; souris et Entrée mènent à la page principale
+  // Appui au doigt sur une tablette large (>= 860 px) : l'entrée ouvre et ferme le volet ; souris et Entrée mènent à la page principale
   let pt = 'mouse';
   h.addEventListener('pointerdown', (ev) => { pt = ev.pointerType; });
-  h.addEventListener('click', (ev) => { if (phoneNav.matches || (ev.detail > 0 && pt !== 'mouse')) { ev.preventDefault(); navOpen(g, !g.classList.contains('open')); } });
+  h.addEventListener('click', (ev) => {
+    if (phoneNav.matches) { ev.preventDefault(); const to = tabTarget(g.dataset.menu, location.hash, navLast); if (location.hash === to) scrollTo(0, 0); else location.hash = to; }
+    else if (ev.detail > 0 && pt !== 'mouse') { ev.preventDefault(); navOpen(g, !g.classList.contains('open')); }
+  });
   g.addEventListener('click', (ev) => { if (ev.target.closest('.fly a')) { navOpen(g, false); document.activeElement?.blur(); } });
   g.addEventListener('keydown', (ev) => {
+    if (phoneNav.matches) return; // pas de volet sur téléphone
     const items = navItems(g), i = items.indexOf(document.activeElement);
     if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
       ev.preventDefault(); ev.stopPropagation(); navOpen(g, true);
@@ -2537,12 +2573,11 @@ document.addEventListener('keydown', (ev) => {
   ev.preventDefault(); ev.stopPropagation(); navOpen(g, false);
   if (g.contains(document.activeElement)) { g.shut = true; g.querySelector('.grp-h').focus(); }
 }, true);
-// Appui ailleurs : ferme le volet ouvert, sans déclencher ce qui est dessous (téléphone)
+// Appui ailleurs : ferme le volet ouvert (ordinateur)
 document.addEventListener('click', (ev) => {
   const g = document.querySelector('#nav .grp.open');
   if (!g || g.contains(ev.target)) return;
   navOpen(g, false);
-  if (phoneNav.matches) { ev.preventDefault(); ev.stopPropagation(); }
 }, true);
 document.addEventListener('click', (ev) => {
   const x = ev.target.closest('[data-x]'); // action de l'exercice en cours : indice, solution, lecture d'une suite…
@@ -2552,8 +2587,8 @@ document.addEventListener('click', (ev) => {
   const act = el.dataset.act;
   if (el.tagName === 'A') ev.preventDefault();
   if (act === 'refresh') doImport(S.user, true);
-  else if (act === 'analyse') runAnalysis(20);
-  else if (act === 'analyse1') runAnalysis(1, S.gv.g);
+  else if (act === 'analyse') runAnalysis(20, null, null, true);
+  else if (act === 'analyse1') runAnalysis(1, S.gv.g, null, true);
   else if (act === 'stattc') { S.statTc = el.dataset.tc; render(true); }
   else if (act === 'rushagain') { S.rush = null; render(); }
   else if (act === 'playhere') {

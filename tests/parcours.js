@@ -26,10 +26,12 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#accueil`);
   await page.waitForFunction(() => window.__cap?.data && window.__cap.job.total > 0 && !window.__cap.job.running, null, { timeout: 180000 });
   check(await S(() => Object.keys(window.__cap.an).length) === GAMES.length, 'import et analyse des parties simulées');
+  await sleep(500); // revue HIG, tâche 8 : une analyse lancée seule ne pousse pas de message éphémère
+  check(await S(() => ![...document.querySelectorAll('.toast')].some((t) => /analysée/.test(t.textContent))), 'analyse automatique : aucun message éphémère « parties analysées »');
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#accueil`); await sleep(600);
   check(await S(() => document.querySelectorAll('.home .stepper li').length === 4 && document.querySelectorAll('.home .btn.pri').length === 1 && !!document.querySelector('.gstrip') && !!document.querySelector('.lgame a[href^="#erreur/"]')), 'accueil : objectif, séance à un seul bouton, dernière partie avec son erreur');
   check(await S(() => document.documentElement.scrollHeight <= innerHeight && document.querySelector('.lgame').getBoundingClientRect().bottom <= document.querySelector('#nav').getBoundingClientRect().top), 'accueil : rien ne défile, tout est au-dessus de la barre du bas');
-  // Navigation à 4 entrées (16/11) : chaque entrée ouvre un volet de ses pages ; sur téléphone, le premier appui ouvre, le second ferme
+  // Navigation à 4 entrées (16/11) : volets sur ordinateur, onglets sur téléphone (voir plus bas)
   await page.click('.lgame [data-act="lgnav"][data-d="1"]'); await sleep(300);
   check(await S(() => window.__cap.lg === 1 && !!document.querySelector('.lgame [data-act="lgnav"][data-d="-1"]:not([disabled])')), 'dernière partie : la flèche remonte à la gaffe précédente, et l’autre flèche revient');
   check(await S(() => { const c = document.querySelector('.lgame .lgerr .chip'); return !c || /^(Gaffe( \d+ sur \d+)?|Erreur)$/.test(c.textContent); }), 'dernière partie : la pastille dit « Gaffe 2 sur 3 » quand la partie en a plusieurs');
@@ -38,13 +40,31 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   await page.setViewportSize({ width: 390, height: 664 }); await sleep(300);
   check(await S(() => document.querySelector('.lgbtn').getBoundingClientRect().bottom <= document.querySelector('#nav').getBoundingClientRect().top), 'accueil en 390 × 664 : les boutons de la dernière partie restent au-dessus de la barre du bas');
   await page.setViewportSize({ width: 390, height: 760 }); await sleep(300);
-  check(await S(() => document.querySelectorAll('#nav .grp-h').length === 4 && document.querySelector('#nh-ent').dataset.grp.split(' ').includes('cours')), 'navigation : 4 entrées, S’entraîner couvre aussi les cours');
-  await page.tap('#nh-ent'); await sleep(250);
-  check(await S(() => location.hash === '#accueil' && document.querySelector('#nh-ent').getAttribute('aria-expanded') === 'true' && [...document.querySelectorAll('#fly-ent a')].every((a) => a.getBoundingClientRect().height >= 44) && document.querySelector('#fly-ent').getBoundingClientRect().bottom <= document.querySelector('#nh-ent').getBoundingClientRect().top), 'navigation : un appui ouvre le volet au-dessus de la barre, cibles de 44 px, sans changer de page');
-  await page.tap('#nh-ent'); await sleep(200);
-  check(await S(() => document.querySelector('#nh-ent').getAttribute('aria-expanded') === 'false' && !document.querySelector('#fly-ent a').offsetParent), 'navigation : un second appui ferme le volet');
-  await page.tap('#nh-pro'); await sleep(250); await page.tap('#fly-pro a[href="#stats"]'); await sleep(600);
-  check(await S(() => location.hash === '#stats' && document.querySelector('#nh-pro').classList.contains('on') && document.querySelector('#nh-pro').getAttribute('aria-expanded') === 'false'), 'navigation : un lien du volet mène à sa page et referme le volet');
+  // Onglets du téléphone (revue HIG, tâche 4) : un appui mène à la dernière page de la section, sans volet ; un second appui, à son entrée
+  check(await S(() => document.querySelectorAll('#nav .grp-h').length === 4 && !document.querySelector('#nh-ent').hasAttribute('aria-haspopup') && !document.querySelector('#nh-ent').hasAttribute('aria-expanded')), 'navigation : 4 onglets, sans menu (ni aria-haspopup) sur téléphone');
+  await page.setViewportSize({ width: 390, height: 664 }); await sleep(300);
+  await page.tap('#nh-ent'); await sleep(500);
+  check(await S(() => location.hash === '#entrainer' && !document.querySelector('#fly-ent a').offsetParent && document.querySelector('#nh-ent').classList.contains('on')), 'onglet S’entraîner : mène à sa page, sans volet');
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#stats`); await sleep(800);
+  check(await S(() => document.querySelectorAll('#view .seg2.pztabs a').length === 3 && document.querySelector('#view .seg2.pztabs a.on').textContent === 'Stats' && document.documentElement.scrollWidth <= innerWidth), 'Stats : onglets Mon jeu · Stats · Plan, dans la largeur');
+  await page.tap('#nh-par'); await sleep(500);
+  check(await S(() => location.hash === '#parties'), 'onglet Parties : mène à la liste');
+  await page.tap('#nh-pro'); await sleep(500);
+  check(await S(() => location.hash === '#stats' && document.querySelector('#nh-pro').classList.contains('on')), 'onglet Progrès : revient à la dernière page vue (Stats)');
+  await page.tap('#nh-pro'); await sleep(500);
+  check(await S(() => location.hash === '#bilan'), 'onglet Progrès, second appui : mène à l’entrée de la section');
+  // Écrans immersifs sans barre du bas : un onglet ne doit pas y ramener (impasse)
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#accueil`); await sleep(600);
+  await S(() => { location.hash = '#puzzles'; }); await sleep(700);
+  await S(() => history.back()); await sleep(600);
+  await page.tap('#nh-ent'); await sleep(500);
+  check(await S(() => location.hash === '#entrainer'), 'onglet S’entraîner après #puzzles puis retour : mène à la vue d’ensemble, pas à l’écran immersif');
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#accueil`); await sleep(600);
+  await page.tap('.lgame a[href^="#erreur/"]'); await sleep(700);
+  await S(() => history.back()); await sleep(600);
+  await page.tap('#nh-ent'); await sleep(500);
+  check(await S(() => location.hash === '#entrainer'), 'onglet S’entraîner après « Rejouer l’erreur » puis retour : mène à la vue d’ensemble');
+  await page.setViewportSize({ width: 390, height: 760 }); await sleep(300);
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#bilan`); await sleep(600);
   check(await S(() => !!document.querySelector('#rc svg') && !!document.querySelector('.focus') && !!document.querySelector('.sig')), 'Mon jeu : classement, chantier détaillé, points forts et faibles');
 
@@ -311,8 +331,8 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   for (const [hash, w] of OLD) {
     const e0 = errs.length;
     await page.goto(`http://localhost:${PORT}/?u=${USER}&debug${hash}`); await sleep(800);
-    const got = await S(() => ({ hash: location.hash, ttl: document.querySelector('#ttl').textContent, h1: document.querySelector('#view h1')?.textContent.trim() || '', nav: document.querySelector('#nav .grp-h.on')?.id || '' }));
-    const ok = got.hash === (w.hash || hash) && got.ttl === (w.ttl || '') && (!w.h1 || got.h1 === w.h1) && got.nav === 'nh-' + w.nav
+    const got = await S(() => ({ hash: location.hash, ttl: document.querySelector('#ttl').textContent, h1: document.querySelector('#view h1')?.textContent.trim() || '', nav: document.querySelector('#nav .grp-h.on')?.id || '', titled: document.body.classList.contains('titled') }));
+    const ok = got.hash === (w.hash || hash) && got.ttl === (w.ttl || (got.titled ? got.h1 : '')) /* téléphone hors accueil (revue HIG, tâche 6) : la barre du haut porte le titre de la page */ && (!w.h1 || got.h1 === w.h1) && got.nav === 'nh-' + w.nav
       && (!w.cg || await S((s) => !!document.querySelector(s + ' cg-board'), w.cg)) && (!w.cap || w.cap.test(await bar('#xcap'))) && errs.length === e0;
     check(ok, `ancienne adresse ${hash.replace(/\/\d{6,}/g, '/<partie>')} : titre « ${w.ttl || w.h1} »` + (ok ? '' : ' ' + JSON.stringify(got) + ' ' + errs.slice(e0).join(' | ')));
   }
@@ -358,6 +378,10 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   await page.setViewportSize({ width: 1366, height: 768 }); await sleep(300);
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#accueil`); await sleep(800);
   check(await S(() => !document.querySelector('#tools select') && !document.querySelector('#tools [data-act="refresh"]')), 'ordinateur : plus de filtres ni de « Mettre à jour » dans la colonne');
+  await page.hover('#nh-pro'); await sleep(300);
+  check(await S(() => document.querySelector('#nh-pro').getAttribute('aria-expanded') === 'true' && document.querySelector('#nh-pro').getAttribute('aria-haspopup') === 'true'), 'ordinateur : le survol ouvre le volet (aria-expanded)');
+  await page.click('#fly-pro a[href="#stats"]'); await sleep(500);
+  check(await S(() => location.hash === '#stats' && document.querySelector('#nh-pro').getAttribute('aria-expanded') === 'false'), 'ordinateur : un lien du volet mène à sa page et le referme');
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#plan`); await sleep(800);
   check(await S(() => [...document.querySelectorAll('#view label')].some((l) => /Cadence suivie/.test(l.textContent) && document.getElementById(l.htmlFor)?.tagName === 'SELECT') && /À jour : /.test(document.querySelector('#view').innerText) && !!document.querySelector('#view [data-act="refresh"]')), 'Plan : « Cadence suivie » avec son libellé, mise à jour et « À jour : »');
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#bilan`); await sleep(800);
@@ -367,6 +391,16 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   await page.click('#view .seg2.mini [data-f="days"][data-v="0"]'); await sleep(400);
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#parties`); await sleep(800);
   check(await S(() => /^À jour, /.test(document.querySelector('#upd')?.innerText || '') && document.querySelector('#view [data-act="refresh"]')?.getAttribute('aria-label') === 'Mettre à jour'), 'Parties : ligne d’état « À jour, … » et bouton Mettre à jour');
+  // Revue HIG, tâche 8 : un import automatique qui échoue le dit dans la ligne d'état, sans message éphémère
+  await ctx.unroute('https://api.chess.com/**');
+  await ctx.route('https://api.chess.com/**', (r) => r.fulfill({ status: 403, headers: { 'access-control-allow-origin': '*' }, body: '' }));
+  await S(() => { window.__cap.data.fetchedAt = Date.now() - 3 * 3600000; document.dispatchEvent(new Event('visibilitychange')); });
+  await page.waitForFunction(() => window.__cap.upErr && !window.__cap.importing, null, { timeout: 30000 }); await sleep(300);
+  check(await S(() => /^Mise à jour impossible, dernière réussie il y a 3 h/.test(document.querySelector('#upd')?.innerText || '') && !document.querySelector('.toast') && document.querySelector('#job').hidden), 'import automatique en échec : ligne d’état, ni message éphémère ni bandeau');
+  await page.click('#view [data-act="refresh"]');
+  await page.waitForFunction(() => !window.__cap.importing, null, { timeout: 30000 }); await sleep(300);
+  check(await S(() => [...document.querySelectorAll('.toast')].some((t) => /^Mise à jour impossible/.test(t.textContent))), '« Mettre à jour » en échec : message éphémère');
+  await ctx.unroute('https://api.chess.com/**'); await routeChessCom(ctx);
   // Retour sur l'onglet, données périmées : l'import se fait sans reconstruire l'exercice en cours
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#drill/sur`); await page.waitForSelector('#xb', { timeout: 20000 }); await sleep(500);
   await S(() => { document.querySelector('#xb').dataset.keep = '1'; window.__cap.data.fetchedAt = 0; document.dispatchEvent(new Event('visibilitychange')); });
