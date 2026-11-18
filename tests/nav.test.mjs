@@ -8,6 +8,7 @@ test('sectionOf', () => {
   assert.equal(sectionOf('#ouvertures'), 'par');
   assert.equal(sectionOf('#ouvertures/italienne'), 'ent');
   assert.equal(sectionOf('#avantpartie'), 'acc');
+  assert.equal(sectionOf('#cours/x'), 'ent');
   assert.equal(sectionOf('#inconnu'), null);
   assert.equal(sectionOf(''), 'acc');
 });

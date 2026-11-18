@@ -2395,14 +2395,13 @@ function render(keepScroll) {
   paintJob();
   $('#nav').hidden = !S.data;
   const here = '#' + route().join('/'), sec = sectionOf(here);
-  if (sec) navLast[sec] = here; // dernière page vue de chaque section : l'onglet du téléphone y revient
   // Entrée de section : sa section (js/nav.js) ; page d'un volet : son adresse exacte, ou sa route pour une page à une seule partie (#cours/x allume « Cours »)
   document.querySelectorAll('#nav a').forEach((x) => { const h = x.getAttribute('href'); x.classList.toggle('on', x.classList.contains('grp-h') ? x.closest('.grp').dataset.menu === sec : h === here || (h === '#' + r && r !== 'ouvertures' && !x.dataset.fill)); });
   if (!S.data) { v.innerHTML = viewWelcome(); exo.attach(); header(); const f = $('#wf'); f.onsubmit = (ev) => { ev.preventDefault(); const u = $('#wu').value.trim(); if (u) doImport(u); }; return; }
   if (r !== 'partie') S.gv = null;
   if (r !== 'rush') clearInterval(rushTimer);
   if (r !== 'drill' && S.dr && S.dr.i >= S.dr.items.length) S.dr = null; // une série en cours se reprend, une série finie repart de zéro
-  const html = r === 'idees' ? viewIdees() : r === 'avantpartie' ? viewAvant() : r === 'puzzles' ? viewPuzzles() : r === 'erreur' ? viewPuzzles([a, b]) : r === 'entrainer' ? viewEntrainer() : r === 'historique' ? viewHistory() : r === 'exos' ? viewExos() : r === 'inedits' ? viewInedits() : r === 'drill' ? viewDrill(a) : r === 'cours' ? (a ? viewLecon(a, b) : viewCours()) : r === 'ouvertures' ? (a === 'apprendre' ? viewApprendre() : a ? viewOpening(a) : viewOuvertures()) : r === 'monouv' ? viewMonOuv(a, b) : r === 'ligne' ? viewLigne(a, b, c) : r === 'parties' ? viewParties() : r === 'partie' ? viewPartie(a, b) : r === 'plan' ? viewPlan() : r === 'bilan' ? viewBilan() : r === 'stats' ? PRO_TABS('stats') + viewStats(S) : r === 'gagner' ? viewGagner(a) : r === 'jouer' ? viewJouer(a, b) : r === 'finales' ? viewFinales() : r === 'finale' ? viewFinale(a) : r === 'rush' ? viewRush(a) : viewAccueil();
+  const html = r === 'idees' ? viewIdees() : r === 'avantpartie' ? viewAvant() : r === 'puzzles' ? viewPuzzles() : r === 'erreur' ? viewPuzzles([a, b]) : r === 'entrainer' ? viewEntrainer() : r === 'historique' ? viewHistory() : r === 'exos' ? viewExos() : r === 'inedits' ? viewInedits() : r === 'drill' ? viewDrill(a) : r === 'cours' ? (a ? viewLecon(a, b) : viewCours()) : r === 'ouvertures' ? (a === 'apprendre' ? viewApprendre() : a ? viewOpening(a) : viewOuvertures()) : r === 'monouv' ? viewMonOuv(a, b) : r === 'ligne' ? viewLigne(a, b, c) : r === 'parties' ? viewParties() : r === 'partie' ? viewPartie(a, b) : r === 'plan' ? viewPlan() : r === 'bilan' ? viewBilan() : r === 'stats' ? PRO_TABS('stats') + viewStats(S) /* viewStats vit dans alltime.js : les onglets sont ajoutés ici */ : r === 'gagner' ? viewGagner(a) : r === 'jouer' ? viewJouer(a, b) : r === 'finales' ? viewFinales() : r === 'finale' ? viewFinale(a) : r === 'rush' ? viewRush(a) : viewAccueil();
   v.innerHTML = html;
   exo.attach(); // avant de créer les échiquiers : ils naissent à leur taille définitive
   if (r === 'puzzles' || r === 'erreur') { mountPuzzle(); const s = $('#pzt'); if (s) s.onchange = () => { S.pz.theme = s.value; S.pz.cur = null; S.pz.show = null; render(); }; }
@@ -2431,6 +2430,7 @@ function render(keepScroll) {
   else if (r === 'accueil') mountAccueil();
   else if (r === 'entrainer') mountEntrainer();
   header();
+  if (sec && !document.body.classList.contains('imm')) navLast[sec] = here; // dernière page vue de la section, barre du bas visible seulement : l'onglet du téléphone y revient (un écran immersif sans barre mènerait à une impasse)
   keepUi();
   if (keepScroll) scrollTo(0, y); else scrollTo(0, 0);
 }
@@ -2448,8 +2448,8 @@ function navOpen(g, on) {
 function navAria() {
   navGroups().forEach((g) => {
     const h = g.querySelector('.grp-h');
-    if (phoneNav.matches) { navOpen(g, false); h.removeAttribute('aria-haspopup'); h.removeAttribute('aria-expanded'); }
-    else { h.setAttribute('aria-haspopup', 'true'); h.setAttribute('aria-expanded', g.classList.contains('open')); }
+    if (phoneNav.matches) { navOpen(g, false); ['aria-haspopup', 'aria-expanded', 'aria-controls'].forEach((a) => h.removeAttribute(a)); }
+    else { h.setAttribute('aria-haspopup', 'true'); h.setAttribute('aria-controls', 'fly-' + g.dataset.menu); h.setAttribute('aria-expanded', g.classList.contains('open')); }
   });
 }
 function navClose() { navGroups().forEach((g) => navOpen(g, false)); }
@@ -2487,7 +2487,7 @@ navGroups().forEach((g) => {
   // Focus au clavier (Tab) : le volet s'ouvre, sauf juste après Échap (g.shut, levé quand le focus sort de l'entrée)
   g.addEventListener('focusin', () => { if (!phoneNav.matches && !g.shut && !g.classList.contains('open') && h.matches(':focus-visible')) navOpen(g, true); });
   g.addEventListener('focusout', (ev) => { if (g.contains(ev.relatedTarget)) return; g.shut = false; if (!phoneNav.matches) navOpen(g, false); });
-  // Appui au doigt (téléphone, ou tablette en grand) : l'entrée ouvre et ferme le volet ; souris et Entrée mènent à la page principale
+  // Appui au doigt sur une tablette large (>= 860 px) : l'entrée ouvre et ferme le volet ; souris et Entrée mènent à la page principale
   let pt = 'mouse';
   h.addEventListener('pointerdown', (ev) => { pt = ev.pointerType; });
   h.addEventListener('click', (ev) => {
@@ -2496,6 +2496,7 @@ navGroups().forEach((g) => {
   });
   g.addEventListener('click', (ev) => { if (ev.target.closest('.fly a')) { navOpen(g, false); document.activeElement?.blur(); } });
   g.addEventListener('keydown', (ev) => {
+    if (phoneNav.matches) return; // pas de volet sur téléphone
     const items = navItems(g), i = items.indexOf(document.activeElement);
     if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
       ev.preventDefault(); ev.stopPropagation(); navOpen(g, true);
@@ -2511,12 +2512,11 @@ document.addEventListener('keydown', (ev) => {
   ev.preventDefault(); ev.stopPropagation(); navOpen(g, false);
   if (g.contains(document.activeElement)) { g.shut = true; g.querySelector('.grp-h').focus(); }
 }, true);
-// Appui ailleurs : ferme le volet ouvert, sans déclencher ce qui est dessous (téléphone)
+// Appui ailleurs : ferme le volet ouvert (ordinateur)
 document.addEventListener('click', (ev) => {
   const g = document.querySelector('#nav .grp.open');
   if (!g || g.contains(ev.target)) return;
   navOpen(g, false);
-  if (phoneNav.matches) { ev.preventDefault(); ev.stopPropagation(); }
 }, true);
 document.addEventListener('click', (ev) => {
   const x = ev.target.closest('[data-x]'); // action de l'exercice en cours : indice, solution, lecture d'une suite…

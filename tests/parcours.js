@@ -29,7 +29,7 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#accueil`); await sleep(600);
   check(await S(() => document.querySelectorAll('.home .stepper li').length === 4 && document.querySelectorAll('.home .btn.pri').length === 1 && !!document.querySelector('.gstrip') && !!document.querySelector('.lgame a[href^="#erreur/"]')), 'accueil : objectif, séance à un seul bouton, dernière partie avec son erreur');
   check(await S(() => document.documentElement.scrollHeight <= innerHeight && document.querySelector('.lgame').getBoundingClientRect().bottom <= document.querySelector('#nav').getBoundingClientRect().top), 'accueil : rien ne défile, tout est au-dessus de la barre du bas');
-  // Navigation à 4 entrées (16/11) : chaque entrée ouvre un volet de ses pages ; sur téléphone, le premier appui ouvre, le second ferme
+  // Navigation à 4 entrées (16/11) : volets sur ordinateur, onglets sur téléphone (voir plus bas)
   await page.click('.lgame [data-act="lgnav"][data-d="1"]'); await sleep(300);
   check(await S(() => window.__cap.lg === 1 && !!document.querySelector('.lgame [data-act="lgnav"][data-d="-1"]:not([disabled])')), 'dernière partie : la flèche remonte à la gaffe précédente, et l’autre flèche revient');
   check(await S(() => { const c = document.querySelector('.lgame .lgerr .chip'); return !c || /^(Gaffe( \d+ sur \d+)?|Erreur)$/.test(c.textContent); }), 'dernière partie : la pastille dit « Gaffe 2 sur 3 » quand la partie en a plusieurs');
@@ -51,6 +51,17 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   check(await S(() => location.hash === '#stats' && document.querySelector('#nh-pro').classList.contains('on')), 'onglet Progrès : revient à la dernière page vue (Stats)');
   await page.tap('#nh-pro'); await sleep(500);
   check(await S(() => location.hash === '#bilan'), 'onglet Progrès, second appui : mène à l’entrée de la section');
+  // Écrans immersifs sans barre du bas : un onglet ne doit pas y ramener (impasse)
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#accueil`); await sleep(600);
+  await S(() => { location.hash = '#puzzles'; }); await sleep(700);
+  await S(() => history.back()); await sleep(600);
+  await page.tap('#nh-ent'); await sleep(500);
+  check(await S(() => location.hash === '#entrainer'), 'onglet S’entraîner après #puzzles puis retour : mène à la vue d’ensemble, pas à l’écran immersif');
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#accueil`); await sleep(600);
+  await page.tap('.lgame a[href^="#erreur/"]'); await sleep(700);
+  await S(() => history.back()); await sleep(600);
+  await page.tap('#nh-ent'); await sleep(500);
+  check(await S(() => location.hash === '#entrainer'), 'onglet S’entraîner après « Rejouer l’erreur » puis retour : mène à la vue d’ensemble');
   await page.setViewportSize({ width: 390, height: 760 }); await sleep(300);
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#bilan`); await sleep(600);
   check(await S(() => !!document.querySelector('#rc svg') && !!document.querySelector('.focus') && !!document.querySelector('.sig')), 'Mon jeu : classement, chantier détaillé, points forts et faibles');
@@ -307,6 +318,10 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   await page.setViewportSize({ width: 1366, height: 768 }); await sleep(300);
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#accueil`); await sleep(800);
   check(await S(() => !document.querySelector('#tools select') && !document.querySelector('#tools [data-act="refresh"]')), 'ordinateur : plus de filtres ni de « Mettre à jour » dans la colonne');
+  await page.hover('#nh-pro'); await sleep(300);
+  check(await S(() => document.querySelector('#nh-pro').getAttribute('aria-expanded') === 'true' && document.querySelector('#nh-pro').getAttribute('aria-haspopup') === 'true'), 'ordinateur : le survol ouvre le volet (aria-expanded)');
+  await page.click('#fly-pro a[href="#stats"]'); await sleep(500);
+  check(await S(() => location.hash === '#stats' && document.querySelector('#nh-pro').getAttribute('aria-expanded') === 'false'), 'ordinateur : un lien du volet mène à sa page et le referme');
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#plan`); await sleep(800);
   check(await S(() => [...document.querySelectorAll('#view label')].some((l) => /Cadence suivie/.test(l.textContent) && document.getElementById(l.htmlFor)?.tagName === 'SELECT') && /À jour : /.test(document.querySelector('#view').innerText) && !!document.querySelector('#view [data-act="refresh"]')), 'Plan : « Cadence suivie » avec son libellé, mise à jour et « À jour : »');
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#bilan`); await sleep(800);
