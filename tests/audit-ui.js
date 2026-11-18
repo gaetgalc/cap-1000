@@ -252,7 +252,9 @@ async function visit(ctx, size, report) {
       if (m.wraps.length) pb.push('libellé sur deux lignes : ' + m.wraps.slice(0, 3).join(', '));
       if (m.bar.length) pb.push('barre du haut : ' + m.bar.join(', '));
       // Revue HIG, tâche 9 : sur ordinateur, le bandeau passe à droite et l'échiquier d'exercice garde au moins 640 px.
-      if ((sid === '1366x768' || sid === '1280x860') && m.fit && m.board < 640) pb.push('échiquier de ' + m.board + ' px (640 au moins)');
+      // La relecture a 600 px : ses deux bandeaux de joueurs et pendules (2 × 52 px) prennent la hauteur au-dessus et au-dessous.
+      const minD = name.startsWith('partie') ? 600 : 640;
+      if ((sid === '1366x768' || sid === '1280x860') && m.fit && m.board < minD) pb.push('échiquier de ' + m.board + ' px (' + minD + ' au moins)');
       if (sid === '312x531' && m.fit && m.board && m.board < (name.startsWith('partie') ? 200 : 240)) pb.push('échiquier de ' + m.board + ' px (' + (name.startsWith('partie') ? 200 : 240) + ' au moins)');
       if (m.noEdge.length) pb.push('panneau qui défile sans bord : ' + m.noEdge.slice(0, 3).join(', '));
       if (m.edgeEnd.length) pb.push('bord estompé gardé en bas du défilement : ' + m.edgeEnd.join(', '));
