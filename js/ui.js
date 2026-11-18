@@ -1,11 +1,23 @@
 // Aides d'affichage sans état : sélection dans la page, échappement, formats, icônes, bulle du coach.
 export const $ = (s, r = document) => r.querySelector(s);
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-export const dfmt = (t) => new Date(t * 1000).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+// Un Intl.DateTimeFormat par jeu d'options : en créer un à chaque appel coûte cher (des milliers par courbe).
+const FMT = new Map();
+export const datef = (opts) => {
+  const k = JSON.stringify(opts);
+  let f = FMT.get(k);
+  if (!f) FMT.set(k, f = new Intl.DateTimeFormat('fr-FR', opts));
+  return (ms) => f.format(ms);
+};
+const DFMT = datef({ day: '2-digit', month: '2-digit', year: '2-digit' });
+export const dfmt = (t) => DFMT(t * 1000);
 export const TC = { rapid: 'Rapide', blitz: 'Blitz', bullet: 'Bullet', daily: 'Différé', all: 'Toutes cadences' };
 export const HOW = { checkmated: 'mat', timeout: 'temps', resigned: 'abandon', abandoned: 'partie quittée', stalemate: 'pat', agreed: 'nulle par accord', repetition: 'répétition', insufficient: 'matériel insuffisant', '50move': '50 coups', timevsinsufficient: 'temps contre matériel insuffisant' };
 export const coach = (html, cls = '') => `<div class="coach ${cls}"><span class="coach-av" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="7" r="3.6" fill="currentColor"/><path d="M8 20c0-4 1.5-6 4-8.5 2.5 2.5 4 4.500 4 8.500z" fill="currentColor"/><rect x="6" y="19.500" width="12" height="2.500" rx="1" fill="currentColor"/></svg></span><div class="coach-b" data-edge>${html}</div></div>`;
 export const txt = (t) => esc(t).replace(/\n/g, '<br>');
+// Lettre du jour de la semaine, jour local (lundi L … dimanche D) : repère sous les cases de la semaine de l'accueil.
+const DAY_LETTERS = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+export const dayLetter = (ms) => DAY_LETTERS[new Date(ms).getDay()];
 export const pl = (n, w) => `${n} ${w}${n > 1 ? 's' : ''}`;
 export const f1 = (x) => x.toFixed(1).replace('.', ',');
 // Icônes dessinées : les flèches Unicode deviennent des émojis sur iPhone.
@@ -48,6 +60,16 @@ export function wdl(s) {
   if (!s.n) return '';
   return `<span class="wdl" title="${s.w} victoires, ${s.d} nulles, ${s.l} défaites">${s.w ? `<i class="w" style="flex:${s.w}"></i>` : ''}${s.d ? `<i class="d" style="flex:${s.d}"></i>` : ''}${s.l ? `<i class="l" style="flex:${s.l}"></i>` : ''}</span>`;
 }
+// Encart chiffré (.glt) : libellé, valeur (cls : sa couleur), sous-titre en HTML, bulle tip ; lien « revue » quand href est donné.
+export const tile = (lab, v, { sub = '', cls = '', tip = '', href } = {}) => {
+  const t = href ? 'a' : 'div';
+  return `<${t} class="glt${href ? ' revue' : ''}"${href ? ` href="${href}"` : ''}${tip ? ` title="${esc(tip)}"` : ''}><span class="small">${lab}</span><b class="num ${cls}">${v}</b>${sub ? `<span class="small">${sub}</span>` : ''}</${t}>`;
+};
+// Résultat d'une partie (out : W, L ou D) : le mot, ou la pastille colorée suivie de la manière de finir quand how est donné.
+export const resWord = (out) => (out === 'W' ? 'Victoire' : out === 'L' ? 'Défaite' : 'Nulle');
+export const resChip = (out, how) => `<span class="chip ${out === 'W' ? 'good' : out === 'L' ? 'bad' : ''}">${resWord(out)}${HOW[how] ? ` (${HOW[how]})` : ''}</span>`;
+// Onglets en liens (.seg2 pztabs) : items = [[clé, adresse, libellé], …], on = clé de l'onglet allumé.
+export const tabs = (on, items) => `<div class="seg2 pztabs">${items.map(([k, href, t]) => `<a class="${on === k ? 'on' : ''}" href="${href}">${t}</a>`).join('')}</div>`;
 export const WDL_LEGEND = '<div class="legend"><span style="--c:var(--good)">Victoires</span><span style="--c:var(--neutral)">Nulles</span><span style="--c:var(--bad)">Défaites</span></div>';
 
 // Bord estompé des panneaux qui défilent : `edge-b` tant qu'il reste du contenu dessous, `edge-t` dès qu'on a défilé.

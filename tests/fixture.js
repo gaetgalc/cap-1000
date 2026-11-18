@@ -29,7 +29,7 @@ function game(i) {
   const body = san.map((s, k) => { const t = Math.floor(2 + rnd() * 38); if (k % 2) cb -= t; else cw -= t; const c = k % 2 ? cb : cw; return (k % 2 ? '' : k / 2 + 1 + '. ') + s + ` {[%clk 0:${String(Math.floor(c / 60)).padStart(2, '0')}:${String(c % 60).padStart(2, '0')}]}`; }).join(' ');
   const me = { rating: 700 + i * 5, result: whiteWon === w ? 'win' : 'resigned', username: USER }, op = { rating: 720 + i * 5, result: whiteWon === w ? 'resigned' : 'win', username: 'adv' + i };
   return { url: 'https://www.chess.com/game/live/' + (1000 + i), pgn: `[Event "Live Chess"]\n[Result "${res}"]\n[ECOUrl "https://www.chess.com/openings/Italian-Game"]\n\n${body} ${res}\n`,
-    time_control: '600', end_time: Math.floor(Date.now() / 1000) - (40 - i) * 86400, rated: true, time_class: 'rapid', rules: 'chess', white: w ? me : op, black: w ? op : me };
+    time_control: '600', end_time: Math.floor(Date.now() / 86400000) * 86400 + 43200 - (40 - i) * 86400, rated: true, time_class: 'rapid', rules: 'chess', white: w ? me : op, black: w ? op : me };
 }
 const GAMES = Array.from({ length: 12 }, (_, i) => game(i));
 
@@ -41,13 +41,32 @@ const server = http.createServer((req, rsp) => {
 
 const startServer = (port) => new Promise((r) => server.listen(port, r));
 const stopServer = () => server.close();
-function routeChessCom(ctx) {
+// n parties : les 12 de GAMES, clonées jusqu'à n. Chaque clone a une url (donc un identifiant) et un end_time distincts, et reste
+// plus ancien que les 12 de base, rangées de la plus récente à la plus ancienne dans l'ordre des archives (environ 20 mois).
+function bigGames(n) {
+  const out = GAMES.slice(0, n), step = Math.max(60, Math.floor(600 * 86400 / Math.max(1, n - GAMES.length)));
+  for (let k = GAMES.length; k < n; k++) {
+    const b = GAMES[k % GAMES.length];
+    out.push({ ...b, url: 'https://www.chess.com/game/live/' + (100000 + k), end_time: GAMES[0].end_time - (k - GAMES.length + 1) * step });
+  }
+  return out;
+}
+// Archives mensuelles (UTC) d'une liste de parties.
+function archivesOf(games) {
+  const by = new Map();
+  for (const g of games) { const d = new Date(g.end_time * 1000), key = d.getUTCFullYear() + '/' + String(d.getUTCMonth() + 1).padStart(2, '0'); (by.get(key) || by.set(key, []).get(key)).push(g); }
+  return new Map([...by].sort((a, b) => (a[0] < b[0] ? -1 : 1)));
+}
+// opt.games : parties servies à la place de GAMES, réparties par mois ; sans option, une seule archive (2026/01) comme avant.
+function routeChessCom(ctx, opt = {}) {
+  const months = opt.games ? archivesOf(opt.games) : null;
   return ctx.route('https://api.chess.com/**', (r) => {
     const u = r.request().url(), json = (o) => r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(o) });
-    if (u.endsWith('/games/archives')) return json({ archives: [`https://api.chess.com/pub/player/${USER}/games/2026/01`] });
-    if (/\/games\/\d{4}\/\d{2}$/.test(u)) return json({ games: GAMES });
+    if (u.endsWith('/games/archives')) return json({ archives: months ? [...months.keys()].map((k) => `https://api.chess.com/pub/player/${USER}/games/${k}`) : [`https://api.chess.com/pub/player/${USER}/games/2026/01`] });
+    const m = u.match(/\/games\/(\d{4}\/\d{2})$/);
+    if (m) return json({ games: months ? months.get(m[1]) || [] : GAMES });
     return json(u.endsWith('/stats') ? {} : { username: USER });
   });
 }
 
-module.exports = { ROOT, USER, Chess, GAMES, startServer, stopServer, routeChessCom };
+module.exports = { ROOT, USER, Chess, GAMES, bigGames, startServer, stopServer, routeChessCom };

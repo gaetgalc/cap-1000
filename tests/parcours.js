@@ -317,6 +317,64 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   await ctx.route('https://explorer.lichess.ovh/**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ white: 60, draws: 10, black: 30, moves: [{ uci: 'e2e4', san: 'e4', white: 40, draws: 5, black: 15 }, { uci: 'd2d4', san: 'd4', white: 20, draws: 5, black: 15 }] }) }));
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#ouvertures`); await sleep(1000);
   check(/e4/.test(await bar('#lexp')) && /60 %/.test(await bar('#lexp')), 'ouvertures : explorateur Lichess à ton niveau');
+  // Anciennes adresses (table des routes) : chacune affiche son titre, sa section allumée, son échiquier, sans erreur JavaScript.
+  const errAt = await S(() => { const s = window.__cap; for (const g of s.data.games) { const e = s.an[g.id]?.errs?.[0]; if (e && !s.an[g.id].bad) return { t: g.t, ply: e.ply }; } return null; });
+  check(!!errAt, 'anciennes adresses : une erreur analysée existe pour visiter #erreur/<partie>/<coup>');
+  const OLD = [
+    ['#plus', { hash: '#plan', h1: 'Plan et réglages', nav: 'pro' }],
+    ['#ouvertures', { h1: 'Ouvertures', nav: 'par', cg: '#exb' }],
+    ['#ouvertures/apprendre', { h1: 'Apprendre les ouvertures', nav: 'ent' }],
+    ['#ouvertures/italienne', { ttl: 'Ouverture', h1: 'Partie italienne', nav: 'ent', cg: '#opb' }],
+    ['#cours/en_prise_pose/fiche', { ttl: 'Cours', h1: 'Ne plus poser une pièce en prise', nav: 'ent' }],
+    [`#partie/${gt}/d`, { hash: `#partie/${gt}`, ttl: 'Partie', cap: /Débrief 1 \//, nav: 'par', cg: '#xb' }],
+    ...(errAt ? [[`#erreur/${errAt.t}/${errAt.ply}`, { ttl: 'Comprendre', h1: 'Comprendre cette erreur', nav: 'ent', cg: '#xb' }]] : []),
+  ];
+  for (const [hash, w] of OLD) {
+    const e0 = errs.length;
+    await page.goto(`http://localhost:${PORT}/?u=${USER}&debug${hash}`); await sleep(800);
+    const got = await S(() => ({ hash: location.hash, ttl: document.querySelector('#ttl').textContent, h1: document.querySelector('#view h1')?.textContent.trim() || '', nav: document.querySelector('#nav .grp-h.on')?.id || '', titled: document.body.classList.contains('titled') }));
+    const ok = got.hash === (w.hash || hash) && got.ttl === (w.ttl || (got.titled ? got.h1 : '')) /* téléphone hors accueil (revue HIG, tâche 6) : la barre du haut porte le titre de la page */ && (!w.h1 || got.h1 === w.h1) && got.nav === 'nh-' + w.nav
+      && (!w.cg || await S((s) => !!document.querySelector(s + ' cg-board'), w.cg)) && (!w.cap || w.cap.test(await bar('#xcap'))) && errs.length === e0;
+    check(ok, `ancienne adresse ${hash.replace(/\/\d{6,}/g, '/<partie>')} : titre « ${w.ttl || w.h1} »` + (ok ? '' : ' ' + JSON.stringify(got) + ' ' + errs.slice(e0).join(' | ')));
+  }
+  // Relecture, passage ordinateur / téléphone (table des routes, resize) : sans changement de colonne, mise à jour sur place
+  // (gvSync, l'échiquier marqué reste) ; quand le bandeau change de colonne, la vue est reconstruite au même coup.
+  {
+    const e0 = errs.length, xs = () => S(() => ({ side: !!document.querySelector('.fitside #xcap'), xcap: !!document.querySelector('#xcap'), k: window.__cap.gv?.k, board: !!document.querySelector('#xb cg-board'), mark: document.querySelector('#xb')?.dataset.mark === '1' }));
+    await page.setViewportSize({ width: 1366, height: 768 }); await sleep(300);
+    await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#partie/${gt}/12`); await sleep(900);
+    const w0 = await xs(); await S(() => { document.querySelector('#xb').dataset.mark = '1'; });
+    await page.setViewportSize({ width: 1280, height: 860 }); await sleep(700);
+    const w1 = await xs();
+    await page.setViewportSize({ width: 390, height: 760 }); await sleep(900);
+    const w2 = await xs();
+    await page.setViewportSize({ width: 1366, height: 768 }); await sleep(900);
+    const w3 = await xs();
+    const dump = (x) => ' ' + JSON.stringify(x);
+    check(w0.side && w0.k === 12 && w1.side && w1.mark && w1.k === 12, 'relecture 1366 → 1280 : même colonne, mise à jour sur place (échiquier gardé)' + (w1.mark ? '' : dump([w0, w1])));
+    check(!w2.side && w2.xcap && w2.k === 12 && w2.board, 'relecture → 390 : le bandeau passe sous l’échiquier, même coup, échiquier présent' + (w2.xcap && !w2.side ? '' : dump(w2)));
+    check(w3.side && w3.k === 12 && w3.board && errs.length === e0, 'relecture → 1366 : le bandeau revient dans la colonne de droite, sans erreur JavaScript' + (w3.side ? '' : dump(w3)) + errs.slice(e0).join(' | '));
+    await page.setViewportSize({ width: 390, height: 760 }); await sleep(300); // taille attendue par la suite du parcours
+  }
+  // Cache périmé : une nouvelle partie servie, puis « Mettre à jour ». Les vues déjà calculées (memo, S.rev) doivent la compter.
+  await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#accueil`); await sleep(1500);
+  await page.waitForFunction(() => !window.__cap.job.running && !window.__cap.importing, null, { timeout: 120000 });
+  await S(() => { location.hash = '#bilan'; }); await sleep(700); // Mon jeu et l'accueil sont calculés une première fois
+  await S(() => { location.hash = '#accueil'; }); await sleep(500);
+  const rev0 = await S(() => window.__cap.rev), nb0 = await S(() => window.__cap.data.games.length);
+  const NEW = { ...GAMES[0], url: 'https://www.chess.com/game/live/999999', end_time: Math.floor(Date.now() / 1000) - 120, black: { ...GAMES[0].black, username: 'advNOUVEAU' } };
+  await routeChessCom(ctx, { games: [...GAMES, NEW] });
+  await S(() => { location.hash = '#parties'; }); await sleep(600);
+  await S(() => document.querySelector('#view [data-act="refresh"]').click());
+  await page.waitForFunction((n) => window.__cap.data.games.length > n && window.__cap.an[window.__cap.data.games.find((g) => g.opp === 'advNOUVEAU')?.id], nb0, { timeout: 120000 });
+  await page.waitForFunction(() => !window.__cap.job.running, null, { timeout: 60000 }); await sleep(600);
+  check(await S(() => window.__cap.data.games.length) === nb0 + 1 && await S(() => window.__cap.rev) > rev0, 'nouvelle partie : importée et analysée, la version des données (S.rev) a avancé');
+  await S(() => { location.hash = '#accueil'; }); await sleep(600);
+  check(/advNOUVEAU/.test(await bar('.lgame')), 'nouvelle partie : l’accueil montre la nouvelle dernière partie');
+  await S(() => { location.hash = '#parties'; }); await sleep(600);
+  check(/advNOUVEAU/.test(await bar('#view')), 'nouvelle partie : la liste des parties la compte');
+  await S(() => { location.hash = '#bilan'; }); await sleep(600);
+  check(await S((n) => [...document.querySelectorAll('#view dt')].some((d) => /Parties analysées/.test(d.textContent) && d.nextElementSibling.textContent.trim() === (n + 1) + ' sur ' + (n + 1)), nb0), 'nouvelle partie : Mon jeu compte une partie de plus, analysée comme les autres (rien de périmé)');
   // ---- Revue HIG, tâche 5 : filtres, cadence, mise à jour automatique ----
   await page.setViewportSize({ width: 1366, height: 768 }); await sleep(300);
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#accueil`); await sleep(800);
@@ -363,6 +421,16 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   const leçon30 = await bar('#view'), sansDate = (t) => t.replace(/\d\d\/\d\d\/\d\d/g, ''); // le test décale les dates des parties
   check(leçon0.length > 50 && sansDate(leçon0) === sansDate(leçon30), 'cours : la période de 30 j ne change ni les exemples ni les chiffres');
   await S(() => { window.__cap.f.days = 0; });
+  // Calcul différé de « Quand et comment tu perds » interrompu par un changement de données : il doit reprendre et remplir la carte.
+  await S(() => { location.hash = '#accueil'; }); await sleep(500);
+  const touched = await S(() => new Promise((res) => { // touch() dès que la carte grise apparaît, avant la première tranche
+    const mo = new MutationObserver(() => { if (document.querySelector('#ins .skel')) { mo.disconnect(); window.__cap.rev++; res(true); } });
+    mo.observe(document.querySelector('#view'), { childList: true, subtree: true }); location.hash = '#bilan';
+    setTimeout(() => { mo.disconnect(); res(false); }, 10000);
+  }));
+  check(touched, 'Mon jeu : la carte grise apparaît (changement de données provoqué pendant le calcul)');
+  await sleep(2500);
+  check(await S(() => !!document.querySelector('#ins') && !document.querySelector('#ins .skel') && document.querySelectorAll('#ins table').length === 4), 'Mon jeu : un changement de données pendant le calcul des phases ne laisse pas la carte grise');
   check(errs.length === 0, 'aucune erreur JavaScript' + (errs.length ? ' : ' + errs.join(' | ') : ''));
   await browser.close(); stopServer();
   console.log(failed ? `\n${failed} échec(s)` : '\nTout passe.');

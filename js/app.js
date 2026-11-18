@@ -7,7 +7,7 @@ import * as st from './stats.js';
 import { LESSONS, ENGINE_LESSONS, RULES } from './lessons.js';
 import { viewStats, mountStats } from './alltime.js';
 import { fr, settle, buildLine, insight, hintFor, lastMoveText, moveText, material, describeAt, justPlayed, PLAN_RULE } from './explain.js';
-import { $, esc, dfmt, TC, HOW, coach, txt, pl, f1, ico, wdl, WDL_LEGEND, setHtml, agoFr } from './ui.js';
+import { $, esc, dfmt, datef, TC, HOW, coach, txt, pl, f1, ico, wdl, WDL_LEGEND, setHtml, agoFr, tile, resWord, resChip, tabs, dayLetter } from './ui.js';
 import { lineChart, sparkline } from './charts.js';
 import { progress, DAY } from './progress.js';
 import { board, destroyBoards, destsOf, arrow, errShapes, REDUCED } from './board.js';
@@ -18,7 +18,7 @@ import { DRILLS, DRILL_FOR, makeRound } from './drills.js';
 import { OPENINGS, GROUPS, byId, lineKey, movesOf, matchGame } from './openings.js';
 import { MODELS, coachKey, coachModel, facts, genLesson, askCoach, buildPrompt, parseLesson, askPosition, positionText } from './coach.js';
 import { coachBrief, briefFacts, CAUSES, mainCause, selfVerdict } from './brief.js';
-import { ideaPositions, ideaChoices } from './ideas.js';
+import { ideaPositionsOf, ideaChoices, ideaStart, ideaFollow } from './ideas.js';
 import { STAGES, programWeek, weekStats, reviewText } from './program.js';
 import { portrait } from './portrait.js';
 import { theoryExits, planOf } from './theory.js';
@@ -30,21 +30,32 @@ import * as sound from './sound.js';
 import { sectionOf, tabTarget } from './nav.js';
 import * as look from './look.js';
 import { ENDGAMES, egById, GOAL_TXT } from './endgames.js';
-import { phaseStats, pieceStats, hourStats, sessionStats, perfRef, gameRating, insightText } from './insights.js';
+import { phaseJob, pieceStats, hourStats, sessionStats, perfRef, gameRating, insightText } from './insights.js';
 import { fetchExplorer, explorerRows, LEVEL } from './explorer.js';
+import { makeMemo, viewKey } from './memo.js';
+import { makeIdle } from './idle.js';
+
+// Formats de date : un Intl.DateTimeFormat par jeu d'options (datef), les mêmes options qu'avec toLocale…String('fr-FR', …).
+const F_HM = datef({ hour: '2-digit', minute: '2-digit' }), F_WDLONG = datef({ weekday: 'long', day: 'numeric', month: 'long' }), F_DSHORT = datef({ day: 'numeric', month: 'short' });
+const F_DNUM = datef({}), F_DMY = datef({ day: 'numeric', month: 'short', year: 'numeric' }), F_WDLONG_MSHORT = datef({ weekday: 'long', day: 'numeric', month: 'short' });
+const F_DSHORT_UTC = datef({ day: 'numeric', month: 'short', timeZone: 'UTC' }), F_MY_UTC = datef({ month: 'short', year: 'numeric', timeZone: 'UTC' });
+const F_DLONG = datef({ day: 'numeric', month: 'long' });
 
 const DEPTH = 12; // même profondeur sur tous les appareils : une erreur est classée pareil partout
 
 const { dkey, dayStart, act, streak } = progress;
 
 const S = {
-  user: ls.get('user', null), data: null, an: {},
+  user: ls.get('user', null), data: null, an: {}, rev: 0,
   f: ls.get('filter', { tc: 'rapid', days: 0 }),
   job: { running: false, done: 0, total: 0, stop: false, msg: '' },
   engine: null, play: null, ai: {}, gen: null, cl: null, white: true, path: [], pz: null, importing: null, upErr: null,
 };
 
 // ---------- Données ----------
+// S.rev : version des données (parties, analyses). touch() à chaque changement de S.data ou S.an : les calculs gardés par memo() sont alors refaits.
+const touch = () => { S.rev++; };
+const memo = makeMemo(() => viewKey(S, dkey()));
 const goal = () => ls.get('goal', { elo: 1000, date: new Date().getFullYear() + '-12-31' });
 const rapidAll = () => (S.data ? S.data.games.filter((g) => g.tc === 'rapid') : []);
 const games = () => (S.data ? st.filterGames(S.data.games, S.f) : []); // cadence suivie ET période : seulement dans les vues qui montrent le sélecteur de période
@@ -56,6 +67,7 @@ async function load() {
   S.data = (await dbGet('data:' + S.user)) || null;
   S.an = (await dbGet('an:' + S.user)) || {};
   S.ai = (await dbGet('ai:' + S.user)) || {};
+  touch();
 }
 async function doImport(user, manual) {
   const first = !S.data;
@@ -69,6 +81,7 @@ async function doImport(user, manual) {
     await dbSet('data:' + d.user, d);
     S.an = (await dbGet('an:' + d.user)) || {};
     S.ai = (await dbGet('ai:' + d.user)) || {};
+    touch();
     S.importing = null; S.upErr = null;
     if (!d.games.some((g) => g.tc === S.f.tc) && S.f.tc !== 'all') { S.f = { tc: 'all', days: 0 }; ls.set('filter', S.f); }
     if (first) render(); else if (route()[0] === 'partie') { paintJob(); header(); } else bgRender(); // relecture : les nouvelles parties ne changent pas la partie ouverte
@@ -114,15 +127,17 @@ function reclassify() {
   (function step() {
     if (S.user !== user || !todo.length) return;
     for (const t0 = performance.now(); i < todo.length && performance.now() - t0 < 30; i++) S.an[todo[i].id] = analysis(todo[i], S.an[todo[i].id]);
+    touch();
     if (i < todo.length) setTimeout(step, 0); else { dbSet('an:' + user, S.an); bgRender(); }
   })();
 }
 // Parties rejouées d'avance, par tranches de 10 ms quand le navigateur est libre (17/11) : « Mon jeu » et la relecture
 // trouvent alors leurs positions déjà calculées (replay garde chaque partie), au lieu de figer l'écran à l'ouverture.
+// idle (js/idle.js) : sans requestIdleCallback, tranches décomptées d'environ 10 ms.
+const idle = makeIdle(window);
 function warmReplays() {
   if (!S.data) return;
   const user = S.user, todo = S.data.games.filter((g) => S.an[g.id] && !S.an[g.id].bad).reverse();
-  const idle = window.requestIdleCallback || ((f) => setTimeout(() => f({ timeRemaining: () => 10 }), 50));
   let i = 0;
   idle(function step(dl) {
     if (S.user !== user) return;
@@ -161,6 +176,7 @@ async function runAnalysis(count, only, list, manual) {
         if (S.job.stop && !raw) break; // interrompue : l'ancienne analyse, s'il y en a une, reste en place
         S.an[g.id] = raw ? analysis(g, raw) : { ev: [], errs: [], nb: 0, acc: null, maxAdv: 0, last: 0, bad: true };
       }
+      touch();
       S.job.done++; S.job.part = 0;
       if (S.job.done % 3 === 0 || S.job.done === queue.length) await saveAn();
       paintJob();
@@ -275,7 +291,7 @@ function explain(e) {
 const moveNo = (e) => Math.floor(e.ply / 2) + 1;
 const gameRef = (g) => `partie du ${dfmt(g.t)} contre ${esc(g.opp)} (${g.or})`;
 
-const pzTabs = (on) => `<div class="seg2 pztabs"><a class="${on === 'mine' ? 'on' : ''}" href="#puzzles">Mes erreurs</a><a class="${on === 'li' ? 'on' : ''}" href="#inedits">Inédits</a><a class="${on === 'hist' ? 'on' : ''}" href="#historique">Historique</a></div>`;
+const PZ_TABS = [['mine', '#puzzles', 'Mes erreurs'], ['li', '#inedits', 'Inédits'], ['hist', '#historique', 'Historique']];
 const LI_NAME = Object.fromEntries(LI_ANGLES);
 
 // ---------- Puzzles inédits (Lichess) ----------
@@ -293,7 +309,7 @@ function viewInedits() {
   const L = S.li, stat = progress.lichessStat(L.angle);
   const sels = `<select data-f="liangle" aria-label="Thème">${LI_ANGLES.map(([v, l]) => `<option value="${v}" ${L.angle === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
       <select data-f="lidiff" aria-label="Niveau">${LI_DIFF.map(([v, l]) => `<option value="${v}" ${L.diff === v ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
-  const head = pzTabs('li') + `<div class="pzhead main"><h1>Positions inédites</h1><div class="row">${sels}
+  const head = tabs('li', PZ_TABS) + `<div class="pzhead main"><h1>Positions inédites</h1><div class="row">${sels}
       <span class="chip ${stat.n ? 'good' : ''}">${stat.ok} / ${stat.n} du premier coup</span></div></div>`;
   if (L.loading) return head + coach('Je vais chercher une position que tu n’as jamais vue…');
   if (L.err) return head + `<div class="card"><p class="err">${esc(L.err)}</p><div><button class="btn pri" data-act="linext">Réessayer</button></div></div>`;
@@ -304,7 +320,7 @@ function viewInedits() {
     live: true, top: () => `<span class="chip ${stat.n ? 'good' : ''}">${stat.ok} / ${stat.n} du premier coup</span>`,
     head: head + coach(`${esc(last)} <b>À toi de jouer avec les ${side}.</b> Trouve le meilleur coup${P.sol.length > 2 ? `, puis la suite (${Math.ceil(P.sol.length / 2)} coups à trouver)` : ''}.`, 'intro'),
     cap: `<p><i class="dot ${P.white ? 'w' : 'b'}"></i> <span class="m-txt">${esc(last)} </span>Trait aux ${side}. ${P.sol.length > 2 ? `Trouve le meilleur coup puis la suite (${Math.ceil(P.sol.length / 2)} coups).` : 'Trouve le meilleur coup.'}</p>`,
-    panel: `<div class="row m-only lisel">${sels}</div><div class="meta small">Puzzle Lichess n° ${esc(P.id)} · niveau ${P.rating} · <a href="${P.url}" target="_blank" rel="noopener">Voir sur Lichess</a></div>
+    panel: `<div class="row m-only lisel">${sels}</div><div class="meta small">Puzzle Lichess n° ${esc(P.id)} · niveau ${P.rating}</div><div class="meta small"><a href="${P.url}" target="_blank" rel="noopener">Voir sur Lichess</a></div>
       <div id="lix"><div class="card ghost"><h3>Comment chercher</h3><ol class="routine"><li>Que vient de faire ton adversaire ? Que menace son coup ?</li><li>As-tu un échec, une capture ou une menace ?</li><li>La case où tu vas est-elle attaquée ?</li></ol></div></div>`,
     bar: '<button class="btn" data-x="hint">Indice</button><button class="btn" data-x="show">Solution</button>',
   });
@@ -379,7 +395,7 @@ function workScreen(p, o) {
     head: o.head + coach(`${last ? esc(last) + ' ' : ''}<b>À toi de jouer avec les ${side}.</b> En partie, ton coup ici t’a coûté ${p.e.drop} points de chances de gain. ${altText(p.e)}`, 'intro'),
     cap: `<p><i class="dot ${p.g.w ? 'w' : 'b'}"></i> <span class="m-txt">${last ? esc(last) + ' ' : ''}</span>Trait aux ${side}. <span class="d-txt">Joue ton coup sur l’échiquier.</span><span class="m-txt">Trouve mieux qu’en partie.</span></p>`,
     panel: `${o.side || ''}
-      <div class="meta small">Coup ${moveNo(p.e)} de ta ${gameRef(p.g)}${p.e.theme ? ` · ${st.THEMES[p.e.theme]}` : ''} · <a href="#partie/${p.g.t}/${p.e.ply}">Ouvrir la partie</a></div>
+      <div class="meta small">Coup ${moveNo(p.e)} de ta ${gameRef(p.g)}${p.e.theme ? ` · ${st.THEMES[p.e.theme]}` : ''}</div><div class="meta small"><a href="#partie/${p.g.t}/${p.e.ply}">Ouvrir la partie</a></div>
       <div id="pzx"><div class="card ghost"><h3>Comment chercher</h3><ol class="routine"><li>Que vient de faire ton adversaire ? Que menace son coup ?</li><li>As-tu un échec, une capture ou une menace ?</li><li>La case où tu vas est-elle attaquée ?</li></ol></div></div>`,
     bar: SOLVE_BAR,
   });
@@ -394,18 +410,18 @@ function viewPuzzles(force) {
   S.pzOne = null;
   const total = allPuzzles();
   if (!total.length) {
-    return pzTabs('mine') + `<h1>Puzzles sur tes erreurs</h1><div class="card"><p class="prose">${S.job.running ? 'L’analyse de tes parties est en cours. Les premiers puzzles apparaissent ici dès qu’une partie est terminée.' : 'Aucune partie analysée pour le moment. Lance l’analyse pour transformer tes erreurs en puzzles.'}</p>${S.job.running ? '' : '<div><button class="btn pri" data-act="analyse">Analyser mes 20 dernières parties</button></div>'}</div>`;
+    return tabs('mine', PZ_TABS) + `<h1>Puzzles sur tes erreurs</h1><div class="card"><p class="prose">${S.job.running ? 'L’analyse de tes parties est en cours. Les premiers puzzles apparaissent ici dès qu’une partie est terminée.' : 'Aucune partie analysée pour le moment. Lance l’analyse pour transformer tes erreurs en puzzles.'}</p>${S.job.running ? '' : '<div><button class="btn pri" data-act="analyse">Analyser mes 20 dernières parties</button></div>'}</div>`;
   }
   if (!S.pz) pzReset('', false);
   const z = S.pz, themes = [...new Set(total.map((p) => p.e.theme))];
-  const head = pzTabs('mine') + `<div class="pzhead main"><h1>Puzzles sur tes erreurs</h1><span class="row" id="pzdayi">${pzDayHtml()}</span></div>`;
-  const plain = pzTabs('mine') + '<h1>Puzzles sur tes erreurs</h1>';
+  const head = tabs('mine', PZ_TABS) + `<div class="pzhead main"><h1>Puzzles sur tes erreurs</h1><span class="row" id="pzdayi">${pzDayHtml()}</span></div>`;
+  const plain = tabs('mine', PZ_TABS) + '<h1>Puzzles sur tes erreurs</h1>';
   const filter = `<div class="row pzfilter"><label class="small" for="pzt">Thème travaillé</label><select id="pzt"><option value="">Tous les thèmes</option>${themes.map((t) => `<option value="${t}" ${z.theme === t ? 'selected' : ''}>${st.THEMES[t]}</option>`).join('')}</select></div>`;
   // Révision des ratés du jour : une liste fixe, sans effet sur le calendrier de répétition.
   z.redo = (z.redo || []).filter((id) => pzById(id));
   if (z.redo.length) {
     return workScreen(pzById(z.redo[0]), {
-      head: pzTabs('mine') + `<div class="pzhead"><h1>Ratés du jour</h1><div class="row"><span class="chip warn">Révision : encore ${z.redo.length}</span><button class="btn sm" data-act="pzredostop">Arrêter</button></div></div>`,
+      head: tabs('mine', PZ_TABS) + `<div class="pzhead"><h1>Tes ratés du jour</h1><div class="row"><span class="chip warn">Révision : encore ${z.redo.length}</span><button class="btn sm" data-act="pzredostop">Arrêter</button></div></div>`,
       next: `<button class="btn" data-act="pznext">${z.redo.length > 1 ? 'Raté suivant ›' : 'Terminer ›'}</button>`,
     });
   }
@@ -436,7 +452,7 @@ function pzRecap(title, msg, empty, filter) {
 }
 const RES = { 2: ['r2', 'Du premier coup'], 1: ['r1', 'Trouvé avec aide'], 0: ['r0', 'Solution vue'] };
 function viewHistory() {
-  const all = progress.hist(), h = all.slice().reverse(), head = pzTabs('hist') + '<h1>Historique</h1>';
+  const all = progress.hist(), h = all.slice().reverse(), head = tabs('hist', PZ_TABS) + '<h1>Historique</h1>';
   if (!h.length) return head + `<div class="card">${coach('Chaque puzzle, chaque position inédite, chaque échauffement et chaque partie rejouée que tu termines est noté ici avec son résultat. Tu peux quitter la page ou fermer le site : rien ne se perd, et tu peux refaire une position d’un clic.')}<div><a class="btn pri" href="#puzzles">Faire mes puzzles</a></div></div>`;
   S.histN ||= 60;
   const pz = all.filter((x) => (x.k === 'm' || x.k === 'l') && !x.re), d0 = dayStart(), today = dkey();
@@ -445,7 +461,7 @@ function viewHistory() {
     <div class="tile"><b class="num">${pz.filter((x) => x.t >= d0 - 6 * DAY).length}</b><span>sur 7 jours</span></div>
     <div class="tile"><b class="num">${pz.length ? st.pct(pz.filter((x) => x.r === 2).length, pz.length) + ' %' : '—'}</b><span>trouvés du premier coup</span></div>
     <div class="tile"><b class="num">${acq}</b><span>acquis (réussis 3 fois, à plusieurs jours d’écart)</span></div></div>`;
-  const hm = (t) => new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const hm = F_HM;
   const row = (x) => {
     if (x.k === 'd') { const D = DRILLS[x.ty]; return `<div class="hrow"><i class="hres ${x.ok >= x.n * 0.8 ? 'r2' : x.ok >= x.n * 0.5 ? 'r1' : 'r0'}"></i><span class="stepc"><b>Échauffement${D ? ' : ' + D.t : ''}</b><span>${x.ok} / ${x.n} justes · ${hm(x.t)}</span></span>${D ? `<a class="btn sm" href="#drill/${x.ty}">Refaire</a>` : ''}</div>`; }
     if (x.k === 'o') { const [oid, ok] = String(x.id).split(':'), o = byId(oid), l = o?.lines[+ok]; const [cls, lab] = RES[x.r] || RES[0]; return `<div class="hrow"><i class="hres ${cls}"></i><span class="stepc"><b>Ligne d’ouverture${o ? ` : ${o.nom}` : ''}</b><span>${l ? esc(l.n) + ' · ' : ''}${x.r === 2 ? 'Sans faute' : x.r === 1 ? 'Avec aide' : 'Suite vue'}${x.re ? ' (révision)' : ''} · ${hm(x.t)}</span></span>${l ? `<a class="btn sm" href="${lineHref(x.id)}">Refaire</a>` : ''}</div>`; }
@@ -462,7 +478,7 @@ function viewHistory() {
   const days = new Map();
   for (const x of h.slice(0, S.histN)) { const k = dkey(new Date(x.t)); if (!days.has(k)) days.set(k, []); days.get(k).push(x); }
   const yest = dkey(new Date(d0 - DAY / 2));
-  const label = (k) => (k === today ? 'Aujourd’hui' : k === yest ? 'Hier' : new Date(k + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }));
+  const label = (k) => (k === today ? 'Aujourd’hui' : k === yest ? 'Hier' : F_WDLONG(new Date(k + 'T12:00:00')));
   const isPz = (x) => x.k === 'm' || x.k === 'l';
   const sum = (l) => { const z = l.filter((x) => isPz(x) && !x.re), dr = l.filter((x) => x.k === 'd').length, cv = l.filter((x) => x.k === 'c').length, ol = l.filter((x) => x.k === 'o').length, ii = l.filter((x) => x.k === 'i').length, fi = l.filter((x) => x.k === 'f').length, ru = l.filter((x) => x.k === 'r').length, rv = l.filter((x) => isPz(x) && x.re).length; return [z.length ? `${pl(z.length, 'puzzle')}, ${z.filter((x) => x.r === 2).length} du premier coup` : '', rv ? pl(rv, 'révision') : '', dr ? pl(dr, 'échauffement') : '', cv ? pl(cv, 'partie rejouée').replace('parties rejouée', 'parties rejouées') : '', ol ? `${ol} ligne${ol > 1 ? 's' : ''} d’ouverture` : '', ii ? pl(ii, 'idée') + ' de plan' : '', fi ? pl(fi, 'finale') : '', ru ? pl(ru, 'rush') : ''].filter(Boolean).join(' · '); };
   return head + tiles + `<div class="legend"><span style="--c:var(--good)">Du premier coup</span><span style="--c:var(--warn)">Trouvé avec aide</span><span style="--c:var(--bad)">Solution vue</span></div>`
@@ -645,14 +661,13 @@ function mountPuzzle() {
 // ---------- Apprendre les ouvertures ----------
 // Fiches (histoire, idées, pièges, lignes) et lignes récitées de mémoire, en révision espacée comme les puzzles.
 // Onglets internes (refonte du 16/11) : Cours / Ouvertures, Parties / Mes ouvertures. Ils doublent le volet de la navigation, utile sur téléphone.
-const tabs = (on, items) => `<div class="seg2 pztabs">${items.map(([k, href, t]) => `<a class="${on === k ? 'on' : ''}" href="${href}">${t}</a>`).join('')}</div>`;
-const LEARN_TABS = (on) => tabs(on, [['cours', '#cours', 'Cours'], ['ouv', '#ouvertures/apprendre', 'Ouvertures']]);
-const GAMES_TABS = (on) => tabs(on, [['parties', '#parties', 'Parties'], ['ouv', '#ouvertures', 'Mes ouvertures']]);
-const PRO_TABS = (on) => tabs(on, [['bilan', '#bilan', 'Mon jeu'], ['stats', '#stats', 'Stats'], ['plan', '#plan', 'Plan']]);
+const LEARN_TABS = [['cours', '#cours', 'Cours'], ['ouv', '#ouvertures/apprendre', 'Ouvertures']];
+const GAMES_TABS = [['parties', '#parties', 'Parties'], ['ouv', '#ouvertures', 'Mes ouvertures']];
+const PRO_TABS = [['bilan', '#bilan', 'Mon jeu'], ['stats', '#stats', 'Stats'], ['plan', '#plan', 'Plan']];
 const allLineKeys = () => OPENINGS.flatMap((o) => o.lines.map((_, k) => lineKey(o, k)));
 const lineHref = (key, voir) => '#ligne/' + key.replace(':', '/') + (voir ? '/voir' : '');
 const opGames = (o) => (S.data ? S.data.games.filter((g) => matchGame(o, g)) : []);
-const dshort = (t) => new Date(t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+const dshort = F_DSHORT;
 function lineChip(key) {
   const s = progress.lineState(key);
   if (!s) return ''; // ligne jamais jouée : rien à signaler, la liste reste serrée
@@ -672,7 +687,7 @@ function viewApprendre() {
   const info = (o) => { const keys = o.lines.map((_, k) => lineKey(o, k)); return { o, n: opGames(o).length, learned: keys.filter((k) => progress.lineState(k)).length, total: keys.length }; };
   const rows = OPENINGS.filter((o) => o.group === grp).map(info).sort((a, b) => (b.o.rep ? 1 : 0) - (a.o.rep ? 1 : 0) || b.n - a.n);
   const tab = ([g, t]) => `<button class="${g === grp ? 'on' : ''}" data-act="opgrp" data-g="${g}">${t.replace('Avec les ', '').replace('contre', 'c.')}</button>`;
-  return LEARN_TABS('ouv') + `<h1>Apprendre les ouvertures</h1>
+  return tabs('ouv', LEARN_TABS) + `<h1>Apprendre les ouvertures</h1>
     <p class="sub">Une fiche par ouverture. Ses lignes se rejouent de mémoire et reviennent en révision, comme tes puzzles.</p>
     ${due.length ? `<a class="opdue" href="${lineHref(due[0])}"><b>${pl(due.length, 'ligne')} à réviser aujourd’hui</b><span>Réviser ›</span></a>` : ''}
     <div class="seg2 mini opgrp">${GROUPS.map(tab).join('')}</div>
@@ -705,7 +720,7 @@ function viewOpening(id) {
     parties: () => `<div class="card">${gs.length ? `<dl class="kv"><dt>Avec les Blancs</dt><dd>${res(wG)}</dd><dt>Avec les Noirs</dt><dd>${res(bG)}</dd><dt>Première et dernière fois</dt><dd>${dfmt(gs[0].t)} · ${dfmt(gs[gs.length - 1].t)}</dd></dl>
       ${opSeq(gs, o)}
       <div class="chart" id="opc"></div>
-      <div class="stack">${gs.slice(-3).reverse().map((g) => `<a class="row" href="#partie/${g.t}" style="justify-content:space-between"><span>${dfmt(g.t)} contre ${esc(g.opp)} (${g.or}), ${g.w ? 'Blancs' : 'Noirs'}</span><span class="chip ${g.out === 'W' ? 'good' : g.out === 'L' ? 'bad' : ''}">${g.out === 'W' ? 'Victoire' : g.out === 'L' ? 'Défaite' : 'Nulle'}</span></a>`).join('')}</div>`
+      <div class="stack">${gs.slice(-3).reverse().map((g) => `<a class="row" href="#partie/${g.t}" style="justify-content:space-between"><span>${dfmt(g.t)} contre ${esc(g.opp)} (${g.or}), ${g.w ? 'Blancs' : 'Noirs'}</span>${resChip(g.out)}</a>`).join('')}</div>`
       : '<p class="sub">Tu ne l’as jamais jouée ni rencontrée dans tes parties importées.</p>'}</div>`,
   };
   return `<p class="small"><a href="#ouvertures/apprendre">‹ Toutes les ouvertures</a></p>
@@ -1125,7 +1140,7 @@ function viewRush(m) {
     return `<h1>Rush ${RUSH[m].t.toLowerCase()}</h1><div class="card"><div class="row" style="align-items:baseline"><span class="big num">${R.ok}</span><span class="sub">bonne${R.ok > 1 ? 's' : ''} réponse${R.ok > 1 ? 's' : ''} sur ${R.n}${R.rec ? ' · nouveau record' : ` · record : ${best[m]}`}</span></div>
       ${coach(R.rec ? 'Nouveau record. Le réflexe s’installe : garde-le en partie, à chaque coup.' : R.n && R.ok / R.n < 0.7 ? 'Trop de fautes : ralentis un peu, la justesse compte plus que le nombre.' : 'Bonne série. Refais-en une demain pour fixer le réflexe.')}
       <div class="row"><button class="btn pri" data-act="rushagain">Rejouer</button><a class="btn" href="#rush">Autre mode</a></div></div>
-      ${R.missed.length ? `<div class="card"><h2>Fautes</h2>${R.missed.slice(0, 8).map((x) => `<div class="hrow"><i class="hres r0"></i><span class="stepc"><b>${x.q}</b><span>${esc(x.text)}</span></span></div>`).join('')}</div>` : ''}`;
+      ${R.missed.length ? `<div class="card"><h2>Tes fautes</h2>${R.missed.slice(0, 8).map((x) => `<div class="hrow"><i class="hres r0"></i><span class="stepc"><b>${x.q}</b><span>${esc(x.text)}</span></span></div>`).join('')}</div>` : ''}`;
   }
   if (R.i >= R.items.length - 2) rushFill(R);
   const it = R.items[R.i];
@@ -1184,7 +1199,6 @@ const periodSeg = () => `<div class="seg2 mini" role="group" aria-label="Périod
 const upToDate = () => (S.upErr ? (S.data?.fetchedAt ? `Mise à jour impossible, dernière réussie ${agoFr(Date.now() - S.data.fetchedAt)}` : 'Mise à jour impossible')
   : S.data?.fetchedAt ? `À jour, ${agoFr(Date.now() - S.data.fetchedAt)}` : 'Pas encore mis à jour');
 const refreshBtn = () => `<button class="btn ico" data-act="refresh" aria-label="Mettre à jour" title="Récupérer les nouvelles parties de ${esc(S.user)}" ${S.importing && !S.importing.err ? 'aria-busy="true"' : ''}>${ico('refresh')}</button>`;
-const TITLES = { idees: 'Idées de plan', avantpartie: 'Avant de jouer', ouvertures: 'Ouverture', ligne: 'Ouverture', puzzles: 'Puzzles', erreur: 'Comprendre', partie: 'Partie', cours: 'Cours', drill: 'Échauffement', inedits: 'Positions inédites', gagner: 'Gagner', monouv: 'Mon ouverture', rush: 'Rush', finale: 'Finale', jouer: 'Jouer' };
 function header() {
   const t = $('#tools'), [r, a] = route();
   const imm = !!S.data && (!!exo.current() || r === 'erreur' || (r === 'cours' && !!a) || (r === 'ouvertures' && !!a && a !== 'apprendre') || r === 'monouv' || r === 'avantpartie'); // écran d'exercice ou page de cours : barre du haut avec retour
@@ -1199,7 +1213,7 @@ function header() {
   t.innerHTML = `${top ? `<span class="m-only row chips">${top}</span>` : `<span class="m-only row chips">${tr && r !== 'accueil' ? `<span class="chip">${tr.cur} Elo</span>` : ''}<span class="chip ${stk ? 'warn' : ''}">Série ${stk} j</span></span>`}${exo.current() ? sndBtn() : ''}`;
   navBadges();
 }
-// Titre de la barre du haut. Écran à retour (imm) : TITLES. Téléphone, hors accueil (revue HIG, tâche 6) : le texte du
+// Titre de la barre du haut. Écran à retour (imm) : title de ROUTES. Téléphone, hors accueil (revue HIG, tâche 6) : le texte du
 // premier h1 de la vue, à la place du logo (body.titled) ; le h1 reste dans la page pour les lecteurs d'écran (.vh) et le
 // titre de la barre leur est caché pour ne pas être lu deux fois. Lu après l'écriture de la vue : header() vient après.
 function pageTitle(imm, r) {
@@ -1207,7 +1221,7 @@ function pageTitle(imm, r) {
   const bar = !!h && !!S.data && r !== 'accueil' && phoneNav.matches;
   if (h) h.classList.toggle('vh', bar);
   document.body.classList.toggle('titled', bar);
-  ttl.textContent = imm ? TITLES[r] : bar ? h.textContent.replace(/\s+/g, ' ').trim() : '';
+  ttl.textContent = imm ? ROUTES[r]?.title : bar ? h.textContent.replace(/\s+/g, ' ').trim() : '';
   if (bar) ttl.setAttribute('aria-hidden', 'true'); else ttl.removeAttribute('aria-hidden');
 }
 // Bouton son / muet d'un écran d'exercice : barre du haut sur téléphone, bas de la colonne d'icônes sur ordinateur.
@@ -1233,7 +1247,7 @@ function goalBlock() {
   const html = `<div class="card"><h2>Objectif ${g.elo} en Rapide ${status}</h2>
     <div class="row" style="align-items:baseline"><span class="big num">${tr.cur}</span><span class="sub">Elo actuel${gap > 0 ? `, il manque <b class="num">${gap}</b> points` : ''}</span></div>
     <div class="goalbar" aria-hidden="true"><i style="width:${Math.max(3, Math.min(100, (100 * tr.cur) / g.elo))}%"></i></div>
-    <details class="gd" ${innerWidth >= 860 ? 'open' : ''}><summary>Détail de l’objectif</summary><dl class="kv"><dt>Échéance</dt><dd>${new Date(g.date).toLocaleDateString('fr-FR')} (${days} j)</dd>
+    <details class="gd" ${innerWidth >= 860 ? 'open' : ''}><summary>Détail de l’objectif</summary><dl class="kv"><dt>Échéance</dt><dd>${F_DNUM(new Date(g.date))} (${days} j)</dd>
     ${gap > 0 ? `<dt>Rythme nécessaire</dt><dd>+${Math.ceil(gap / weeks)} pts / semaine</dd>` : ''}
     <dt>30 derniers jours</dt><dd>${tr.delta30 == null ? 'aucune partie' : (tr.delta30 >= 0 ? '+' : '') + tr.delta30 + ' pts sur ' + tr.recent + ' parties'}</dd>
     ${proj != null ? `<dt>Projection à l’échéance</dt><dd>${proj}</dd>` : ''}
@@ -1242,11 +1256,16 @@ function goalBlock() {
   return { html, tr, g };
 }
 
+// Calcul lourd (statistiques de toutes les parties) et appelé à chaque en-tête, donc gardé par memo() : il ne dépend que des
+// parties, des analyses, du filtre et du jour. Le résultat ne se modifie jamais. session() elle-même ne se garde pas :
+// elle lit aussi l'entraînement du jour (puzzles faits, échauffement en cours), qui change sans toucher aux parties.
 function priorityLessons() {
-  const gs = cadenceGames(), es = st.engineStats(gs, S.an), sig = st.signals(gs, S.an);
-  const ids = es.themes.map((t) => t.id);
-  for (const w of sig.faiblesses) if (w.lesson && LESSONS[w.lesson] && !ids.includes(w.lesson)) ids.push(w.lesson);
-  return { ids, es, sig };
+  return memo('priority', () => {
+    const gs = cadenceGames(), es = st.engineStats(gs, S.an), sig = st.signals(gs, S.an);
+    const ids = es.themes.map((t) => t.id);
+    for (const w of sig.faiblesses) if (w.lesson && LESSONS[w.lesson] && !ids.includes(w.lesson)) ids.push(w.lesson);
+    return { ids, es, sig };
+  });
 }
 
 function nextLesson(ids) {
@@ -1294,7 +1313,7 @@ function focusCard(fc, es) {
   const fs = focusStats(fc), nEx = es.themes.find((t) => t.id === fc.id)?.n || 0;
   const state = fs.ok ? '<span class="chip good">Chantier validé</span>' : fs.nAfter < 5 ? `<span class="chip">${fs.nAfter} / 5 parties depuis le début</span>` : '<span class="chip warn">En cours</span>';
   const others = es.themes.filter((t) => t.id !== fc.id);
-  return `<section class="card focus"><div class="row" style="justify-content:space-between"><span class="small">Chantier en cours</span>${state}</div>
+  return `<section class="card focus"><div class="row" style="justify-content:space-between"><span class="small">Ton chantier du moment</span>${state}</div>
     <h2>${st.THEMES[fc.id]}</h2>
     <p class="rulet">« ${RULES[fc.id]} »</p>
     <div class="fmet"><div><span>Avant</span><b>${fs.base == null ? '—' : f1(fs.base)}</b><span>par partie</span></div>
@@ -1309,14 +1328,14 @@ function focusCard(fc, es) {
 // Ton portrait : où, quand et comment tu perds tes points (portrait.js).
 function portraitCard() {
   const p = portrait(S.data.games.filter((g) => g.tc === targetTc()), S.an);
-  return p.length ? `<div class="card"><h2>Portrait</h2><ul class="portrait">${p.map((x) => `<li>${esc(x.t)}</li>`).join('')}</ul></div>` : '';
+  return p.length ? `<div class="card"><h2>Ton portrait</h2><ul class="portrait">${p.map((x) => `<li>${esc(x.t)}</li>`).join('')}</ul></div>` : '';
 }
 // Programme de 4 semaines du chantier et bilan de la semaine passée (program.js).
 function programCard(fc) {
   if (!fc) return '';
   const w = programWeek(fc.since), gs = S.data.games.filter((g) => g.tc === targetTc()), hist = progress.hist();
   const wk = (from, to) => weekStats({ games: gs, an: S.an, hist, themeId: fc.id, from, to });
-  return `<div class="card"><h2>Programme <span class="small">${w.i < 4 ? `semaine ${w.i + 1} sur 4` : 'terminé'}</span></h2>
+  return `<div class="card"><h2>Ton programme <span class="small">${w.i < 4 ? `semaine ${w.i + 1} sur 4` : 'terminé'}</span></h2>
     <ol class="dayplan">${STAGES.map((x, i) => `<li class="${i < w.i ? 'done' : i === w.i ? 'on' : ''}"><i aria-hidden="true">${i < w.i ? '✓' : i + 1}</i><span><b>Semaine ${i + 1} · ${x.t}${i === w.i ? ' <span class="chip">en cours</span>' : ''}</b><span>${x.d}</span></span></li>`).join('')}</ol>
     <p class="sub">${w.i === 0 ? 'Premier bilan lundi prochain, ici et sur l’accueil.' : esc(reviewText(wk(w.prev, w.start), wk(w.prev - 7 * DAY, w.prev), st.THEMES[fc.id]))}</p>
     ${w.i >= 4 ? `<p class="small">${focusStats(fc).ok ? 'Chantier validé : passe au suivant.' : 'Quatre semaines passées sans diviser l’erreur par deux : le chantier continue, reprends à la semaine 1.'}</p>` : ''}</div>`;
@@ -1341,7 +1360,7 @@ function trendCard(gs) {
   const tr = st.themeTrend(gs, S.an);
   if (!tr.rows.length) return '';
   const chip = (r) => (r.before == null ? '' : r.now < r.before - 0.05 ? '<span class="chip good">En baisse</span>' : r.now > r.before + 0.05 ? '<span class="chip bad">En hausse</span>' : '<span class="chip">Stable</span>');
-  return `<div class="card"><h2>Erreurs graves par partie</h2>
+  return `<div class="card"><h2>Tes erreurs graves par partie</h2>
     <div class="scroll"><table><thead><tr><th>Type d’erreur</th><th class="r">${tr.nPrev >= 5 ? 'Avant' : ''}</th><th class="r">Maintenant</th><th></th></tr></thead><tbody>
     ${tr.rows.map((r) => `<tr class="click" data-act="goto-cours" data-id="${r.id}"><td>${st.THEMES[r.id]}</td><td class="r">${r.before == null ? '' : f1(r.before)}</td><td class="r"><b>${f1(r.now || 0)}</b></td><td class="r">${chip(r)}</td></tr>`).join('')}
     </tbody></table></div>
@@ -1362,8 +1381,7 @@ function goalStrip() {
   const d30 = !tr.delta30 ? '' : `<span class="chip ${tr.delta30 > 0 ? 'good' : tr.delta30 < 0 ? 'bad' : ''}">${tr.delta30 >= 0 ? '+' : ''}${tr.delta30} sur 30 j</span>`;
   // Ordinateur (17/11) : les chiffres de l'objectif dans des encarts sous la barre, comme le bilan de « Parties » ;
   // téléphone : une ligne, la série est dans la barre du haut.
-  const tile = (lab, v, sub = '', cls = '', tip = '') => `<div class="glt"${tip ? ` title="${tip}"` : ''}><span class="small">${lab}</span><b class="num ${cls}">${v}</b>${sub ? `<span class="small">${sub}</span>` : ''}</div>`;
-  const tiles = `<div class="glsum gtiles d-only">${tile('Il manque', gap > 0 ? `${gap} pts` : 'Atteint', `pour atteindre ${g.elo}`, gap > 0 ? '' : 'up')}${tile('Échéance', `${days} j`, new Date(g.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }))}${gap > 0 ? tile('Rythme nécessaire', pace.replace(' pts / sem.', ''), 'points par semaine') : ''}${tile('30 derniers jours', tr.delta30 ? `${tr.delta30 > 0 ? '+' : ''}${tr.delta30}` : '0', elo30(), tr.delta30 > 0 ? 'up' : tr.delta30 < 0 ? 'dn' : '')}${tile('Série', `${stk} j`, weekDots(), stk ? 'warn' : '', 'Jours consécutifs avec au moins un puzzle ou un cours')}${nextReview()}</div>`;
+  const tiles = `<div class="glsum gtiles d-only">${tile('Il manque', gap > 0 ? `${gap} pts` : 'Atteint', { sub: `pour atteindre ${g.elo}`, cls: gap > 0 ? '' : 'up' })}${tile('Échéance', `${days} j`, { sub: F_DMY(new Date(g.date)) })}${gap > 0 ? tile('Rythme nécessaire', pace.replace(' pts / sem.', ''), { sub: 'points par semaine' }) : ''}${tile('30 derniers jours', tr.delta30 ? `${tr.delta30 > 0 ? '+' : ''}${tr.delta30}` : '0', { sub: elo30(), cls: tr.delta30 > 0 ? 'up' : tr.delta30 < 0 ? 'dn' : '' })}${tile('Série', `${stk} j`, { sub: weekDots(), cls: stk ? 'warn' : '', tip: 'Jours consécutifs avec au moins un puzzle ou un cours. Cases : les 7 derniers jours, aujourd’hui à droite ; vert plein = entraîné, vert sombre = partie jouée sans entraînement.' })}${nextReview()}</div>`;
   return `<section class="gstrip"><a class="gnum" href="#bilan" title="Détail de l’objectif"><b class="num">${tr.cur}</b><span class="goalbar" aria-hidden="true"><i style="width:${Math.max(3, Math.min(100, (100 * tr.cur) / g.elo))}%"></i></span><b class="num">${g.elo}</b></a>
     <span class="gmeta m-only">${gap > 0 ? `<span>Il manque <b class="num">${gap}</b></span><span>${days} j</span>` : ''}<span>${pace}</span>${d30}</span>${tiles}</section>`;
 }
@@ -1371,12 +1389,13 @@ function goalStrip() {
 function elo30() {
   const t0 = Date.now() / 1000 - 30 * 86400, gs = rapidAll().filter((g) => g.rated && g.r).sort((a, b) => a.t - b.t);
   const before = gs.filter((g) => g.t < t0).pop(), vals = [...(before ? [before] : []), ...gs.filter((g) => g.t >= t0)].map((g) => g.r);
-  return sparkline(vals, 'Ton Elo sur les 30 derniers jours') || 'points';
+  return sparkline(vals, 'Ton Elo sur les 30 derniers jours', vals.length > 1 && vals[vals.length - 1] < vals[0] ? 'dn' : '') || 'points';
 }
 function weekDots() {
   const played = {}; for (const g of S.data?.games || []) { const k = dkey(new Date(g.t * 1000)); played[k] = (played[k] || 0) + 1; }
   const today = dkey();
-  return `<span class="week">${progress.week().map((x) => { const p = played[x.d] || 0, lab = new Date(x.t).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'short' }); return `<i class="${x.n ? 'on' : p ? 'pl' : ''}${x.d === today ? ' now' : ''}" title="${lab} : ${x.n ? pl(x.n, 'exercice') : 'pas d’entraînement'}${p ? ', ' + pl(p, 'partie') : ''}"></i>`; }).join('')}</span>`;
+  // Une case par jour (les 7 derniers jours, aujourd'hui à droite), avec sa lettre dessous : sans lettre, on ne voyait pas que chaque case est un jour.
+  return `<span class="week">${progress.week().map((x) => { const p = played[x.d] || 0, lab = F_WDLONG_MSHORT(new Date(x.t)), now = x.d === today; return `<span class="wd${now ? ' td' : ''}"><i class="${x.n ? 'on' : p ? 'pl' : ''}${now ? ' now' : ''}" title="${lab} : ${x.n ? pl(x.n, 'exercice') : 'pas d’entraînement'}${p ? ', ' + pl(p, 'partie') : ''}"></i><b aria-hidden="true">${dayLetter(x.t)}</b></span>`; }).join('')}</span>`;
 }
 // Prochaine révision (accueil, ordinateur) : lignes d'ouverture et finales dues aujourd'hui, sinon la prochaine à venir.
 function nextReview() {
@@ -1384,10 +1403,9 @@ function nextReview() {
   const fins = ENDGAMES.map((e) => { const st0 = progress.endgameState(e.id); return st0 && { due: st0.due, href: '#finale/' + e.id, t: e.t, k: 'Finale' }; });
   const all = [...lines, ...fins].filter(Boolean).sort((a, b) => a.due - b.due), now = Date.now(), due = all.filter((x) => x.due <= now);
   // Encart cliquable, sixième de la carte de l'objectif : la page d'accueil n'a pas de place pour une ligne de plus.
-  const box = (lab, v, sub, href, tip, cls = '') => `<a class="glt revue" href="${href}" title="${esc(tip)}"><span class="small">${lab}</span><b class="num ${cls}">${v}</b><span class="small">${esc(sub)}</span></a>`;
-  if (due.length) return box('À réviser', due.length, due[0].t, due[0].href, due.map((x) => `${x.k} : ${x.t}`).join('\n'), 'warn');
-  if (all.length) { const x = all[0], d = Math.max(1, Math.ceil((x.due - now) / DAY)); return box('Prochaine révision', `${d} j`, x.t, x.href, `${x.k} : ${x.t}`); }
-  return box('Révisions', '—', 'Apprends une ligne', '#ouvertures/apprendre', 'Une ligne apprise revient ici le jour où il faut la réviser');
+  if (due.length) return tile('À réviser', due.length, { sub: esc(`${due[0].k} · ${due[0].t}`), href: due[0].href, tip: due.map((x) => `${x.k} : ${x.t}`).join('\n'), cls: 'warn' });
+  if (all.length) { const x = all[0], d = Math.max(1, Math.ceil((x.due - now) / DAY)); return tile('Prochaine révision', `${d} j`, { sub: esc(`${x.k} · ${x.t}`), href: x.href, tip: `${x.k} : ${x.t}` }); }
+  return tile('Révisions', '—', { sub: 'Apprends une ligne', href: '#ouvertures/apprendre', tip: 'Une ligne apprise revient ici le jour où il faut la réviser' });
 }
 function sessionCard(steps, nDone) {
   const cur = steps.find((x) => !x.done), all = nDone === steps.length;
@@ -1404,7 +1422,7 @@ function sessionCard(steps, nDone) {
   }
   // Sur ordinateur, le programme complet sous le bouton : chaque étape, son état, sa consigne.
   const prog = `<ul class="dayplan d-only">${steps.map((x) => `<li class="${x.done ? 'done' : x === cur ? 'on' : ''}"><i aria-hidden="true">${x.done ? '✓' : ''}</i><span><b>${x.t}${x === cur ? ' <span class="chip">en cours</span>' : ''}</b>${x === cur ? '' : `<span>${esc(x.d)}</span>`}</span></li>`).join('')}</ul>`;
-  return `<section class="card today"><div class="row d-flex" style="justify-content:space-between"><h2>${all ? 'Séance du jour terminée' : 'Séance du jour'}</h2><span class="chip ${all ? 'good' : ''}">${nDone} / ${steps.length}</span></div>${dots}${body}${prog}</section>`;
+  return `<section class="card today"><div class="row d-flex" style="justify-content:space-between"><h2>${all ? 'Séance du jour terminée' : 'Ta séance du jour'}</h2><span class="chip ${all ? 'good' : ''}">${nDone} / ${steps.length}</span></div>${dots}${body}${prog}</section>`;
 }
 // Mot du coach : ce que je vois dans tes parties, ce qu'on fait aujourd'hui, à quoi on saura que ça marche (brief.js).
 // Le détail chiffré reste dans « Mon jeu ».
@@ -1418,8 +1436,8 @@ function selfGame(fc) {
 function briefCard(fc, steps) {
   if (!fc) return '';
   const fs = focusStats(fc), cur = steps.find((x) => !x.done), th = st.THEMES[fc.id], sg = selfGame(fc);
-  if (sg && !sg.ans) return `<section class="card fmini brief"><span class="hlab">Le mot du coach</span>
-    <span class="selfrow"><span class="bdiag">As-tu appliqué ta règle dans ta partie contre ${esc(sg.g.opp)} ?<span class="d-only"> « ${esc(RULES[fc.id])} »</span></span>
+  if (sg && !sg.ans) return `<section class="card fmini brief"><span class="hlab">Le mot du coach · ta partie contre ${esc(sg.g.opp)}</span>
+    <span class="selfrow"><span class="bdiag">As-tu appliqué ta règle dans cette partie ?<span class="d-only"> « ${esc(RULES[fc.id])} »</span></span>
     <span class="selfq"><button class="btn" data-act="selfck" data-id="${esc(sg.g.id)}" data-v="1">Oui</button><button class="btn" data-act="selfck" data-id="${esc(sg.g.id)}" data-v="0">Non</button></span></span></section>`;
   const gs = S.data.games.filter((g) => g.tc === targetTc());
   const b = coachBrief({ facts: briefFacts(gs, S.an, fc.id), theme: th, rule: RULES[fc.id], fs, cause: progress.causes(), next: cur ? STEP_NEXT[cur.k] : null });
@@ -1429,7 +1447,7 @@ function briefCard(fc, steps) {
   // Le lundi, le bilan de la semaine passée remplace le diagnostic.
   else if (new Date().getDay() === 1 && w.i >= 1) b.diag = reviewText(weekStats({ games: gs, an: S.an, hist: progress.hist(), themeId: fc.id, from: w.prev, to: w.start }), weekStats({ games: gs, an: S.an, hist: progress.hist(), themeId: fc.id, from: w.prev - 7 * DAY, to: w.prev }), th);
   const stage = w.i < 4 ? ` Semaine ${w.i + 1} sur 4 : ${STAGES[w.i].t.toLowerCase()}.` : '';
-  return `<a class="card fmini brief" href="#bilan"><span class="hlab">Le mot du coach${fs.ok ? ' <span class="chip good">validé</span>' : ''}<span class="chev" aria-hidden="true">›</span></span>
+  return `<a class="card fmini brief" href="#bilan"><span class="hlab">Le mot du coach · chantier ${esc(th.toLowerCase())}${fs.ok ? ' <span class="chip good">validé</span>' : ''}<span class="chev" aria-hidden="true">›</span></span>
     <span class="bdiag">${esc(b.diag)}</span><span class="btodo d-only">${esc(b.todo + stage)}</span><span class="sub fnums">${esc(b.goal)}</span></a>`;
 }
 // Dernière partie de la cadence suivie : résultat et pire faute, à revoir ou à rejouer en un clic.
@@ -1440,19 +1458,16 @@ function lastGameCard() {
   const trail = gaffeTrail(S.data.games, S.an, targetTc());
   if (!trail.length) return '';
   const k = Math.max(0, Math.min(trail.length - 1, S.lg || 0)), { g, e, i, n, pending } = trail[k], a = S.an[g.id];
-  // Vocabulaire des échecs plutôt que pastilles (18/11) : résultat noté 1-0 / 0-1 / ½-½, faute annotée ?? ou ?.
-  const out = g.out === 'W' ? ['up', 'Victoire'] : g.out === 'L' ? ['dn', 'Défaite'] : ['', 'Nulle'];
-  const score = g.out === 'D' ? '½-½' : (g.out === 'W') === !!g.w ? '1-0' : '0-1', mk = e && moveMark(e);
   const body = pending ? (S.job.running ? skel('Analyse en cours', 80, 55) : '<span class="sub">Pas encore analysée.</span>')
     : !e ? `<span class="sub">Aucune gaffe ni erreur grave${a.acc != null ? `, précision ${a.acc.toFixed(0)} %` : ''}.</span>`
-    : `<span class="lgerr"><span>Coup ${moveNo(e)} : <b>${esc(fr(e.played))}<span class="lgmk ${mk?.c === 'bad' ? 'dn' : 'warnc'}" title="${mk?.t || ''}">${mk?.s || ''}</span></b>, il fallait <b>${esc(fr(e.bestSan))}</b></span>${n > 1 ? `<span class="small">gaffe ${i} sur ${n}</span>` : ''}</span>`;
-  const head = `<span class="htitle"><span class="lgres ${out[0]}" title="${out[1]}"><span class="sr">${out[1]}, </span>${score}</span> contre ${esc(g.opp)} <span class="sub">(${g.or}), ${g.w ? 'Blancs' : 'Noirs'}<span class="m-only-i">, ${dfmt(g.t)}</span></span></span>`;
+    : `<span class="lgerr"><span class="chip ${e.kind === 'gaffe' ? 'bad' : 'warn'}">${e.kind !== 'gaffe' ? 'Erreur' : n > 1 ? `Gaffe ${i} sur ${n}` : 'Gaffe'}</span><span>Coup ${moveNo(e)} : <b>${esc(fr(e.played))}</b>, il fallait <b>${esc(fr(e.bestSan))}</b></span></span>`;
+  const head = `<span class="htitle">${resChip(g.out)} contre ${esc(g.opp)} <span class="sub">(${g.or}), ${g.w ? 'Blancs' : 'Noirs'}<span class="m-only-i">, ${dfmt(g.t)}</span></span></span>`;
   // Ordinateur : la position de la faute, coup joué en rouge (la solution reste à trouver dans « Rejouer l'erreur »).
   const pos = e ? `<a class="lgpos d-only" href="#partie/${g.t}/${e.ply}" aria-label="Position avant ${esc(fr(e.played))}"><span class="board" id="lgb" data-t="${g.t}" data-ply="${e.ply}"></span></a>` : '';
   const nav = (d, lab, icon) => `<button class="btn ico" data-act="lgnav" data-d="${d}" aria-label="${lab}" title="${lab}" ${k + d < 0 || k + d >= trail.length ? 'disabled' : ''}>${ico(icon)}</button>`;
   const mid = e ? `<a class="btn" href="#partie/${g.t}/${e.ply}"><span class="d-only">Voir mon coup</span><span class="m-only">Mon coup</span></a><a class="btn" href="#erreur/${g.t}/${e.ply}"><span class="d-only">Rejouer l’erreur</span><span class="m-only">Rejouer</span></a>`
     : `<a class="btn wide" href="#partie/${g.t}">Revoir la partie</a>`;
-  return `<section class="card lgame"><span class="hlab d-flex">${k ? 'Partie' : 'Dernière partie'} du ${dfmt(g.t)}${a && !a.bad ? `<a class="small" href="#partie/${g.t}/d">Débrief</a>` : ''}</span>
+  return `<section class="card lgame"><span class="hlab d-flex">${k ? `Partie du ${dfmt(g.t)}` : 'Ta dernière partie'}<span class="small">${k + 1} / ${trail.length}${!k ? ` · ${dfmt(g.t)}` : ''}${a && !a.bad ? ` · <a href="#partie/${g.t}/d">Débrief</a>` : ''}</span></span>
     ${e ? `<div class="lgrow">${pos}<div class="lgtxt">${head}${body}</div></div>` : head + body}
     <div class="lgbtn">${nav(-1, 'Gaffe plus récente', 'prev')}${mid}${nav(1, 'Gaffe plus ancienne', 'next')}</div></section>`;
 }
@@ -1471,22 +1486,40 @@ function viewAccueil() {
 
 // ---------- Mon jeu : objectif, chantier, points forts et faibles, tendance, bilan ----------
 // Quand et comment tu perds (insights.js, comme les « Insights » de Chess.com) : phase, pièce, heure, rang dans la session.
-// Calcul gardé tant que les parties et les analyses ne changent pas (la phase demande de rejouer chaque partie).
-let insMemo = { key: '', v: null };
-function insightsOf(gs) {
-  const key = gs.length + ':' + (gs[gs.length - 1]?.t || 0) + ':' + Object.keys(S.an).length + ':' + S.f.tc + ':' + S.f.days;
-  if (insMemo.key !== key) insMemo = { key, v: { phases: phaseStats(gs, S.an), pieces: pieceStats(gs, S.an), hours: hourStats(gs), sessions: sessionStats(gs) } };
-  return insMemo.v;
+// Calcul gardé par memo() tant que les parties, les analyses, le filtre et le jour ne changent pas. La phase demande de rejouer
+// chaque partie : elle se calcule par tranches quand le navigateur est libre (phaseJob), la carte montre un bloc gris d'ici là
+// puis se remplit sur place. Le reste de la page ne l'attend pas.
+function insightsOf() {
+  return memo('insights', () => { const gs = games(); return { job: phaseJob(gs, S.an), pieces: pieceStats(gs, S.an), hours: hourStats(gs), sessions: sessionStats(gs) }; });
 }
-function insightsCard(gs) {
-  const I = insightsOf(gs), lines = insightText(I), every = (r) => (r ? `1 tous les ${Math.round(1 / r)} coups` : 'aucune');
+// Une seule boucle à la fois (phasesRun). Si les données changent en route, elle reprend sur le nouveau calcul tant qu'on est
+// sur Mon jeu ; les parties inchangées ne sont pas refaites (cache par analyse dans insights.js).
+let phasesRun = null;
+function runPhases(I) {
+  if (phasesRun) return;
+  phasesRun = I;
+  idle(function step(dl) {
+    let more = false;
+    try {
+      const here = S.data && route()[0] === 'bilan' && $('#ins');
+      if (!here) return; // on a quitté Mon jeu : le prochain mountBilan relancera
+      phasesRun = insightsOf();
+      phasesRun.job.step(Math.max(0, dl.timeRemaining() - 2));
+      more = !phasesRun.job.done;
+      if (!more && !exo.live()) $('#ins').outerHTML = insightsCard();
+    } finally { if (!more) phasesRun = null; } // libérée même si une tranche lève une exception
+    if (more) idle(step);
+  });
+}
+function insightsCard() {
+  const J = insightsOf(), I = { ...J, phases: J.job.done ? J.job.result() : null }, lines = insightText({ ...I, phases: I.phases || [] }), every = (r) => (r ? `1 tous les ${Math.round(1 / r)} coups` : 'aucune');
   const row = (label, n, val, cls = '') => `<tr><td>${label}</td><td class="r small">${n}</td><td class="r ${cls}"><b>${val}</b></td></tr>`;
   const sc = (x) => (x.n >= 5 ? (x.score >= 55 ? 'ok' : x.score <= 42 ? 'ko' : '') : '');
   const pcs = I.pieces.filter((p) => p.moves >= 10).slice(0, 4);
-  return `<div class="card"><h2>Quand et comment tu perds <span class="small">${TC[S.f.tc] || 'toutes cadences'}</span></h2>
+  return `<div class="card" id="ins"><h2>Quand et comment tu perds <span class="small">${TC[S.f.tc] || 'toutes cadences'}</span></h2>
     ${lines.length ? `<div class="stack">${lines.map((t) => `<p class="ins">${esc(t)}</p>`).join('')}</div>` : '<p class="small">Pas encore d’écart net : il faut au moins 8 parties de chaque côté pour en tirer une règle.</p>'}
     <div class="grid ins-grid">
-      <div><h3>Par phase <span class="small">fautes graves</span></h3><table><tbody>${I.phases.map((x) => row(x.label, x.n ? x.n + ' coups' : '—', x.n ? every(x.rate) : '—')).join('')}</tbody></table></div>
+      <div><h3>Par phase <span class="small">fautes graves</span></h3><table><tbody>${I.phases ? I.phases.map((x) => row(x.label, x.n ? x.n + ' coups' : '—', x.n ? every(x.rate) : '—')).join('') : `<tr><td>${skel('Calcul en cours', 70, 50, 60)}</td></tr>`}</tbody></table></div>
       <div><h3>Par pièce jouée <span class="small">fautes graves</span></h3><table><tbody>${pcs.length ? pcs.map((x) => row(x.name[0].toUpperCase() + x.name.slice(1), x.moves + ' coups', every(x.rate))).join('') : '<tr><td class="small">Analyse plus de parties.</td></tr>'}</tbody></table></div>
       <div><h3>Selon l’heure <span class="small">score</span></h3><table><tbody>${I.hours.map((x) => row(x.label, pl(x.n, 'partie'), x.n ? x.score + ' %' : '—', sc(x))).join('')}</tbody></table></div>
       <div><h3>Dans la session <span class="small">score</span></h3><table><tbody>${I.sessions.map((x) => row(x.label, pl(x.n, 'partie'), x.n ? x.score + ' %' : '—', sc(x))).join('')}</tbody></table></div>
@@ -1497,9 +1530,9 @@ function viewBilan() {
   const { es, sig, fc } = session();
   const sigHtml = (arr, c, empty) => (arr.length ? arr.slice(0, 4).map((x) => `<div class="sig" style="--c:var(--${c})"><b>${esc(x.t)}</b><span>${esc(x.d)}</span>${x.lesson ? `<a href="#${x.lesson === 'ouvertures' ? 'ouvertures' : 'cours/' + x.lesson}">${x.lesson === 'ouvertures' ? 'Voir tes ouvertures' : 'Ouvrir le cours'}</a>` : ''}</div>`).join('') : `<p class="sub">${empty}</p>`);
   const all = st.tally(gs);
-  return `${PRO_TABS('bilan')}<div class="vhead"><h1>Mon jeu</h1>${periodSeg()}</div>
+  return `${tabs('bilan', PRO_TABS)}<div class="vhead"><h1>Mon jeu</h1>${periodSeg()}</div>
   <div class="hero">${gb.html}
-    <div class="card"><h2>Classement ${S.f.tc === 'all' ? 'Rapide' : TC[S.f.tc]}</h2><div class="chart" id="rc"></div></div></div>
+    <div class="card"><h2>Ton classement ${S.f.tc === 'all' ? 'Rapide' : TC[S.f.tc]}</h2><div class="chart" id="rc"></div></div></div>
   ${portraitCard()}
   ${focusCard(fc, es)}
   ${programCard(fc)}
@@ -1518,9 +1551,11 @@ function viewBilan() {
       <dl class="kv">${es.n ? `<dt>Précision moyenne</dt><dd>${es.acc.toFixed(1)} %</dd><dt>Gaffes par partie</dt><dd>${(es.gaffes / es.n).toFixed(1)}</dd>` : ''}<dt>Parties analysées</dt><dd>${es.n} sur ${gs.length}</dd></dl>
       ${S.job.running ? '' : '<div><button class="btn sm" data-act="analyse">Analyser 20 parties de plus</button></div>'}</div>
   </div>
-  ${insightsCard(gs)}` : `<div class="card"><p class="sub">Aucune partie pour ce filtre (${TC[S.f.tc]}). Change la cadence ou la période.</p></div>`}`;
+  ${insightsCard()}` : `<div class="card"><p class="sub">Aucune partie pour ce filtre (${TC[S.f.tc]}). Change la cadence ou la période.</p></div>`}`;
 }
 function mountBilan() {
+  const I = S.data && games().length ? insightsOf() : null;
+  if (I && !I.job.done) runPhases(I);
 
   const fcEl = $('#fchart'), f = ls.get('focus', null);
   if (fcEl && f) {
@@ -1551,10 +1586,10 @@ function viewCours() {
     <h2>${esc(S.ai[id]?.titre || LESSONS[id].titre)}</h2>
     <p class="sub">${cnt[id] ? `${cnt[id]} exemple${cnt[id] > 1 ? 's' : ''} dans tes parties. ` : ''}${LESSONS[id].principe.split('. ')[0]}.</p></a>`;
   const others = Object.keys(LESSONS).filter((id) => !ids.includes(id));
-  return `${LEARN_TABS('cours')}<h1>Cours</h1>
+  return `${tabs('cours', LEARN_TABS)}<h1>Cours</h1>
     ${coachKey() ? coach('Je prépare chaque cours à partir de tes propres positions : une idée, tes erreurs à rejouer, une règle à emporter. Ouvre un cours et demande-moi de le préparer.')
-    : `<div class="card"><h2>Coach privé</h2><p class="prose">Chaque cours peut devenir une leçon particulière : Claude étudie tes positions, te pose les bonnes questions avant de te laisser jouer, puis t’explique pourquoi ton coup échouait. Deux façons de faire : avec ton abonnement Claude (un copier-coller, proposé dans chaque cours), ou en un clic avec une clé API facturée à l’usage.</p><details class="manual"><summary>Activer la génération en un clic (clé API)</summary>${keyForm()}</details></div>`}
-    ${ids.length ? `<h2>Priorités</h2><div class="grid">${ids.map((id, i) => card(id, i < 3 ? i + 1 : 0)).join('')}</div>` : S.job.running ? `<h2>Priorités</h2><div class="grid">${[0, 1, 2].map((i) => `<div class="card">${skel(i ? '' : 'Analyse en cours : le classement des cours arrive.', 30, 75, 90, 60)}</div>`).join('')}</div>` : '<div class="card"><p class="sub">Lance l’analyse de tes parties pour classer les cours selon tes erreurs.</p></div>'}
+    : `<div class="card"><h2>Ton coach privé</h2><p class="prose">Chaque cours peut devenir une leçon particulière : Claude étudie tes positions, te pose les bonnes questions avant de te laisser jouer, puis t’explique pourquoi ton coup échouait. Deux façons de faire : avec ton abonnement Claude (un copier-coller, proposé dans chaque cours), ou en un clic avec une clé API facturée à l’usage.</p><details class="manual"><summary>Activer la génération en un clic (clé API)</summary>${keyForm()}</details></div>`}
+    ${ids.length ? `<h2>Tes priorités</h2><div class="grid">${ids.map((id, i) => card(id, i < 3 ? i + 1 : 0)).join('')}</div>` : S.job.running ? `<h2>Tes priorités</h2><div class="grid">${[0, 1, 2].map((i) => `<div class="card">${skel(i ? '' : 'Analyse en cours : le classement des cours arrive.', 30, 75, 90, 60)}</div>`).join('')}</div>` : '<div class="card"><p class="sub">Lance l’analyse de tes parties pour classer les cours selon tes erreurs.</p></div>'}
     <h2>Autres cours</h2><div class="grid">${others.map((id) => card(id, 0)).join('')}</div>`;
 }
 
@@ -1638,7 +1673,7 @@ function viewCoachLesson(id, L) {
   }
   if (stp === 'methode') {
     return head + `<div class="card rule"><span class="small">La règle du cours</span><p class="rulet">${txt(L.regle)}</p></div>
-      <div class="card"><h2>Routine avant chaque coup</h2><ol class="routine">${L.methode.map((m) => `<li>${txt(m)}</li>`).join('')}</ol></div>` + next(L.quiz.length ? 'Vérifier que j’ai compris' : 'Terminer le cours');
+      <div class="card"><h2>Ta routine avant chaque coup</h2><ol class="routine">${L.methode.map((m) => `<li>${txt(m)}</li>`).join('')}</ol></div>` + next(L.quiz.length ? 'Vérifier que j’ai compris' : 'Terminer le cours');
   }
   const answered = Object.keys(S.cl.quiz).length;
   return head + L.quiz.map((q, qi) => {
@@ -1684,7 +1719,7 @@ function viewLecon(id, mode) {
       <span class="row"><span class="chip bad">−${x.e.drop} pts de chances de gain</span><a class="btn sm" href="#erreur/${x.g.t}/${x.e.ply}">Travailler cette position</a><a class="btn sm" href="#partie/${x.g.t}/${x.e.ply}">Revoir dans la partie</a></span></div></div>`).join('')}
     <div><button class="btn" data-act="pztheme" data-theme="${id}">M’entraîner sur ce thème</button></div></div>`
     : ENGINE_LESSONS.includes(id) ? '<div class="card"><p class="sub">Aucun exemple de ce type dans tes parties analysées. Soit tu ne fais pas cette erreur, soit il faut analyser davantage de parties.</p></div>' : ''}
-  ${blown.length ? `<div class="card"><h2>Parties qui t’ont échappé</h2><div><a class="btn" href="#gagner">Les rejouer pour les gagner</a></div>${blown.map((g) => `<a class="row" href="#partie/${g.t}" style="justify-content:space-between"><span>${dfmt(g.t)} contre ${esc(g.opp)} (${g.or})</span><span class="chip ${g.out === 'L' ? 'bad' : ''}">${g.out === 'L' ? 'Défaite' : 'Nulle'}</span></a>`).join('')}</div>` : ''}
+  ${blown.length ? `<div class="card"><h2>Parties qui t’ont échappé</h2><div><a class="btn" href="#gagner">Les rejouer pour les gagner</a></div>${blown.map((g) => `<a class="row" href="#partie/${g.t}" style="justify-content:space-between"><span>${dfmt(g.t)} contre ${esc(g.opp)} (${g.or})</span>${resChip(g.out)}</a>`).join('')}</div>` : ''}
   <div class="row">${read[id] ? nextStep('les') : ''}<button class="btn ${read[id] ? '' : 'pri'}" data-act="lu" data-id="${id}">${read[id] ? 'Marquer comme non terminé' : 'J’ai compris, marquer comme terminé'}</button></div>`;
 }
 function mountLecon() {
@@ -1717,12 +1752,12 @@ function viewOuvertures() {
   const side = st.tally(gs.filter((g) => g.w === S.white));
   const crumbs = path.map((s, i) => `<button class="btn sm" data-act="expath" data-n="${i + 1}">${i % 2 === 0 ? i / 2 + 1 + '. ' : ''}${fr(s)}</button>`).join('');
   const reps = st.repeatedErrors(gs, S.an).slice(0, 6);
-  const repCard = reps.length ? `<div class="card"><h2>Erreurs qui reviennent</h2><p class="small">Même position, même faute, dans plusieurs parties. Une position travaillée ici, c’est une erreur de moins dans toutes les parties qui y passent.</p>
+  const repCard = reps.length ? `<div class="card"><h2>Tes erreurs qui reviennent</h2><p class="small">Même position, même faute, dans plusieurs parties. Une position travaillée ici, c’est une erreur de moins dans toutes les parties qui y passent.</p>
     ${reps.map((r) => `<div class="hrow"><i class="dot ${r.w ? 'w' : 'b'}"></i><span class="stepc"><b>${esc(st.lineText(r.line, Math.max(0, r.line.length - 6)))}</b><span>${r.games} parties : ${esc(st.repText(r))}</span></span><a class="btn sm" href="#erreur/${r.last.g.t}/${r.last.e.ply}">Travailler</a></div>`).join('')}</div>` : '';
-  return `${GAMES_TABS('ouv')}<div class="vhead"><h1>Ouvertures</h1>${periodSeg()}</div><div class="row" style="justify-content:flex-end"><div class="row" role="group" aria-label="Couleur">
+  return `${tabs('ouv', GAMES_TABS)}<div class="vhead"><h1>Ouvertures</h1>${periodSeg()}</div><div class="row" style="justify-content:flex-end"><div class="row" role="group" aria-label="Couleur">
     <button class="btn ${S.white ? 'on' : ''}" aria-pressed="${!!S.white}" data-act="color" data-w="1"><i class="dot w"></i>Blancs</button><button class="btn ${S.white ? '' : 'on'}" aria-pressed="${!S.white}" data-act="color" data-w="0"><i class="dot b"></i>Noirs</button></div></div>
   ${repCard}
-  <div class="card"><h2>Ouvertures avec les ${S.white ? 'Blancs' : 'Noirs'} <span class="small">${side.n} parties, ${st.score(side)} % de score</span></h2>
+  <div class="card"><h2>Tes ouvertures avec les ${S.white ? 'Blancs' : 'Noirs'} <span class="small">${side.n} parties, ${st.score(side)} % de score</span></h2>
     ${ops.length ? `<div class="scroll"><table><thead><tr><th>Ouverture</th><th class="r">Parties</th><th>Résultats</th><th class="r">Score</th><th class="r" title="Évaluation moyenne du moteur après 10 coups, de ton point de vue">Après 10 coups</th><th>Verdict</th></tr></thead><tbody>
     ${ops.slice(0, 12).map((o) => `<tr class="click" data-act="opfam" data-fam="${esc(o.fam)}" title="Détail de cette ouverture"><td><b>${esc(o.fam)}</b> <span class="chev" aria-hidden="true">›</span>${o.vars.size > 1 ? `<br><span class="small">${[...o.vars.values()].sort((a, b) => b.n - a.n).slice(0, 2).map((v) => esc(v.op.replace(o.fam, '').trim() || 'ligne principale') + ' (' + v.n + ')').join(', ')}</span>` : ''}</td>
       <td class="r">${o.n}</td><td style="min-width:110px">${wdl(o)}</td><td class="r"><b>${st.score(o)} %</b></td><td class="r">${exitEval(o.fam)}</td><td>${verdict(o)}</td></tr>`).join('')}
@@ -1760,23 +1795,23 @@ const sgn = (x) => (x > 0 ? '+' : x < 0 ? '−' : '±') + Math.abs(x);
 const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 function partiesSummary(gs) {
   const s = st.listSummary(gs); if (!s.n) return '';
-  const tile = (lab, v, sub = '') => `<div class="glt"><span class="small">${lab}</span><b class="num">${v}</b>${sub ? `<span class="small num">${sub}</span>` : ''}</div>`;
-  return `<div class="glsum">${tile('Parties', s.n, `${s.w} V, ${s.d} N, ${s.l} D`)}${tile('Score', s.score + ' %')}
-    ${s.from != null ? tile('Mon Elo', `${s.to} <span class="${s.to > s.from ? 'up' : s.to < s.from ? 'dn' : ''}">${sgn(s.to - s.from)}</span>`, `depuis ${s.from}`) : ''}
-    ${s.opp ? tile('Adversaires', s.opp, 'Elo moyen') : ''}${s.perf ? tile('Performance', s.perf, 'Elo estimé') : ''}</div>${wdl(s)}`;
+  // Encart propre à la synthèse, pas tile() de ui.js : sous-titre en chiffres alignés (small num)
+  const sumTile = (lab, v, sub = '') => `<div class="glt"><span class="small">${lab}</span><b class="num">${v}</b>${sub ? `<span class="small num">${sub}</span>` : ''}</div>`;
+  return `<div class="glsum">${sumTile('Parties', s.n, `${s.w} V · ${s.d} N · ${s.l} D`)}${sumTile('Score', s.score + ' %')}
+    ${s.from != null ? sumTile('Mon Elo', `${s.to} <span class="${s.to > s.from ? 'up' : s.to < s.from ? 'dn' : ''}">${sgn(s.to - s.from)}</span>`, `depuis ${s.from}`) : ''}
+    ${s.opp ? sumTile('Adversaires', s.opp, 'Elo moyen') : ''}${s.perf ? sumTile('Performance', s.perf, 'Elo estimé') : ''}</div>${wdl(s)}`;
 }
 function partieRow(g, fx, allTc) {
   const a = S.an[g.id], ok = a && !a.bad, acc = ok && a.acc != null ? a.acc : g.acc;
   const nG = ok ? a.errs.filter((e) => e.kind === 'gaffe').length : null, nE = ok ? a.errs.filter((e) => e.kind === 'erreur').length : null;
-  const res = g.out === 'W' ? ['good', 'Victoire'] : g.out === 'L' ? ['bad', 'Défaite'] : ['', 'Nulle'];
-  const d = new Date(g.t * 1000), hh = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const d = new Date(g.t * 1000), hh = F_HM(d);
   // Fautes (17/11) : deux pastilles de largeur fixe, toujours présentes (0 en gris), pour qu'elles s'alignent d'une ligne à l'autre
   const flt = (n, sym, cls, lab) => `<span class="flt ${n ? cls : ''}" title="${pl(n, lab)}"><b>${n}</b>${sym}</span>`;
   const fau = !ok ? '<span class="small">non analysée</span>' : flt(nG, '??', 'bad', 'gaffe') + flt(nE, '?', 'warn', 'erreur');
-  return `<a class="gl ${g.out}" href="#partie/${g.t}" aria-label="${res[1]} contre ${esc(g.opp)}, ${dfmt(g.t)}">
+  return `<a class="gl ${g.out}" href="#partie/${g.t}" aria-label="${resWord(g.out)} contre ${esc(g.opp)}, ${dfmt(g.t)}">
     <span class="gl-pl"><span class="gl-p"><i class="dot ${g.w ? 'b' : 'w'}"></i><span class="gl-n">${esc(g.opp)}</span><b class="num">${g.or || '?'}</b>${fx.gap != null ? `<span class="small num" title="Écart avec ton Elo">${sgn(fx.gap)}</span>` : ''}</span>
       <span class="gl-p me"><i class="dot ${g.w ? 'w' : 'b'}"></i><span class="gl-n">Moi</span><b class="num">${g.r || '?'}</b>${fx.d != null ? `<span class="num ${fx.d > 0 ? 'up' : fx.d < 0 ? 'dn' : ''}" title="Variation de ton Elo sur cette partie">${sgn(fx.d)}</span>` : g.rated ? '' : '<span class="small">amicale</span>'}</span></span>
-    <span class="gl-res"><span class="chip ${res[0]}">${res[1]}</span><span class="small">${esc(HOW[g.how] || g.how || '')}</span></span>
+    <span class="gl-res">${resChip(g.out)}<span class="small">${esc(HOW[g.how] || g.how || '')}</span></span>
     <span class="gl-meta"><span class="gl-op">${esc(g.fam)}</span><span class="gl-c num"><b>${Math.ceil(g.san.length / 2)}</b><span class="gl-u"> coups</span></span>
       <span class="gl-c num">${acc != null ? `<b>${Math.round(acc)} %</b><span class="vh"> de précision</span>` : '<span class="small">–</span>'}</span>
       <span class="gl-c gl-f">${fau}</span><span class="gl-c num">${fx.left != null ? `<b>${mmss(fx.left)}</b><span class="vh"> restant à la pendule</span>` : '<span class="small">–</span>'}</span>
@@ -1784,9 +1819,8 @@ function partieRow(g, fx, allTc) {
 }
 // Détail d'une ouverture jouée (#monouv/<w|b>/<famille>) : chiffres, usage dans le temps, suites, variantes, erreurs, parties.
 const famHref = (fam, w) => `#monouv/${w ? 'w' : 'b'}/${encodeURIComponent(fam)}`;
-const perName = (k, unit) => (unit === 'semaine' ? 'sem. du ' + new Date(((k * 7) - 3) * 86400000).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', timeZone: 'UTC' }) : unit === 'mois' ? new Date(Date.UTC(Math.floor(k / 12), k % 12, 1)).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric', timeZone: 'UTC' }) : `T${(k % 12) / 3 + 1} ${Math.floor(k / 12)}`);
+const perName = (k, unit) => (unit === 'semaine' ? 'sem. du ' + F_DSHORT_UTC(new Date(((k * 7) - 3) * 86400000)) : unit === 'mois' ? F_MY_UTC(new Date(Date.UTC(Math.floor(k / 12), k % 12, 1))) : `T${(k % 12) / 3 + 1} ${Math.floor(k / 12)}`);
 const scoreChip = (s) => { const sc = st.score(s); return `<span class="chip ${s.n >= 2 && sc >= 55 ? 'good' : s.n >= 2 && sc <= 42 ? 'bad' : ''}">${sc} %</span>`; };
-const resChip = (g) => `<span class="chip ${g.out === 'W' ? 'good' : g.out === 'L' ? 'bad' : ''}">${g.out === 'W' ? 'Victoire' : g.out === 'L' ? 'Défaite' : 'Nulle'}</span>`;
 function viewMonOuv(c, enc) {
   let fam; try { fam = decodeURIComponent(enc || ''); } catch { fam = ''; }
   const white = c === 'w', d = st.famDetail(games(), fam, white), gs = d.games;
@@ -1814,7 +1848,7 @@ function viewMonOuv(c, enc) {
     <div class="row">${exBtn(d.prefix, 'Explorer mes coups', 'btn pri sm')}${cat ? `<a class="btn sm" href="#ouvertures/${cat.id}">Fiche : ${esc(cat.nom)}</a>` : ''}</div></div></div>
   <div class="mogrid">
   <div class="card"><h2>En chiffres</h2><dl class="kv">
-    <dt>Score</dt><dd>${st.score(d.tally)} % (${d.tally.w} V, ${d.tally.d} N, ${d.tally.l} D)</dd>
+    <dt>Score</dt><dd>${st.score(d.tally)} % (${d.tally.w} V · ${d.tally.d} N · ${d.tally.l} D)</dd>
     <dt>Part de tes parties ${white ? 'avec les Blancs' : 'avec les Noirs'}</dt><dd>${st.pct(gs.length, games().filter((g) => g.w === white).length)} %</dd>
     <dt>Première et dernière fois</dt><dd>${dfmt(gs[0].t)} · ${dfmt(gs[gs.length - 1].t)}</dd>
     ${elo ? `<dt>Classement moyen des adversaires</dt><dd>${elo}</dd>` : ''}
@@ -1825,12 +1859,12 @@ function viewMonOuv(c, enc) {
   <div class="card"><h2>Dans le temps <span class="small">par ${d.periods.unit}</span></h2><div class="chart" id="moc"></div>
     <p class="small">Nombre de parties dans cette ouverture. Survole un point pour le score et la part de tes parties.</p></div>
   </div>
-  ${d.lines.length ? `<div class="card"><h2>Suites les plus jouées</h2><table><tbody>${d.lines.map((l) => `<tr class="click" data-act="exline" data-w="${white ? 1 : 0}" data-san="${esc(l.san.join(' '))}" title="Ouvrir dans l’explorateur"><td>${esc(st.lineText(l.san, d.prefix.length))}</td><td class="r">${l.n}</td><td style="width:28%">${wdl(l)}</td><td class="r">${scoreChip(l)}</td></tr>`).join('')}</tbody></table>
+  ${d.lines.length ? `<div class="card"><h2>Tes suites les plus jouées</h2><table><tbody>${d.lines.map((l) => `<tr class="click" data-act="exline" data-w="${white ? 1 : 0}" data-san="${esc(l.san.join(' '))}" title="Ouvrir dans l’explorateur"><td>${esc(st.lineText(l.san, d.prefix.length))}</td><td class="r">${l.n}</td><td style="width:28%">${wdl(l)}</td><td class="r">${scoreChip(l)}</td></tr>`).join('')}</tbody></table>
     <p class="small">Après ${d.prefix.length ? esc(st.lineText(d.prefix)) : 'le début'}. Touche une suite pour la suivre coup par coup dans l’explorateur.</p></div>` : ''}
   ${d.vars.length > 1 ? `<div class="card"><h2>Variantes</h2><table><tbody>${d.vars.map((v) => `<tr><td>${esc(v.op.replace(fam, '').trim() || 'Ligne principale')}</td><td class="r">${v.n}</td><td style="width:28%">${wdl(v)}</td><td class="r">${scoreChip(v)}</td></tr>`).join('')}</tbody></table></div>` : ''}
-  ${opErrs.length ? `<div class="card"><h2>Fautes dans l’ouverture</h2>${topTh.length ? `<p class="small">Le plus souvent : ${topTh.map(([t, n]) => `${st.THEMES[t]} (${n})`).join(', ')}.</p>` : ''}
+  ${opErrs.length ? `<div class="card"><h2>Tes fautes dans l’ouverture</h2>${topTh.length ? `<p class="small">Le plus souvent : ${topTh.map(([t, n]) => `${st.THEMES[t]} (${n})`).join(', ')}.</p>` : ''}
     ${opErrs.slice(-4).reverse().map(({ g, e }) => `<div class="hrow"><i class="hres ${e.kind === 'gaffe' ? 'r0' : 'r1'}"></i><span class="stepc"><b>Coup ${moveNo(e)} : ${fr(e.played)} au lieu de ${fr(e.bestSan)}</b><span>${dfmt(g.t)} contre ${esc(g.opp)}${st.THEMES[e.theme] ? ' · ' + st.THEMES[e.theme] : ''}</span></span><a class="btn sm" href="#erreur/${g.t}/${e.ply}">Rejouer</a></div>`).join('')}</div>` : ''}
-  <div class="card"><h2>Dernières parties</h2><div class="stack">${recent.map((g) => `<a class="row" href="#partie/${g.t}" style="justify-content:space-between"><span>${dfmt(g.t)} contre ${esc(g.opp)} (${g.or}) · ${Math.ceil(g.san.length / 2)} coups</span>${resChip(g)}</a>`).join('')}</div></div>`;
+  <div class="card"><h2>Dernières parties</h2><div class="stack">${recent.map((g) => `<a class="row" href="#partie/${g.t}" style="justify-content:space-between"><span>${dfmt(g.t)} contre ${esc(g.opp)} (${g.or}) · ${Math.ceil(g.san.length / 2)} coups</span>${resChip(g.out)}</a>`).join('')}</div></div>`;
 }
 function mountMonOuv() {
   const P = S.mo; if (!P || !$('#mob')) return;
@@ -1843,8 +1877,8 @@ function mountMonOuv() {
 function viewParties() {
   const gs = games().slice().reverse(), fx = st.gameFacts(S.data?.games || []), allTc = S.f.tc === 'all';
   S.listN ||= 50;
-  const head = '<div class="gl head" aria-hidden="true"><span>Joueurs et Elo</span><span>Résultat</span><span class="gl-meta"><span>Ouverture</span><span class="gl-c">Coups</span><span class="gl-c">Précision</span><span class="gl-c">Fautes</span><span class="gl-c">Pendule</span><span class="gl-d">Date</span></span></div><p class="gl-leg small">Elo : écart de l’adversaire avec toi, puis ce que la partie t’a fait gagner ou perdre. Dessous : coups, précision, temps restant, fautes (?? gaffe, ? erreur).</p>';
-  return `${GAMES_TABS('parties')}<div class="vhead"><h1>Parties</h1>${periodSeg()}</div><div class="row updrow"><span class="sub" id="upd">${upToDate()}</span>${refreshBtn()}</div>${gs.length ? `<div class="card">${partiesSummary(gs)}</div>` : ''}<div class="card gll">${head}
+  const head = '<div class="gl head" aria-hidden="true"><span>Joueurs et Elo</span><span>Résultat</span><span class="gl-meta"><span>Ouverture</span><span class="gl-c">Coups</span><span class="gl-c">Précision</span><span class="gl-c">Fautes</span><span class="gl-c">Pendule</span><span class="gl-d">Date</span></span></div><details class="gl-leg small"><summary>Comment lire une ligne</summary><p>Elo : écart de l’adversaire avec toi, puis ce que la partie t’a fait gagner ou perdre. Dessous : coups, précision, temps restant, fautes (?? gaffe, ? erreur).</p></details>';
+  return `${tabs('parties', GAMES_TABS)}<div class="vhead"><h1>Parties</h1>${periodSeg()}</div><div class="row updrow"><span class="sub" id="upd">${upToDate()}</span>${refreshBtn()}</div>${gs.length ? `<div class="card">${partiesSummary(gs)}</div>` : ''}<div class="card gll">${head}
     ${gs.slice(0, S.listN).map((g) => partieRow(g, fx[g.id] || {}, allTc)).join('')}
     ${gs.length > S.listN ? '<div><button class="btn" data-act="more">Afficher 50 parties de plus</button></div>' : ''}</div>`;
 }
@@ -1934,24 +1968,24 @@ function gvMoves(v) {
 }
 // Elo estimé de la partie (insights.js) : repère personnel, d'après ta précision moyenne et ton classement moyen dans cette cadence.
 function perfOf(g, a) {
-  const ref = perfRef(S.data.games.filter((x) => x.tc === g.tc), S.an), e = gameRating(a.acc, ref);
+  const ref = memo('ref:' + g.tc, () => perfRef(S.data.games.filter((x) => x.tc === g.tc), S.an)), e = gameRating(a.acc, ref);
   return e ? { e, tip: `Repère : ta précision moyenne (${ref.acc} %) vaut ton classement moyen (${ref.elo}) ; chaque point de précision en plus ou en moins compte pour 25 points.` } : null;
 }
 function perfChip(g, a) { const p = perfOf(g, a); return p ? `<span class="chip" title="${p.tip}">Elo estimé ${p.e}</span>` : ''; }
 // ---------- Idées de plan : sur une position calme de tes parties, choisir la bonne idée (ideas.js) ----------
-function ideaPool() { return ideaPositions(S.data.games.filter((g) => g.tc === targetTc()), S.an).sort((a, b) => b.g.t - a.g.t || b.e.ply - a.e.ply); }
+// Positions d'une partie, gardées tant que son analyse ne change pas (WeakMap sur l'analyse : touch() n'invalide que ce qui a bougé).
+const IDEAS = new WeakMap();
+const ideasOf = (g) => { const a = S.an[g.id]; if (!a) return []; let v = IDEAS.get(a); if (!v) IDEAS.set(a, (v = ideaPositionsOf(g, a))); return v; };
+const ideaGames = () => S.data.games.filter((g) => g.tc === targetTc());
+const ideaDone = () => new Set(progress.hist().filter((h) => h.k === 'i').map((h) => h.id));
 function ideaCur() {
-  const pool = ideaPool(); if (!pool.length) return null;
-  if (!S.idea || !pool.some((p) => p.id === S.idea.cur)) {
-    const done = new Set(progress.hist().filter((h) => h.k === 'i').map((h) => h.id));
-    S.idea = { cur: (pool.find((x) => !done.has(x.id)) || pool[0]).id };
-  }
-  return pool.find((p) => p.id === S.idea.cur);
+  const p = ideaStart(ideaGames(), ideasOf, S.idea?.cur, ideaDone());
+  if (!p) return null;
+  S.idea = { cur: p.id };
+  return p;
 }
 function ideaNext() {
-  const pool = ideaPool(), done = new Set(progress.hist().filter((h) => h.k === 'i').map((h) => h.id)), i = pool.findIndex((p) => p.id === S.idea?.cur);
-  const rest = [...pool.slice(i + 1), ...pool.slice(0, Math.max(0, i))];
-  S.idea = { cur: (rest.find((x) => !done.has(x.id)) || rest[0] || pool[0])?.id };
+  S.idea = { cur: ideaFollow(ideaGames(), ideasOf, S.idea?.cur, ideaDone())?.id };
   render();
 }
 function viewIdees() {
@@ -2038,7 +2072,6 @@ function viewPartie(t, plyArg) {
   // #partie/<t>/d : débrief d'entrée, puis l'adresse redevient celle de la partie (un rendu suivant ne le relance pas).
   if (plyArg === 'd') { if (gvDbList(v).length) { v.var = null; v.ask = null; v.db = 0; v.k = Math.min(mv.length, v.dbl[0].ply); } history.replaceState(null, '', '#partie/' + g.t); }
   const cap = gvCap(v);
-  const res = `<span class="chip ${g.out === 'W' ? 'good' : g.out === 'L' ? 'bad' : ''}">${g.out === 'W' ? 'Victoire' : g.out === 'L' ? 'Défaite' : 'Nulle'}${HOW[g.how] ? ' (' + HOW[g.how] + ')' : ''}</span>`;
   const link = `<a class="btn sm" href="${esc(g.id)}" target="_blank" rel="noopener">Chess.com</a>`;
   // Téléphone : l'Elo estimé de la partie prend la place du classement et de la série dans la barre du haut (demande du 16/11).
   const perf = a ? perfChip(g, a) : '';
@@ -2059,7 +2092,7 @@ function viewPartie(t, plyArg) {
       <div class="gvch" title="Tes chances de gain. Points rouges : gaffes, orange : erreurs. Touche la courbe pour aller au coup."><p class="small">Tes chances de gain. Points rouges : gaffes, orange : erreurs. Touche la courbe pour aller au coup.</p><div class="chart" id="evc"></div></div>`
     : `<div class="card"><p class="sub">Cette partie n’est pas encore analysée.</p><div><button class="btn pri" data-act="analyse1" ${S.job.running ? 'disabled' : ''}>${S.job.running ? 'Analyse en cours' : 'Analyser cette partie'}</button></div></div>`}
       <div class="gvm" id="gvm" data-edge>${gvMoves(v)}</div>
-      <div class="gvmore stack"><div class="row">${res}<span class="chip">${dfmt(g.t)}</span>${link}</div>
+      <div class="gvmore stack"><div class="row">${resChip(g.out, g.how)}<span class="chip">${dfmt(g.t)}</span>${link}</div>
       <p class="small">Joue tes propres coups sur l’échiquier pour tester une autre suite : le moteur l’évalue. Clic droit pour tracer des flèches.</p>
       ${serious.length ? `<div class="card"><h2>Moments clés</h2>${serious.map((x) => `<a class="row" href="#" data-act="goto" data-k="${x.ply}" style="justify-content:space-between;text-decoration:none"><span>Coup ${moveNo(x)} : ${fr(x.played)}, mieux ${fr(x.bestSan)}</span><span class="chip ${x.kind === 'gaffe' ? 'bad' : 'warn'}">${st.THEMES[x.theme]}</span></a>`).join('')}</div>` : ''}</div>`,
     bar: gvBar(v),
@@ -2067,9 +2100,8 @@ function viewPartie(t, plyArg) {
 }
 // Bandeau d'un joueur au-dessus ou au-dessous de l'échiquier (ordinateur) : couleur, nom, Elo, résultat, pendule au coup affiché.
 function gvPlayer(v, me) {
-  const g = v.g, white = me === g.w, res = g.out === 'D' ? 'Nulle' : (g.out === 'W') === me ? 'Victoire' : 'Défaite';
-  const cls = g.out === 'D' ? '' : (g.out === 'W') === me ? 'good' : 'bad';
-  return `<div class="gvbar ${me ? 'me' : ''}"><i class="dot ${white ? 'w' : 'b'}"></i><b>${me ? 'Toi' : esc(g.opp)}</b><span class="num">${me ? g.r : g.or}</span>${me ? `<span class="chip ${cls}">${res}${me && HOW[g.how] ? ' (' + HOW[g.how] + ')' : ''}</span>` : ''}<span class="gvclk num" data-side="${white ? 'w' : 'b'}"></span></div>`;
+  const g = v.g, white = me === g.w;
+  return `<div class="gvbar ${me ? 'me' : ''}"><i class="dot ${white ? 'w' : 'b'}"></i><b>${me ? 'Toi' : esc(g.opp)}</b><span class="num">${me ? g.r : g.or}</span>${me ? resChip(g.out, g.how) : ''}<span class="gvclk num" data-side="${white ? 'w' : 'b'}"></span></div>`;
 }
 function gvClocks(v) {
   const c = clocksAt(v.g, v.var ? v.var.k0 : v.k), turn = (v.var ? v.var.k0 : v.k) % 2 ? 'b' : 'w';
@@ -2078,9 +2110,8 @@ function gvClocks(v) {
 // Bilan de la partie en encarts (17/11) : précision, Elo estimé, puis les fautes par gravité avec leur symbole.
 function gvTiles(g, a) {
   const n = (k) => a.errs.filter((x) => x.kind === k).length, p = perfOf(g, a);
-  const tile = (lab, v, cls = '', tip = '') => `<div class="glt"${tip ? ` title="${tip}"` : ''}><span class="small">${lab}</span><b class="num ${cls}">${v}</b></div>`;
   const f = (k, sym, cls, lab) => `<span class="gvf ${n(k) ? cls : ''}" title="${pl(n(k), lab)}">${n(k)}<small>${sym}</small></span>`;
-  return `<div class="glsum gvsum">${tile('Précision', a.acc != null ? a.acc.toFixed(0) + ' %' : '—')}${p ? tile('Elo estimé', p.e, '', p.tip) : ''}${tile('Fautes', f('gaffe', '??', 'ko', 'gaffe') + f('erreur', '?', 'warn', 'erreur') + f('imprecision', '?!', '', 'imprécision'))}</div>`;
+  return `<div class="glsum gvsum">${tile('Précision', a.acc != null ? a.acc.toFixed(0) + ' %' : '—')}${p ? tile('Elo estimé', p.e, { tip: p.tip }) : ''}${tile('Fautes', f('gaffe', '??', 'ko', 'gaffe') + f('erreur', '?', 'warn', 'erreur') + f('imprecision', '?!', '', 'imprécision'))}</div>`;
 }
 // Variante jouée par l'élève depuis la position k0 de la partie : { k0, mv, fens, i, ev }.
 // L'échiquier de la relecture se joue librement (les deux camps) ; un coup différent de la partie ouvre une variante.
@@ -2183,8 +2214,7 @@ function mountPartie() {
     const o = { min: 0, max: 100, base: 0, marks, cursor: Math.min(v.k, pts.length - 1), label: 'Chances de gain au fil de la partie', onPick: gvGo };
     v.chart = lineChart(c, pts, matchMedia('(min-width: 860px)').matches ? { ...o, h: 104, step: 50, yfmt: (y) => y + ' %', x0: 'Début', x1: 'Fin' } : { ...o, h: 48, compact: true, mid: 50 });
   }
-  X.on({ first: () => gvGo(0), prev: () => gvGo(v.k - 1), next: () => gvGo(v.k + 1), last: () => gvGo(v.mv.length) });
-  // Clavier : géré par l'écouteur global (variante comprise), voir keydown plus bas
+  // Boutons (data-act="goto") et clavier : gérés par les écouteurs globaux (variante comprise), voir plus bas
   gvSync();
 }
 
@@ -2256,7 +2286,7 @@ function mountDrill() {
   X.on({ ans: answer });
 }
 // S'entraîner (section fusionnée avec Apprendre le 16/11, refaite le 16/11) : en tête, la chose à faire maintenant,
-// avec l'échiquier de ton prochain puzzle (mountEntrainer) ; puis les exercices en sommaire, chacun avec son état ;
+// avec l'échiquier de ton prochain puzzle (mountEntrainer) ; puis les exercices en tuiles, chacun avec son dessin et son état ;
 // l'historique en simple lien. Un seul bouton plein : celui de la tête.
 function entNext() {
   const d = pzDay(), fc = ls.get('focus', null), q = d.due ? (pzQueue(fc?.id || '', false)[0] || pzQueue('', false)[0]) : null;
@@ -2273,30 +2303,29 @@ function viewEntrainer() {
   if (n.kind === 'pz') {
     const { g, e } = n.p, left = d.goal - d.done;
     hero = `<section class="ent-now"><div class="ent-b"><div class="board" id="entb" data-id="${esc(n.p.id)}" aria-label="Position de ton prochain puzzle"></div></div>
-      <div class="ent-t"><h2>${left === d.goal ? 'Puzzles du jour' : `Encore ${pl(left, 'puzzle')} aujourd’hui`}</h2>
+      <div class="ent-t"><span class="ent-k">À faire maintenant</span><h2>${left === d.goal ? 'Tes puzzles du jour' : `Encore ${pl(left, 'puzzle')} aujourd’hui`}</h2>
       <p>Coup ${moveNo(e)} contre ${esc(g.opp)} : ton coup t’a coûté ${e.drop} points de chances de gain. ${st.THEMES[e.theme] ? `Thème : ${esc(st.THEMES[e.theme].toLowerCase())}.` : ''}</p>
       ${pzProg(d)}<button class="btn pri lg" data-act="pzfocus">${d.done ? 'Continuer mes puzzles' : 'Résoudre mes puzzles'}</button></div></section>`;
   } else if (n.kind === 'ln') {
-    hero = `<section class="ent-now noboard"><div class="ent-t"><h2>${pl(n.n, 'ligne')} d’ouverture à réviser</h2><p>Puzzles du jour faits. Récite tes lignes de mémoire : la répétition espacée les fixe.</p><a class="btn pri lg" href="${n.href}">Réciter mes lignes</a></div></section>`;
+    hero = `<section class="ent-now noboard"><div class="ent-t"><span class="ent-k">À faire maintenant</span><h2>${pl(n.n, 'ligne')} d’ouverture à réviser</h2><p>Puzzles du jour faits. Récite tes lignes de mémoire : la répétition espacée les fixe.</p><a class="btn pri lg" href="${n.href}">Réciter mes lignes</a></div></section>`;
   } else {
-    hero = `<section class="ent-now noboard"><div class="ent-t"><h2>${d.done >= d.goal ? 'Objectif du jour atteint' : 'Échauffe ton regard'}</h2><p>${d.done >= d.goal ? 'Tes puzzles sont faits. Deux minutes de vérification gardent le réflexe.' : 'Dix positions tirées de tes parties, deux minutes, pour vérifier avant de jouer.'}</p><a class="btn pri lg" href="#exos">Lancer un échauffement</a></div></section>`;
+    hero = `<section class="ent-now noboard"><div class="ent-t"><span class="ent-k">À faire maintenant</span><h2>${d.done >= d.goal ? 'Objectif du jour atteint' : 'Échauffe ton regard'}</h2><p>${d.done >= d.goal ? 'Tes puzzles sont faits. Deux minutes de vérification gardent le réflexe.' : 'Dix positions tirées de tes parties, deux minutes, pour vérifier avant de jouer.'}</p><a class="btn pri lg" href="#exos">Lancer un échauffement</a></div></section>`;
   }
-  // Sommaire plutôt que tuiles à icône (18/11, « pas AI slop ») : une ligne par exercice, ce qui t'attend à droite, en chiffres.
-  const tile = (href, t, desc, tag) => `<a class="ent-row" href="${href}"><span class="ent-tt"><b>${t}</b><span class="ent-d">${desc}</span></span>${tag ? `<span class="ent-n">${tag}</span>` : ''}${ico('next')}</a>`;
+  const entTile = (href, icon, t, desc, tag, sec) => `<a class="ent-tile" href="${href}" style="--sec:var(${sec})"><span class="ent-i">${ico(icon)}</span><b>${t}</b><span class="ent-d">${desc}</span>${tag ? `<span class="ent-tag">${tag}</span>` : ''}</a>`;
   return `<h1>S’entraîner</h1>${hero}
-  <h2 class="ent-h">Pratiquer</h2><div class="ent-list">
-    ${n.kind === 'pz' ? '' : tile('#puzzles', 'Puzzles sur mes erreurs', 'Tes propres fautes, à corriger', d.due ? `${d.due} en attente` : '')}
-    ${tile('#exos', 'Échauffements', 'Vérifier avant de jouer, 2 minutes', '')}
-    ${tile(due.length ? lineHref(due[0]) : '#ouvertures/apprendre', 'Réciter mes lignes', 'Tes ouvertures, de mémoire', due.length ? `${due.length} à réviser` : '')}
-    ${tile('#rush', 'Rush', 'Vérifier vite, contre la montre', progress.rushBest().t3 ? 'Record : ' + progress.rushBest().t3 : '')}
-    ${tile('#gagner', 'Finir les parties gagnées', 'Convertir l’avantage contre le moteur', cv ? `${pl(cv, 'partie')} à convertir` : '')}
-    ${tile('#finales', 'Finales de base', 'Mater, faire dame, tenir la nulle', egDue ? `${egDue} à refaire` : '')}
-    ${tile('#inedits', 'Positions inédites', 'Puzzles neufs sur ton chantier', '')}
-    ${tile('#idees', 'Idées de plan', 'Choisir le bon plan dans tes positions calmes', '')}
+  <h2 class="ent-h">Pratiquer</h2><div class="ent-grid">
+    ${n.kind === 'pz' ? '' : entTile('#puzzles', 'tgt', 'Puzzles sur mes erreurs', 'Tes propres fautes, à corriger', d.due ? `${d.due} en attente` : '', '--c-train')}
+    ${entTile('#exos', 'clock', 'Échauffements', 'Vérifier avant de jouer, 2 minutes', '', '--c-train')}
+    ${entTile(due.length ? lineHref(due[0]) : '#ouvertures/apprendre', 'lines', 'Réciter mes lignes', 'Tes ouvertures, de mémoire', due.length ? `${due.length} à réviser` : '', '--c-learn')}
+    ${entTile('#rush', 'bolt', 'Rush', 'Vérifier vite, contre la montre', progress.rushBest().t3 ? 'Record : ' + progress.rushBest().t3 : '', '--c-train')}
+    ${entTile('#gagner', 'flag', 'Finir les parties gagnées', 'Convertir l’avantage contre le moteur', cv ? pl(cv, 'partie') : '', '--c-train')}
+    ${entTile('#finales', 'king', 'Finales de base', 'Mater, faire dame, tenir la nulle', egDue ? `${egDue} à refaire` : '', '--c-train')}
+    ${entTile('#inedits', 'spark', 'Positions inédites', 'Puzzles neufs sur ton chantier', '', '--c-train')}
+    ${entTile('#idees', 'bulb', 'Idées de plan', 'Choisir le bon plan dans tes positions calmes', '', '--c-train')}
   </div>
-  <h2 class="ent-h">Apprendre</h2><div class="ent-list">
-    ${tile('#cours', 'Cours', les?.d ? esc(les.d) : 'Leçons illustrées par tes positions', '')}
-    ${tile('#ouvertures/apprendre', 'Ouvertures', `${OPENINGS.length} fiches : idées, pièges, lignes`, '')}
+  <h2 class="ent-h">Apprendre</h2><div class="ent-grid two">
+    ${entTile('#cours', 'book', 'Cours', les?.d ? esc(les.d) : 'Leçons illustrées par tes positions', '', '--c-learn')}
+    ${entTile('#ouvertures/apprendre', 'tree', 'Ouvertures', `${OPENINGS.length} fiches : idées, pièges, lignes`, '', '--c-learn')}
   </div>
   <a class="ent-log" href="#historique">${ico('log')}<span>Historique</span><span class="small">${nh ? `${pl(nh, 'exercice')} noté${nh > 1 ? 's' : ''}` : 'Rien encore'}</span>${ico('next')}</a>`;
 }
@@ -2329,36 +2358,24 @@ function lookCard() {
 }
 function weekKey() { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return dkey(d); }
 function viewPlan() {
-  const hours = ls.get('hours', 6), wk = weekKey(), done = ls.get('plan:' + wk, {});
-  const fcs = ls.get('focus', null), pri = priorityLessons().ids;
-  const ids = fcs && LESSONS[fcs.id] ? [fcs.id, ...pri.filter((x) => x !== fcs.id)] : pri;
+  // Liste à cocher de la semaine retirée le 18/11 (la séance du jour fait ce travail) : les clés plan:<semaine> restent stockées.
+  const hours = ls.get('hours', 6), wk = weekKey();
   const monday = new Date(wk + 'T00:00:00').getTime() / 1000;
   const played = rapidAll().filter((g) => g.t >= monday).length;
   const target = Math.max(4, Math.round((hours * 60 * 0.5) / 25));
-  const sessions = Math.max(3, Math.min(7, Math.round((hours * 60 * 0.25) / 15)));
-  const weakOp = [true, false].flatMap((w) => st.openings(rapidAll(), w).filter((o) => o.n >= 5 && st.score(o) <= 42).map((o) => `${o.fam} (${w ? 'Blancs' : 'Noirs'})`))[0];
-  const items = [
-    ['dr', 'Un échauffement de 2 minutes avant chaque session de parties', '#exos'],
-    ...Array.from({ length: sessions }, (_, i) => [`pz${i}`, `Séance de puzzles ${i + 1} : 15 minutes sur tes erreurs`, '#puzzles']),
-    ids[0] ? ['l1', `${fcs ? 'Cours de ton chantier' : 'Cours de la semaine'} : ${LESSONS[ids[0]].titre}`, '#cours/' + ids[0]] : null,
-    ids[1] ? ['l2', `Deuxième cours : ${LESSONS[ids[1]].titre}`, '#cours/' + ids[1]] : null,
-    ['rev', 'Revoir tes 3 dernières défaites coup par coup', '#parties'],
-    weakOp ? ['op', `Explorer ton ouverture la plus fragile : ${weakOp}`, '#ouvertures'] : null,
-  ].filter(Boolean);
   const g = goal();
-  return `${PRO_TABS('plan')}<h1>Plan et réglages</h1>
-  <div class="card stack"><h2>Données</h2><p class="sub">Compte ${esc(S.user)}. Les nouvelles parties sont récupérées toutes seules.</p><div class="row">${cadenceField()}</div><div class="row"><button class="btn" data-act="refresh" ${S.importing && !S.importing.err ? 'aria-busy="true"' : ''}>Mettre à jour</button><span class="sub">${upToDate()}</span></div></div>
-  <div class="card"><h2>Semaine du ${new Date(wk + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}</h2>
+  return `${tabs('plan', PRO_TABS)}<h1>Plan et réglages</h1>
+  <div class="card stack"><h2>Tes données</h2><p class="sub">Compte ${esc(S.user)}. Les nouvelles parties sont récupérées toutes seules.</p><div class="row">${cadenceField()}</div><div class="row"><button class="btn" data-act="refresh" ${S.importing && !S.importing.err ? 'aria-busy="true"' : ''}>Mettre à jour</button><span class="sub">${upToDate()}</span></div></div>
+  <div class="card"><h2>Semaine du ${F_DLONG(new Date(wk + 'T00:00:00'))}</h2>
       <div class="row"><label for="hrs" class="sub">Temps disponible</label><select id="hrs">${[3, 4, 5, 6, 8, 10].map((h) => `<option value="${h}" ${h === hours ? 'selected' : ''}>${h} h par semaine</option>`).join('')}</select></div>
       <div class="stack"><b>Jouer : <span class="num">${played} / ${target}</span> parties rapides cette semaine</b>
         <div class="goalbar" aria-hidden="true"><i style="width:${Math.min(100, (100 * played) / target)}%"></i></div>
         <p class="small">Compté automatiquement à chaque mise à jour. Cadence conseillée : 15|10, l’incrément laisse le temps de vérifier chaque coup.</p></div>
-      <div class="stack">${items.map(([id, label, href]) => `<label class="check ${done[id] ? 'done' : ''}"><input type="checkbox" data-plan="${id}" ${done[id] ? 'checked' : ''}><span>${esc(label)} <a href="${href}">Ouvrir</a></span></label>`).join('')}</div>
     </div>
   <div class="grid">
     <div class="card"><h2>Avant chaque coup</h2><ol class="routine"><li>Que menace le dernier coup adverse ?</li><li>Ai-je un échec, une capture ou une menace ?</li><li>La case où je vais est-elle attaquée ?</li><li>Après mon coup, qu’est-ce que je laisse sans défense ?</li></ol></div>
     <div class="card"><h2>Règles de session</h2><ol class="routine"><li>Deux défaites de suite : fin des parties pour aujourd’hui, place aux puzzles.</li><li>Jamais de partie classée en étant pressé ou fatigué.</li><li>Après chaque défaite, mise à jour ici et relecture des moments clés.</li></ol></div>
-    <div class="card"><h2>Objectif</h2><div class="row"><label for="gelo" class="sub">Elo visé</label><input type="number" id="gelo" value="${g.elo}" min="100" max="3000" step="50" style="width:100px"></div>
+    <div class="card"><h2>Ton objectif</h2><div class="row"><label for="gelo" class="sub">Elo visé</label><input type="number" id="gelo" value="${g.elo}" min="100" max="3000" step="50" style="width:100px"></div>
       <div class="row"><label for="gdate" class="sub">Échéance</label><input type="date" id="gdate" value="${g.date}"></div>
       <div><button class="btn sm" data-act="reset">Changer de pseudo ou effacer les données</button></div></div>
     <div class="card"><h2>Sons</h2><label class="check"><input type="checkbox" data-f="snd" ${sound.enabled() ? 'checked' : ''}><span>Sons des coups, des bonnes réponses et de l’objectif atteint <span class="small">Coupés par défaut. Aussi réglables pendant un exercice.</span></span></label></div>
@@ -2368,6 +2385,13 @@ function viewPlan() {
       <div class="row"><label for="cmodel" class="sub">Modèle</label><select id="cmodel">${MODELS.map(([v, l]) => `<option value="${v}" ${coachModel() === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
       <div><button class="btn sm" data-act="keydel">Supprimer la clé de cet appareil</button></div>` : keyForm()}</div>
   </div>`;
+}
+function mountPlan() {
+  $('#hrs').onchange = (e) => { ls.set('hours', +e.target.value); render(true); toast('Temps par semaine enregistré'); };
+  const save = () => { const elo = +$('#gelo').value, date = $('#gdate').value; if (elo >= 100 && date) { ls.set('goal', { elo, date }); render(true); toast('Objectif enregistré'); } };
+  $('#gelo').onchange = save; $('#gdate').onchange = save;
+  const cm = $('#cmodel'); if (cm) cm.onchange = () => ls.set('model', cm.value);
+  board($('#lookb'), { fen: LOOK_FEN, viewOnly: true, lastMove: ['h5', 'f7'] });
 }
 
 // ---------- État de l'écran, conservé quand on quitte ou recharge la page ----------
@@ -2393,7 +2417,7 @@ async function restoreFrom(file) {
   if (!file) return;
   try {
     const b = await backup.readFile(file), x = backup.summary(b);
-    const ok = confirm(`Remplacer les données de cet appareil par la sauvegarde de ${b.user}${x.date ? ' du ' + x.date.toLocaleDateString('fr-FR') : ''} ?\n${x.games} parties, ${x.an} analysées, ${x.pz} puzzles suivis, ${x.h} exercices au journal.\nLa clé du coach reste celle de cet appareil.`);
+    const ok = confirm(`Remplacer les données de cet appareil par la sauvegarde de ${b.user}${x.date ? ' du ' + F_DNUM(x.date) : ''} ?\n${x.games} parties, ${x.an} analysées, ${x.pz} puzzles suivis, ${x.h} exercices au journal.\nLa clé du coach reste celle de cet appareil.`);
     if (!ok) return;
     S.job.stop = true;
     await backup.restore(b);
@@ -2407,6 +2431,44 @@ async function restoreFrom(file) {
 
 // ---------- Routage et événements ----------
 const route = () => (location.hash.slice(1) || 'accueil').split('/');
+// Table des routes (#route/a/b/c) : view rend le HTML de la vue ; mount monte échiquiers, courbes et écouteurs juste après ;
+// resize redessine au redimensionnement ; title nomme l'écran dans la barre du haut (exercice, page de cours) ; back est la cible
+// du bouton Retour (adresse, ou fonction qui la rend, ou qui navigue elle-même par history.back() et ne rend rien ; #accueil
+// sans back). Sans prototype : #constructor n'est pas une route.
+const pzMount = () => { mountPuzzle(); const s = $('#pzt'); if (s) s.onchange = () => { S.pz.theme = s.value; S.pz.cur = null; S.pz.show = null; render(); }; };
+const ROUTES = {
+  __proto__: null,
+  accueil: { view: viewAccueil, mount: mountAccueil, resize: mountAccueil },
+  avantpartie: { view: viewAvant, title: 'Avant de jouer' },
+  entrainer: { view: viewEntrainer, mount: mountEntrainer, resize: mountEntrainer },
+  puzzles: { view: () => viewPuzzles(), mount: pzMount, title: 'Puzzles' },
+  erreur: { view: (a, b) => viewPuzzles([a, b]), mount: pzMount, title: 'Comprendre', back: () => (history.length > 1 ? history.back() : '#puzzles') },
+  historique: { view: viewHistory },
+  exos: { view: viewExos },
+  inedits: { view: viewInedits, mount: mountInedits, title: 'Positions inédites', back: '#puzzles' },
+  drill: { view: viewDrill, mount: mountDrill, title: 'Échauffement', back: '#exos' },
+  idees: { view: viewIdees, mount: mountIdees, title: 'Idées de plan' },
+  gagner: { view: viewGagner, mount: mountGagner, title: 'Gagner', back: (a) => (a ? '#gagner' : '#exos') },
+  rush: { view: viewRush, mount: mountRush, title: 'Rush', back: (a) => (a ? '#rush' : '#entrainer') },
+  finales: { view: viewFinales },
+  finale: { view: viewFinale, mount: mountFinale, title: 'Finale', back: '#finales' },
+  cours: { view: (a, b) => (a ? viewLecon(a, b) : viewCours()), mount: (a) => a && mountLecon(), title: 'Cours', back: '#cours' }, // liste, ou leçon #cours/<id>[/fiche]
+  // Mes ouvertures (échiquier de l'explorateur), catalogue #ouvertures/apprendre, ou fiche #ouvertures/<id>
+  ouvertures: {
+    view: (a) => (a === 'apprendre' ? viewApprendre() : a ? viewOpening(a) : viewOuvertures()),
+    mount: (a) => { if (!a) { board($('#exb'), { fen: S.exFen, orientation: S.white ? 'white' : 'black', viewOnly: true }); lexpLoad(S.exFen); } else if (a !== 'apprendre') mountOpening(); },
+    title: 'Ouverture', back: '#ouvertures/apprendre',
+  },
+  ligne: { view: viewLigne, mount: mountLigne, title: 'Ouverture', back: (a) => '#ouvertures/' + a },
+  monouv: { view: viewMonOuv, mount: mountMonOuv, title: 'Mon ouverture', back: '#ouvertures' },
+  parties: { view: viewParties },
+  // Relecture : au passage ordinateur / téléphone, le bandeau change de colonne (vue reconstruite), sinon mise à jour sur place
+  partie: { view: viewPartie, mount: mountPartie, title: 'Partie', back: '#parties', resize: () => { if (S.gv?.cg) gvSync(); } }, // exercise.js change le bandeau de colonne sur place au passage ordinateur / téléphone ; gvSync recale l'affichage
+  jouer: { view: viewJouer, mount: mountJouer, title: 'Jouer', back: (a) => '#partie/' + a },
+  bilan: { view: viewBilan, mount: mountBilan, resize: mountBilan },
+  stats: { view: () => tabs('stats', PRO_TABS) + viewStats(S) /* viewStats vit dans alltime.js : les onglets sont ajoutés ici */, mount: () => mountStats(S), resize: () => mountStats(S) },
+  plan: { view: viewPlan, mount: mountPlan },
+};
 const navLast = {}; // section -> dernière page vue (en mémoire, pas de stockage)
 function render(keepScroll) {
   const y = scrollY;
@@ -2423,34 +2485,10 @@ function render(keepScroll) {
   if (r !== 'partie') S.gv = null;
   if (r !== 'rush') clearInterval(rushTimer);
   if (r !== 'drill' && S.dr && S.dr.i >= S.dr.items.length) S.dr = null; // une série en cours se reprend, une série finie repart de zéro
-  const html = r === 'idees' ? viewIdees() : r === 'avantpartie' ? viewAvant() : r === 'puzzles' ? viewPuzzles() : r === 'erreur' ? viewPuzzles([a, b]) : r === 'entrainer' ? viewEntrainer() : r === 'historique' ? viewHistory() : r === 'exos' ? viewExos() : r === 'inedits' ? viewInedits() : r === 'drill' ? viewDrill(a) : r === 'cours' ? (a ? viewLecon(a, b) : viewCours()) : r === 'ouvertures' ? (a === 'apprendre' ? viewApprendre() : a ? viewOpening(a) : viewOuvertures()) : r === 'monouv' ? viewMonOuv(a, b) : r === 'ligne' ? viewLigne(a, b, c) : r === 'parties' ? viewParties() : r === 'partie' ? viewPartie(a, b) : r === 'plan' ? viewPlan() : r === 'bilan' ? viewBilan() : r === 'stats' ? PRO_TABS('stats') + viewStats(S) /* viewStats vit dans alltime.js : les onglets sont ajoutés ici */ : r === 'gagner' ? viewGagner(a) : r === 'jouer' ? viewJouer(a, b) : r === 'finales' ? viewFinales() : r === 'finale' ? viewFinale(a) : r === 'rush' ? viewRush(a) : viewAccueil();
-  v.innerHTML = html;
+  const R = ROUTES[r] || { view: viewAccueil }; // adresse inconnue : la vue de l'accueil, sans montage
+  v.innerHTML = R.view(a, b, c);
   exo.attach(); // avant de créer les échiquiers : ils naissent à leur taille définitive
-  if (r === 'puzzles' || r === 'erreur') { mountPuzzle(); const s = $('#pzt'); if (s) s.onchange = () => { S.pz.theme = s.value; S.pz.cur = null; S.pz.show = null; render(); }; }
-  else if (r === 'cours' && a) mountLecon();
-  else if (r === 'ouvertures' && !a) { board($('#exb'), { fen: S.exFen, orientation: S.white ? 'white' : 'black', viewOnly: true }); lexpLoad(S.exFen); }
-  else if (r === 'ouvertures' && a !== 'apprendre') mountOpening();
-  else if (r === 'monouv') mountMonOuv();
-  else if (r === 'ligne') mountLigne();
-  else if (r === 'partie') mountPartie();
-  else if (r === 'drill') mountDrill();
-  else if (r === 'inedits') mountInedits();
-  else if (r === 'gagner') mountGagner();
-  else if (r === 'jouer') mountJouer();
-  else if (r === 'finale') mountFinale();
-  else if (r === 'rush') mountRush();
-  else if (r === 'idees') mountIdees();
-  else if (r === 'stats') mountStats(S);
-  else if (r === 'plan') {
-    $('#hrs').onchange = (e) => { ls.set('hours', +e.target.value); render(true); toast('Temps par semaine enregistré'); };
-    const save = () => { const elo = +$('#gelo').value, date = $('#gdate').value; if (elo >= 100 && date) { ls.set('goal', { elo, date }); render(true); toast('Objectif enregistré'); } };
-    $('#gelo').onchange = save; $('#gdate').onchange = save;
-    const cm = $('#cmodel'); if (cm) cm.onchange = () => ls.set('model', cm.value);
-    board($('#lookb'), { fen: LOOK_FEN, viewOnly: true, lastMove: ['h5', 'f7'] });
-    document.querySelectorAll('[data-plan]').forEach((c) => { c.onchange = () => { const k = 'plan:' + weekKey(), d = ls.get(k, {}); d[c.dataset.plan] = c.checked; ls.set(k, d); c.closest('.check').classList.toggle('done', c.checked); }; });
-  } else if (r === 'bilan') mountBilan();
-  else if (r === 'accueil') mountAccueil();
-  else if (r === 'entrainer') mountEntrainer();
+  R.mount?.(a, b, c);
   header();
   if (sec && !document.body.classList.contains('imm')) navLast[sec] = here; // dernière page vue de la section, barre du bas visible seulement : l'onglet du téléphone y revient (un écran immersif sans barre mènerait à une impasse)
   keepUi();
@@ -2557,18 +2595,7 @@ document.addEventListener('click', (ev) => {
     if (v.var) { const w = v.var, m = w.mv[w.i - 1] || v.mv[w.k0 - 1]; S.jp = { t: v.g.t, k: 'v', from: w.k0 + w.i, fen: w.fens[w.i], last: m ? [m.from, m.to] : undefined, moves: [], over: null }; location.hash = `#jouer/${v.g.t}/v`; }
     else { S.jp = null; location.hash = `#jouer/${v.g.t}/${v.k}`; }
   }
-  else if (act === 'back') {
-    const r = route()[0];
-    if (r === 'erreur') { if (history.length > 1) history.back(); else location.hash = '#puzzles'; }
-    else if (r === 'gagner') location.hash = route()[1] ? '#gagner' : '#exos';
-    else if (r === 'jouer') location.hash = '#partie/' + route()[1];
-    else if (r === 'finale') location.hash = '#finales';
-    else if (r === 'rush') location.hash = route()[1] ? '#rush' : '#entrainer';
-    else if (r === 'ligne') location.hash = '#ouvertures/' + route()[1];
-    else if (r === 'ouvertures') location.hash = '#ouvertures/apprendre';
-    else if (r === 'monouv') location.hash = '#ouvertures';
-    else location.hash = { partie: '#parties', cours: '#cours', drill: '#exos', inedits: '#puzzles' }[r] || '#accueil';
-  }
+  else if (act === 'back') { const [r, a] = route(), to = ROUTES[r]?.back, h = typeof to === 'function' ? to(a) : to || '#accueil'; if (h) location.hash = h; }
   else if (act === 'linext') liLoad();
   else if (act === 'lireplay') {
     const x = progress.hist().find((h) => String(h.t) === el.dataset.t); if (!x?.p) return;
@@ -2620,7 +2647,6 @@ document.addEventListener('click', (ev) => {
   else if (act === 'opfam') location.hash = famHref(el.dataset.fam, S.white);
   else if (act === 'exline') { S.white = el.dataset.w === '1'; S.path = el.dataset.san ? el.dataset.san.split(' ') : []; location.hash = '#ouvertures'; }
   else if (act === 'expath') { S.path = S.path.slice(0, +el.dataset.n); render(true); }
-  else if (act === 'open') location.hash = '#partie/' + el.dataset.t;
   else if (act === 'more') { S.listN += 50; render(true); }
   else if (act === 'goto') gvGo(+el.dataset.k);
   else if (act === 'dbgo') gvDb(+el.dataset.i);
@@ -2637,7 +2663,7 @@ document.addEventListener('click', (ev) => {
   else if (act === 'bakimp') $('#bakfile')?.click();
   else if (act === 'look') { const k = el.dataset.k, v = el.dataset.v; look.setLook({ [k]: k === 'coords' ? v === 'true' : k === 'size' ? null : v }); render(true); }
   else if (act === 'reset') {
-    if (el.dataset.sure) { const u = S.user; ls.clear(['key', 'model', 'goal', 'hours', 'look']); dbDel('data:' + u); dbDel('an:' + u); dbDel('ai:' + u); S.ai = {}; S.li = null; S.liKeep = null; S.dr = null; S.cv = null; S.gen = null; S.cl = null; LINES.clear(); S.job.stop = true; S.user = null; S.data = null; S.an = {}; S.pz = null; location.hash = '#accueil'; render(); }
+    if (el.dataset.sure) { const u = S.user; ls.clear(['key', 'model', 'goal', 'hours', 'look']); dbDel('data:' + u); dbDel('an:' + u); dbDel('ai:' + u); S.ai = {}; S.li = null; S.liKeep = null; S.dr = null; S.cv = null; S.gen = null; S.cl = null; LINES.clear(); S.job.stop = true; S.user = null; S.data = null; S.an = {}; touch(); S.pz = null; location.hash = '#accueil'; render(); }
     else { el.dataset.sure = '1'; el.textContent = 'Confirmer : effacer parties, analyses et progression (réglages et clé du coach conservés)'; }
   }
 });
@@ -2647,7 +2673,8 @@ document.addEventListener('change', (ev) => {
   if (el.dataset.f === 'liangle' || el.dataset.f === 'lidiff') { S.li[el.dataset.f === 'liangle' ? 'angle' : 'diff'] = el.value; ls.set('li', { angle: S.li.angle, diff: S.li.diff }); S.li.cur = null; S.li.err = null; render(true); return; }
   if (el.dataset.f === 'snd') { sound.setEnabled(el.checked); sound.play('good'); return; }
   if (el.dataset.f === 'focus') { ls.set('focus', { id: el.value, since: Math.floor(Date.now() / 1000) }); render(true); return; }
-  if (el.dataset.f === 'tc') { S.f.tc = el.value; if (S.pz) pzReset('', false); }
+  if (el.dataset.f !== 'tc') return; // la période (data-f="days") : des boutons, voir l'écouteur de clics suivant
+  S.f.tc = el.value; if (S.pz) pzReset('', false);
   ls.set('filter', S.f); S.path = []; render(true);
 });
 document.addEventListener('click', (ev) => {
@@ -2696,7 +2723,7 @@ document.addEventListener('pointerover', (ev) => {
   tip.style.left = Math.max(4, Math.min(innerWidth - tw - 4, r.left + r.width / 2 - tw / 2)) + 'px'; tip.style.top = Math.max(4, r.top - 34) + 'px';
 });
 document.addEventListener('pointerout', (ev) => { if (ev.target.closest?.('[data-tip]')) $('#tip').hidden = true; });
-let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { const r = route()[0]; if (r === 'bilan') mountBilan(); else if (r === 'accueil' && S.data) mountAccueil(); else if (r === 'entrainer' && S.data) mountEntrainer(); else if (r === 'stats') mountStats(S); else if (r === 'partie' && S.gv?.cg) gvSync(); }, 200); }); // relecture : exercise.js change le bandeau de colonne au passage ordinateur / téléphone ; gvSync recale l'affichage
+let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => S.data && ROUTES[route()[0]]?.resize?.(), 200); });
 
 if (new URLSearchParams(location.search).has('debug')) window.__cap = S; // accès à l'état pour les tests
 // Mise à jour automatique : au chargement et au retour sur l'onglet, si les données ont plus de 10 minutes.

@@ -538,16 +538,31 @@ Les 10 tâches de `docs/PLAN-HIG.md` sont faites, chacune avec sa mesure dans l'
 - Sur ordinateur, le bandeau à droite d'un exercice a une hauteur fixe de 170 px, pour que le panneau dessous ne bouge pas pendant une lecture : il paraît vide sur un texte court, et un texte long y défile.
 - À vérifier sur iPhone (jamais vu, l'audit simule) : Safari à 125 %, les palettes bois et bleu avec « Augmenter le contraste », et le bleu et le turquoise des icônes.
 
-## 49. Pas d'allure « générée par IA » (18/11)
+## 49. Plan d'amélioration : code, fluidité, lisibilité, dépôt (17-18/11)
 
-> https://github.com/Nutlope/inspo utilise pour trouver les skills utile à appliquer au repo. je ne veux pas qu'on se dise que le site fasse ai slop
-> B, montre-moi les polices côte à côte · besley. le reste vasy fais
+> Fais un plan pour améliorer ce repo avec ces objectifs : 1/ efficacité du code -> le moins de code avec les mêmes capacités. enlever ce qui est inutile 2/ fluidité du site 3/ ux beau claire et efficace (ex: sur la homepage rendre claire que les points correspondent à un jour de la semaine). 4/ ce que tu penses utile pour améliorer le repo · je prends tes recos, lance tout · si ça prend trop de temps, fais tout avec opus · ça prend trop de token → ok pour tes reco
 
-- **inspo** n'est pas un catalogue de skills : c'est une archive de 832 vrais sites (surtout des pages vitrines), interrogeable par MCP. Le serveur hébergé est bloqué depuis l'environnement de Claude ; le catalogue a été lu dans une copie du dépôt. Il dit lui-même de suivre les règles d'un projet qui en a déjà. Le contrôle utile est `sloplint`, du skill hallmark déjà installé.
-- **Constat** : titres en serif sur gris chaud avec Geist = l'allure de claude.ai (17 sites sombres sur 551 ont des titres à empattements dans inspo) ; grille de tuiles à icône ; 6 encarts chiffrés identiques ; trait coloré à gauche des cartes ; suites séparées par des points médians ; pastilles rondes devant « Défaite » et « Gaffe » ; surtitre coloré ; titres tous en « Ta / Ton / Tes ».
-- **Police des titres** : 3 candidates montrées sur l'accueil et Mon jeu (Besley, Antonio, Spline Sans Mono). Choix : **Besley** (variable, OFL, `vendor/fonts/besley-latin-wght-normal.woff2`), qui remplace Source Serif 4 dans `--serif`.
-- **Fait** : sommaire en lignes à la place des tuiles de S'entraîner (état chiffré à droite, plus d'icône) ; chiffres de l'objectif et de Parties en une bande séparée par des filets ; plus de trait à gauche (séance, tête de S'entraîner, signaux, regards croisés) ; plus de point devant les états (la couleur du texte suffit) ; dernière partie notée comme aux échecs (« 1-0 contre adv11 », « Ff3?? ») ; plus de point médian dans les en-têtes ; titres sans possessif (« Séance du jour », « Classement Rapide ») ; couleurs en jetons, bouton désactivé par fond, encre et curseur, marges sur l'échelle de 4 px.
-- `sloplint` (hallmark) : de 18 échecs, 123 réflexes et 5 alertes à 4, 17 et 3 ; ce qui reste est voulu (écran d'exercice sans défilement, hauteur de la barre du bas en `calc`, notation des coups en chasse fixe).
+Plan dans `docs/PLAN-AMELIORATION.md`, exécuté par des sous-agents (Sonnet puis Opus), chacun relu par un autre. Une autre session menait en même temps la revue HIG (§47) sur `main` : ses changements ont été fusionnés dans la branche du plan, conflits réglés de ce côté. Trois coupures par la limite d'usage. Tâches 14 (revue écran par écran) et 15 (un module par écran) abandonnées le 18/11 pour économiser les jetons.
+
+**Fluidité** (plus longue tâche bloquante à l'ouverture de la vue, banc `tests/perf.js` de 5 000 parties, ordinateur / téléphone) :
+
+| Vue | Avant | Après | Cause |
+|---|---|---|---|
+| Mon jeu | 2 867 / 2 060 ms | ≈ 60 ms | `toLocaleDateString` recréé à chaque point de courbe (`datef`), phases rejouées au rendu (calcul par tranches après l'affichage) |
+| Idées de plan | 2 831 / 2 573 ms | ≈ 60 ms | intentions recalculées pour toutes les erreurs (parcours paresseux, gardé par analyse) |
+| Stats | 498 / 326 ms | ≈ 70 ms | `datef` |
+| Échauffement | 287 ms | ≈ 60 ms | rejeu des parties (`replay` en cache, parties réchauffées d'abord) |
+| Relecture | 113 ms | ≈ 65 ms | Elo de référence gardé |
+
+Sur les 6 125 vraies parties de gaetcc (hors dépôt, plus longue tâche, ordinateur / téléphone) : Mon jeu 333 / 276 → moins de 50 ms ; Stats 494 / 427 → 62 / 56 ms ; Idées 292 / 266 → 50 ms au plus ; Échauffement 389 / 329 → 42 / 14 ms. Restent : l'échauffement ouvert avant la toute première analyse (≈ 350 ms : aucune partie rejouée d'avance), la relecture vers 100 ms (création de l'échiquier) et le rechargement (7 à 8 tâches de 55 à 115 ms, comme avant).
+
+Aussi : `memo()` / `touch()` (calculs gardés tant que parties, analyses, filtre et jour ne changent pas), préchargement de tout le graphe de modules et des polices du premier écran, repli de `idle` pour Safari (tranches de 12 ms décomptées à l'horloge).
+
+**Code** : polices Sora et IBM Plex supprimées (110 Ko) ; feuille de style en un bloc ordinateur et un bloc téléphone (37 blocs `@media` avant), un seul bloc de survol, règles mortes et doublons retirés (90,2 → 86,8 Ko, l'objectif de 70 Ko était trop optimiste : presque toute la feuille sert) ; table `ROUTES` à la place des quatre chaînes de routage ; aides `tile`, `resChip`, `tabs` ; quatre morceaux de code jamais exécuté retirés (couverture V8). `app.js` : 240,0 → 238,1 Ko après la fusion de la revue HIG (qui avait ajouté 3,4 Ko).
+
+**Interface** : semaine de l'accueil avec la lettre de chaque jour sous sa case (les 7 derniers jours, aujourd'hui à droite, en clair) ; mini-courbe des 30 jours en rouge quand l'Elo baisse ; liste à cocher de la semaine retirée de Plan et réglages (décision 1) ; puzzle sur téléphone : « Ouvrir la partie » sur sa propre ligne (l'interligne n'est plus cassé) ; Parties sur téléphone : synthèse en 2 colonnes sans case vide, aide repliable « Comment lire une ligne » ; un bouton désactivé ne s'éclaircit plus au survol.
+
+**Dépôt** : `CLAUDE.md` allégé (33 → 14 Ko, détail dans `docs/ARCHITECTURE.md`) ; bancs `tests/perf.js` et `tests/shots-diff.js` ; tests sur GitHub à chaque push (`.github/workflows/tests.yml`) ; écran `erreur-resolue` dans l'audit ; contrôles du parcours : nouvelle partie puis mise à jour (rien de périmé), anciennes adresses, passage ordinateur / téléphone de la relecture.
 
 ## Décisions à retenir
 
@@ -565,7 +580,6 @@ Les 10 tâches de `docs/PLAN-HIG.md` sont faites, chacune avec sa mesure dans l'
 | Synchronisation | Fichier de sauvegarde, pas de serveur | Le site reste statique, sans compte |
 | Refonte | Système du skill taste-skill, sans sa partie site vitrine ; Geist ; bouton principal en relief ; 5 entrées, Progrès en volet | Maquette validée le 15/11, faite le 16/11 ; voir `docs/REFONTE.md` |
 | Explications positionnelles | Heuristiques (`plan.js`) d'abord, Claude à la demande | Gratuit et sans clé ; Claude seulement pour les positions où la règle ne suffit pas |
-| Allure | Besley pour les titres, vocabulaire des échecs plutôt que décorations, pas de tuile à icône ni de trait coloré | Ne pas ressembler à un site généré (18/11, §49) |
 | Puzzles flous | Écartés s'ils n'ont pas de motif tactique et que 3 coups tenaient | Un puzzle sans réponse nette n'apprend rien |
 
 ## Non vérifié à ce jour

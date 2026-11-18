@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 globalThis.Chess = createRequire(import.meta.url)('../vendor/chess.js').Chess;
-const { phaseStats, pieceStats, hourStats, sessionStats, perfRef, gameRating, insightText, PIECE } = await import('../js/insights.js');
+const { phaseStats, phaseJob, pieceStats, hourStats, sessionStats, perfRef, gameRating, insightText, PIECE } = await import('../js/insights.js');
 
 // 24 demi-coups légaux (Italienne) : les 20 premiers sont l'ouverture, les suivants le milieu de partie.
 const SAN = 'e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d3 d6 O-O O-O Re1 a6 Bb3 Ba7 Nbd2 h6 Nf1 Re8 Ng3 Be6 h3 Qd7'.split(' ');
@@ -80,4 +80,27 @@ test('phrase sur la pièce : accordée au féminin pour la dame et la tour', () 
   const t = insightText({ pieces: [pc('q', 'dame', 33, 11), pc('n', 'cavalier', 60, 4)] });
   assert.match(t[0], /^Ta dame .* Avant de la jouer/);
   assert.match(insightText({ pieces: [pc('n', 'cavalier', 33, 11), pc('q', 'dame', 60, 4)] })[0], /^Ton cavalier .* Avant de le jouer/);
+});
+
+test('calcul par phase en tranches : même résultat que d’un coup, au moins une partie par tranche', () => {
+  const games = [1, 2, 3, 4, 5].map((t) => ({ id: 'g' + t, w: t % 2 === 1, san: SAN, out: 'L', t }));
+  const an = Object.fromEntries(games.map((g) => [g.id, { ev: g.id === 'g4' ? [] : ev, bad: g.id === 'g5' }]));
+  const job = phaseJob(games, an);
+  assert.equal(job.done, false);
+  let clock = 0, slices = 0;
+  const now = () => (clock += 10); // chaque lecture de l'horloge coûte 10 ms : une partie par tranche de 15 ms
+  while (!job.step(15, now)) slices++;
+  assert.ok(slices >= 2, 'plusieurs tranches');
+  assert.equal(job.done, true);
+  assert.deepEqual(job.result(), phaseStats(games, structuredClone(an)), 'référence calculée sur des analyses neuves, pas sur le cache du job');
+  assert.equal(phaseJob(games, an).step(0, () => 0), false, 'une tranche de 0 ms traite quand même une partie, sans finir');
+});
+
+test('cache par analyse : même objet réutilisé, analyse remplacée recalculée', () => {
+  const g = { id: 'g', w: true, san: SAN, out: 'L', t: 1 }, a = { ev: [...ev] };
+  const total = (an) => phaseStats([g], an).reduce((s, x) => s + x.bad, 0);
+  assert.equal(total({ g: a }), 1);
+  a.ev = ev.map(() => 0); // modifiée sur place : le cache garde l'ancien résultat (une analyse n'est jamais modifiée ainsi)
+  assert.equal(total({ g: a }), 1, 'même objet : réutilisé');
+  assert.equal(total({ g: { ev: ev.map(() => 0) } }), 0, 'objet neuf : recalculé');
 });

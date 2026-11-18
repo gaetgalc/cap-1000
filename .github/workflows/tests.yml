@@ -1,0 +1,33 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: Tests unitaires et syntaxe
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Tests unitaires
+        run: node --test tests/*.test.mjs
+
+      # Lu sur l'entrée standard en module ES : sous Node 22, « node --check
+      # fichier.js » laisse passer une faute de syntaxe dans un fichier qui
+      # contient import ou export (détection automatique du type de module).
+      - name: Syntaxe des modules
+        run: |
+          for f in js/*.js; do
+            node --input-type=module --check < "$f" || { echo "::error file=$f::Erreur de syntaxe dans $f"; exit 1; }
+          done

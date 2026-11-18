@@ -7,6 +7,8 @@ import { fmtEval } from './classify.js';
 import { fr } from './explain.js';
 import { intent, features } from './plan.js';
 import { play } from './geom.js';
+import { datef } from './ui.js';
+const DATE_FR = datef({});
 
 export const MODELS = [['claude-sonnet-5-5', 'Sonnet 5.5 (recommandé)'], ['claude-opus-5-5', 'Opus 5.5 (plus fin, plus cher)'], ['claude-haiku-5-5', 'Haiku 5.5 (rapide, économique)']];
 export const coachKey = () => ls.get('key', '');
@@ -64,7 +66,7 @@ export function facts(g, e) {
     else if (m && c.in_check()) cap = `Le coup ${fr(m.san)} donne échec.`;
   } catch { /* faits partiels */ }
   return [
-    `Partie du ${new Date(g.t * 1000).toLocaleDateString('fr-FR')} : tu as les ${side} contre ${g.opp} (${g.or} Elo), ouverture ${g.fam}, résultat ${g.out === 'W' ? 'victoire' : g.out === 'L' ? 'défaite' : 'nulle'}.`,
+    `Partie du ${DATE_FR(g.t * 1000)} : tu as les ${side} contre ${g.opp} (${g.or} Elo), ouverture ${g.fam}, résultat ${g.out === 'W' ? 'victoire' : g.out === 'L' ? 'défaite' : 'nulle'}.`,
     `Coup ${Math.floor(e.ply / 2) + 1}, trait aux ${side}.`,
     pieces(e.fen),
     `Ton coup en partie : ${fr(e.played)}. Meilleur coup selon le moteur : ${fr(e.bestSan)}.`,
