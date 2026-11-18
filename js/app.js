@@ -745,7 +745,7 @@ function viewLigne(id, k, mode) {
   const key = lineKey(o, +k), voir = mode === 'voir', mv = movesOf(l), side = l.side === 'w' ? 'Blancs' : 'Noirs';
   const mine = mv.filter((_, i) => (i % 2 === 0) === (l.side === 'w')).length;
   S.lnCur = { o, l, k: +k, key, voir };
-  const chips = `<span class="chip">${voir ? 'Découverte' : 'De mémoire'}</span><span class="chip">Ligne ${+k + 1} / ${o.lines.length}</span>`;
+  const chips = `<span class="chip lnmode">${voir ? 'Découverte' : 'De mémoire'}</span><span class="chip">Ligne ${+k + 1} / ${o.lines.length}</span>`;
   return exo.screen({
     live: true, top: () => chips,
     head: `<div class="pzhead main"><h1>${esc(o.nom)}</h1><div class="row">${chips}</div></div>`
@@ -1179,9 +1179,9 @@ function cadenceField() {
   const has = new Set(S.data.games.map((g) => g.tc));
   return `<label class="sub" for="tcsel">Cadence suivie</label><select id="tcsel" data-f="tc">${['rapid', 'blitz', 'bullet', 'daily'].filter((k) => has.has(k)).map((k) => `<option value="${k}" ${S.f.tc === k ? 'selected' : ''}>${TC[k]}</option>`).join('')}<option value="all" ${S.f.tc === 'all' ? 'selected' : ''}>Toutes cadences</option></select>`;
 }
-// Période : Tout · 90 j · 30 j, dans chaque vue qui la lit (Mon jeu, Parties).
+// Période : Tout · 90 j · 30 j, dans chaque vue qui la lit (Mon jeu, Parties, Mes ouvertures, détail d'une ouverture).
 const periodSeg = () => `<div class="seg2 mini" role="group" aria-label="Période">${[[0, 'Tout'], [90, '90 j'], [30, '30 j']].map(([v, l]) => `<button data-f="days" data-v="${v}" aria-pressed="${(S.f.days || 0) === v}" class="${(S.f.days || 0) === v ? 'on' : ''}">${l}</button>`).join('')}</div>`;
-const upToDate = () => (S.upErr ? `Mise à jour impossible, dernière réussie ${S.data?.fetchedAt ? agoFr(Date.now() - S.data.fetchedAt) : 'jamais'}`
+const upToDate = () => (S.upErr ? (S.data?.fetchedAt ? `Mise à jour impossible, dernière réussie ${agoFr(Date.now() - S.data.fetchedAt)}` : 'Mise à jour impossible')
   : S.data?.fetchedAt ? `À jour, ${agoFr(Date.now() - S.data.fetchedAt)}` : 'Pas encore mis à jour');
 const refreshBtn = () => `<button class="btn ico" data-act="refresh" aria-label="Mettre à jour" title="Récupérer les nouvelles parties de ${esc(S.user)}" ${S.importing && !S.importing.err ? 'aria-busy="true"' : ''}>${ico('refresh')}</button>`;
 const TITLES = { idees: 'Idées de plan', avantpartie: 'Avant de jouer', ouvertures: 'Ouverture', ligne: 'Ouverture', puzzles: 'Puzzles', erreur: 'Comprendre', partie: 'Partie', cours: 'Cours', drill: 'Échauffement', inedits: 'Positions inédites', gagner: 'Gagner', monouv: 'Mon ouverture', rush: 'Rush', finale: 'Finale', jouer: 'Jouer' };
@@ -1257,8 +1257,7 @@ function nextLesson(ids) {
 function focus(es) {
   let f = ls.get('focus', null);
   if (f && st.THEMES[f.id]) return f;
-  const all = es;
-  const top = all.themes[0]?.id;
+  const top = es.themes[0]?.id;
   if (!top) return null;
   f = { id: top, since: Math.floor(Date.now() / 1000) };
   ls.set('focus', f);
@@ -2345,7 +2344,7 @@ function viewPlan() {
   ].filter(Boolean);
   const g = goal();
   return `${PRO_TABS('plan')}<h1>Plan et réglages</h1>
-  <div class="card stack"><h2>Tes données</h2><p class="sub">Compte ${esc(S.user)}. Les nouvelles parties sont récupérées toutes seules.</p><div class="row">${cadenceField()}</div><div class="row"><button class="btn" data-act="refresh" ${S.importing && !S.importing.err ? 'aria-busy="true"' : ''}>Mettre à jour</button><span class="sub">${S.upErr ? upToDate() : S.data.fetchedAt ? `À jour : ${agoFr(Date.now() - S.data.fetchedAt)}` : 'Pas encore mis à jour'}</span></div></div>
+  <div class="card stack"><h2>Tes données</h2><p class="sub">Compte ${esc(S.user)}. Les nouvelles parties sont récupérées toutes seules.</p><div class="row">${cadenceField()}</div><div class="row"><button class="btn" data-act="refresh" ${S.importing && !S.importing.err ? 'aria-busy="true"' : ''}>Mettre à jour</button><span class="sub">${upToDate()}</span></div></div>
   <div class="card"><h2>Semaine du ${new Date(wk + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}</h2>
       <div class="row"><label for="hrs" class="sub">Temps disponible</label><select id="hrs">${[3, 4, 5, 6, 8, 10].map((h) => `<option value="${h}" ${h === hours ? 'selected' : ''}>${h} h par semaine</option>`).join('')}</select></div>
       <div class="stack"><b>Jouer : <span class="num">${played} / ${target}</span> parties rapides cette semaine</b>
@@ -2645,7 +2644,7 @@ document.addEventListener('change', (ev) => {
   if (el.dataset.f === 'liangle' || el.dataset.f === 'lidiff') { S.li[el.dataset.f === 'liangle' ? 'angle' : 'diff'] = el.value; ls.set('li', { angle: S.li.angle, diff: S.li.diff }); S.li.cur = null; S.li.err = null; render(true); return; }
   if (el.dataset.f === 'snd') { sound.setEnabled(el.checked); sound.play('good'); return; }
   if (el.dataset.f === 'focus') { ls.set('focus', { id: el.value, since: Math.floor(Date.now() / 1000) }); render(true); return; }
-  if (el.dataset.f === 'tc') { S.f.tc = el.value; if (S.pz) pzReset('', false); } else S.f.days = +el.value;
+  if (el.dataset.f === 'tc') { S.f.tc = el.value; if (S.pz) pzReset('', false); }
   ls.set('filter', S.f); S.path = []; render(true);
 });
 document.addEventListener('click', (ev) => {
@@ -2694,7 +2693,7 @@ document.addEventListener('pointerover', (ev) => {
   tip.style.left = Math.max(4, Math.min(innerWidth - tw - 4, r.left + r.width / 2 - tw / 2)) + 'px'; tip.style.top = Math.max(4, r.top - 34) + 'px';
 });
 document.addEventListener('pointerout', (ev) => { if (ev.target.closest?.('[data-tip]')) $('#tip').hidden = true; });
-let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { const r = route()[0]; if (r === 'bilan') mountBilan(); else if (r === 'accueil' && S.data) mountAccueil(); else if (r === 'entrainer' && S.data) mountEntrainer(); else if (r === 'stats') mountStats(S); else if (r === 'partie' && S.gv?.cg) { if (!!$('.fitside #xcap') !== exo.wide()) render(true); else gvSync(); } }, 200); }); // relecture : le bandeau change de colonne au passage ordinateur / téléphone
+let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { const r = route()[0]; if (r === 'bilan') mountBilan(); else if (r === 'accueil' && S.data) mountAccueil(); else if (r === 'entrainer' && S.data) mountEntrainer(); else if (r === 'stats') mountStats(S); else if (r === 'partie' && S.gv?.cg) gvSync(); }, 200); }); // relecture : exercise.js change le bandeau de colonne au passage ordinateur / téléphone ; gvSync recale l'affichage
 
 if (new URLSearchParams(location.search).has('debug')) window.__cap = S; // accès à l'état pour les tests
 // Mise à jour automatique : au chargement et au retour sur l'onglet, si les données ont plus de 10 minutes.

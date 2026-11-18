@@ -291,7 +291,8 @@ cg-board { background-color: var(--sq-light); background-image: repeating-conic-
   .gvbar b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .gvbar .num { color: var(--ink3); }
   .gvclk { margin-left: auto; min-width: 96px; padding: var(--s-1) var(--s-3); border-radius: var(--r-s); background: var(--surface); color: var(--ink2); font: 600 var(--t-l) var(--mono); text-align: right; }
   .gvclk.on { background: var(--ink); color: var(--bg); }
-  /* Commentaire à droite : hauteur de son contenu, jamais de défilement (demande du 17/11) ; la liste des coups absorbe l'écart */
+  /* Relecture : commentaire à droite à la hauteur de son contenu, jamais de défilement (demande du 17/11) ; la liste des coups
+     absorbe l'écart. Les autres exercices ont un bandeau fixe de 170 px (bloc « Hors relecture » plus bas). */
   body.fit .fitside > .cap { flex: none; min-height: 112px; overflow: visible; }
   .fitside > .cap [data-act="dbgo"] { display: none; } /* Débrief : déjà dans l'en-tête */
   .bwrap.gv + .fitside .actbar { justify-content: center; }
@@ -762,6 +763,7 @@ body.fit .cap { max-width: none; overflow-y: auto; }
    l'échiquier garde au moins 240 px (200 px en relecture). Les onglets des puzzles sont listés par S'entraîner. */
 @media (max-width: 859px) and (max-height: 560px) {
   body.fit .seg2.pztabs, body.fit .dots, body.fit .meta { display: none; }
+  body.fit .tools .snd, body.fit .tools .lnmode { display: none; } /* le titre de la barre tient en entier ; le son se règle dans Plan et réglages > Apparence */
   .tools .chip { white-space: nowrap; } .tools .pzprog { min-width: var(--hit); justify-content: center; }
   body.fit { padding-bottom: calc(56px + env(safe-area-inset-bottom)); }
   body.fit .view { gap: 4px; padding-top: 4px; padding-bottom: 4px; }
@@ -907,7 +909,7 @@ a:is([href^="#bilan"], [href^="#stats"], [href^="#plan"], [href^="#plus"]) { --s
   .moves button:not(.cur):hover, .gvm .mv:not(.cur):hover, .gvnote:hover { background: var(--hover); color: var(--ink); }
   a:not(.btn):not(.card):not(.gl):not(.mrow):not(.oprow):not(.opdue):not(.fmini):not(.gnum):not(.pzprog):not(.lgpos):not(.brand):hover { text-decoration-thickness: 2px; }
 }
-/* Un menu de navigation ouvert passe devant les messages éphémères (téléphone : même zone en bas d'écran) */
+/* Un volet de navigation ouvert (ordinateur seulement : le téléphone n'a pas de volet) passe devant les messages éphémères */
 body:has(.grp.open) .toasts { opacity: 0; }
 
 /* Pastille « reste à faire » sur une entrée de navigation (navBadges dans app.js) : couleur de la section */

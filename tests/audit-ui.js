@@ -1,4 +1,4 @@
-// Audit de l'interface : chaque écran, aux 4 tailles de référence, sur des parties simulées.
+// Audit de l'interface : chaque écran, aux 5 tailles de référence et en une passe en contraste renforcé, sur des parties simulées.
 // Lancer : node tests/audit-ui.js [dossier]   (par défaut tests/out/audit ; captures + audit.json + résumé à l'écran)
 // Mesures, d'après les règles de la refonte (docs/REFONTE.md) : défilement de la page, débordement horizontal,
 // tailles de texte, texte sous 13 px, contraste du texte, cibles tactiles sous 44 px, boutons pleins, arrondis,
@@ -66,7 +66,7 @@ if (inconnus.length || !SIZES.length || !SCREENS.length) {
 }
 
 // Exécuté dans la page : mesures sur tout ce qui est visible.
-function measure([touch, hc]) {
+function measure([touch, hc, zoom]) {
   const vis = (el) => { const r = el.getBoundingClientRect(), cs = getComputedStyle(el); return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.opacity !== '0'; };
   const rgba = (s) => { const m = s.match(/[\d.]+/g); return m ? [+m[0], +m[1], +m[2], m[3] === undefined ? 1 : +m[3]] : [0, 0, 0, 0]; };
   const lum = ([r, g, b]) => { const f = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
@@ -168,7 +168,11 @@ function measure([touch, hc]) {
       if (shown(brand)) out.bar.push('logo visible');
       if (!t || !shown(ttl)) out.bar.push('titre absent de la barre');
       else if ([...document.querySelectorAll('h1')].some((h) => shown(h) && h.textContent.replace(/\s+/g, ' ').trim() === t)) out.bar.push('titre répété par un h1 visible');
+      // Le titre de la barre est caché aux lecteurs d'écran : le h1 de la page, gardé en .vh, le lit à sa place.
+      if (t && (ttl.getAttribute('aria-hidden') !== 'true' || ![...document.querySelectorAll('#view h1.vh')].some((h) => h.textContent.replace(/\s+/g, ' ').trim() === t))) out.bar.push('titre non relu par les lecteurs d’écran');
     }
+    // Texte agrandi (312 × 531) : sur un écran d'exercice, le titre de la barre tient en entier (pas de points de suspension).
+    if (zoom && document.body.classList.contains('fit') && shown(ttl) && ttl.scrollWidth > ttl.clientWidth + 1) out.bar.push('titre abrégé (' + ttl.scrollWidth + ' px pour ' + ttl.clientWidth + ')');
   }
   // Panneaux qui défilent : tant qu'il reste du contenu dessous, le bord du bas est estompé (classe edge-b).
   out.noEdge = [];
@@ -197,7 +201,7 @@ async function visit(ctx, size, report) {
     if (opt.mobileOnly && !size.mobile) continue;
     const hash = typeof route === 'function' ? await page.evaluate(route) : route;
     await page.goto(base + '#' + hash); await sleep(900);
-    const m = await page.evaluate(measure, [!!size.mobile, !!size.hc]);
+    const m = await page.evaluate(measure, [!!size.mobile, !!size.hc, !!size.zoom]);
     m.route = hash; m.errors = errs.splice(0);
     await page.screenshot({ path: path.join(OUT, size.id, name + '.png') });
     // Défilés jusqu'en bas : plus de bord estompé sur la dernière ligne.
@@ -218,7 +222,7 @@ async function visit(ctx, size, report) {
         await page.click('#xbar [data-x="show"]'); await sleep(400);
         const tops = [];
         for (let k = 0; k < 30; k++) {
-          const r = await page.evaluate(() => [document.querySelector('#xpanel')?.getBoundingClientRect().top, document.querySelector('#xcap')?.scrollHeight]);
+          const r = await page.evaluate(() => [document.querySelector('#xpanel')?.getBoundingClientRect().top, document.querySelector('#xcap')?.textContent.replace(/\s+/g, ' ').trim()]);
           tops.push(r[0]); m.filmCap.push(r[1]); await sleep(300);
         }
         m.filmShift = Math.round(Math.max(...tops) - Math.min(...tops));
@@ -257,6 +261,8 @@ async function visit(ctx, size, report) {
       const pb = [];
       if (m.filmShift === -1) pb.push('lecture automatique : bouton Solution introuvable');
       if (m.filmShift > 1) pb.push('lecture automatique : le panneau bouge de ' + m.filmShift + ' px');
+      // Le contrôle du panneau immobile n'a de sens que si le film avance : le texte du bandeau doit changer.
+      if (m.filmCap && m.filmShift !== -1 && new Set(m.filmCap).size < 2) pb.push('lecture automatique : le bandeau ne change pas');
       if (m.scrollAfterFilm > 0) pb.push('défile de ' + m.scrollAfterFilm + ' px pendant la lecture');
       if (m.fit && m.scrollY > 0) pb.push('défile de ' + m.scrollY + ' px');
       if (m.scrollX > 0) pb.push('déborde de ' + m.scrollX + ' px');

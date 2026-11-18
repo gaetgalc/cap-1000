@@ -61,7 +61,7 @@ export function watchEdges(root = document) {
       el.classList.toggle('edge-t', el.scrollTop > 4);
     };
     const ro = new ResizeObserver(upd);
-    const watch = () => { ro.disconnect(); ro.observe(el); if (el.firstElementChild) ro.observe(el.firstElementChild); upd(); };
+    const watch = () => { ro.disconnect(); ro.observe(el); for (const c of el.children) ro.observe(c); upd(); }; // tous les enfants : n'importe lequel peut grandir
     el.addEventListener('scroll', upd, { passive: true });
     new MutationObserver(watch).observe(el, { childList: true });
     watch();
