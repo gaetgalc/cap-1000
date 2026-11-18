@@ -376,7 +376,9 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   await page.waitForFunction(() => !window.__cap.job.running, null, { timeout: 60000 }); await sleep(600);
   check(await S(() => window.__cap.data.games.length) === nb0 + 1 && await S(() => window.__cap.rev) > rev0, 'nouvelle partie : importée et analysée, la version des données (S.rev) a avancé');
   await S(() => { location.hash = '#accueil'; }); await sleep(600);
-  check(/advNOUVEAU/.test(await bar('.lgame')), 'nouvelle partie : l’accueil montre la nouvelle dernière partie');
+  check(/^1 nouvelle partie : /.test(await bar('.ibilan .rbatch')), 'nouvelle partie : l’accueil montre le bilan de l’import');
+  await page.click('.ibilan [data-act="recapok"]'); await sleep(300);
+  check(/advNOUVEAU/.test(await bar('.lgame')), 'nouvelle partie : après « J’ai lu », l’accueil montre la nouvelle dernière partie');
   await S(() => { location.hash = '#parties'; }); await sleep(600);
   check(/advNOUVEAU/.test(await bar('#view')), 'nouvelle partie : la liste des parties la compte');
   await S(() => { location.hash = '#bilan'; }); await sleep(600);
@@ -384,7 +386,7 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   // ---- Revue HIG, tâche 5 : filtres, cadence, mise à jour automatique ----
   await page.setViewportSize({ width: 1366, height: 768 }); await sleep(300);
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#accueil`); await sleep(800);
-  check(await S(() => !document.querySelector('#tools select') && !document.querySelector('#tools [data-act="refresh"]')), 'ordinateur : plus de filtres ni de « Mettre à jour » dans la colonne');
+  check(await S(() => !document.querySelector('#tools select') && !!document.querySelector('#tools .sideupd [data-act="refresh"]') && /^À jour/.test(document.querySelector('#tools [data-upd]').textContent)), 'ordinateur : pas de filtres dans la colonne, mais « Mettre à jour » et son état en bas (18/11)');
   await page.hover('#nh-pro'); await sleep(300);
   check(await S(() => document.querySelector('#nh-pro').getAttribute('aria-expanded') === 'true' && document.querySelector('#nh-pro').getAttribute('aria-haspopup') === 'true'), 'ordinateur : le survol ouvre le volet (aria-expanded)');
   await page.click('#fly-pro a[href="#stats"]'); await sleep(500);
