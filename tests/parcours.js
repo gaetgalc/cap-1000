@@ -114,7 +114,7 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   }
   // ---- Pendule, erreurs répétées ----
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#stats`); await sleep(600);
-  check(/Tes erreurs et la pendule/.test(await bar('#view')), 'la page Stats montre les erreurs selon la pendule');
+  check(/Erreurs et pendule/.test(await bar('#view')), 'la page Stats montre les erreurs selon la pendule');
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#ouvertures`); await sleep(400);
   check(/Ouvertures/.test(await bar('#view')), 'la page Ouvertures s’affiche avec le bloc des erreurs qui reviennent');
   await page.click('tr[data-act="opfam"]'); await sleep(600);
@@ -283,7 +283,7 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#avantpartie`); await sleep(500);
   check(/Ta routine/.test(await bar('#view')) && await S(() => document.querySelectorAll('#view .btn.pri').length === 1 && /chess\.com/.test(document.querySelector('#view .btn.pri').href)), 'avant de jouer : règle, routine et un seul bouton vers Chess.com');
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#bilan`); await sleep(700);
-  check(/Ton programme/.test(await bar('#view')) && /Semaine 1 · Comprendre/.test(await bar('#view')), 'Mon jeu : programme de 4 semaines du chantier');
+  check(/Programme/.test(await bar('#view')) && /Semaine 1 · Comprendre/.test(await bar('#view')), 'Mon jeu : programme de 4 semaines du chantier');
   // ---- Idées reprises de Chess.com (JOURNAL §40) ----
   check(/Quand et comment tu perds/.test(await bar('#view')) && /Par phase/.test(await bar('#view')), 'Mon jeu : regards croisés par phase, pièce, heure et session');
   // Rush en survie : on répond toujours la première option jusqu'à la 3e faute (ou 40 réponses)
