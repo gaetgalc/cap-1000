@@ -19,12 +19,13 @@
   --menu-shadow: 0 12px 32px rgba(0, 0, 0, .5); /* volets de la navigation */
   --logo-a: var(--accent); --logo-b: var(--sq-light); /* logo : anneau et pointe verte, pointe claire */
   --neutral: #8a877f;
-  /* Couleur des icônes par section (demande du 16/11) : teintes douces, au moins 6.8:1 sur --surface et --bg */
+  /* Couleur des icônes par section (demande du 16/11) : teintes douces, au moins 6.9:1 sur --surface et 6:1 sur --bg.
+     Revue HIG (17/11, D2 = B) : une couleur, un sens ; aucune teinte de section à moins de 40° de --warn ou --bad (tests/css.test.mjs) */
   --c-jour: #8fd16a; /* Aujourd'hui : vert, parent de l'échiquier */
-  --c-train: #f2b65c; /* S'entraîner : ambre */
-  --c-learn: #7fb4f2; /* Apprendre : bleu */
+  --c-train: #93c2f5; /* S'entraîner : bleu (8.3:1 sur --surface, 7.3:1 sur --bg) */
+  --c-learn: var(--c-train); /* ancien Apprendre, réuni dans S'entraîner : cours, ouvertures, lignes */
   --c-games: #c79cf0; /* Parties : violet */
-  --c-prog: #f39a80; /* Progrès : corail */
+  --c-prog: #6fd3c6; /* Progrès : turquoise (8.7:1 sur --surface, 7.6:1 sur --bg) */
   /* Échiquier (lot 1 du 16/11) : vert du site adouci, propre au site (ni celui de Chess.com ni celui de Lichess).
      Palettes au choix dans Plan et réglages > Apparence (js/look.js pose pal-bois / pal-bleu sur <html>). */
   --pal-vert-l: #e7ead5; --pal-vert-d: #7b9c63;
