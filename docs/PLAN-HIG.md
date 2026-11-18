@@ -2,7 +2,7 @@
 
 > **Pour un agent :** skill requis `superpowers:subagent-driven-development` (recommandé) ou `superpowers:executing-plans`, tâche par tâche. Étapes en cases à cocher.
 
-**État : en cours (17/11). Décisions de Gaëtan : D1 = A, D2 = B, D3 = A (recommandations retenues).** Exécution par sous-agents ; le contrôleur fusionne dans `main` et pousse après la relecture de chaque tâche.
+**État : fait (18/11). Décisions de Gaëtan : D1 = A, D2 = B, D3 = A (recommandations retenues).** Exécuté par sous-agents ; le contrôleur a fusionné dans `main` et poussé après la relecture de chaque tâche, puis une vague de corrections finale a suivi la relecture de l'ensemble. Compte rendu pour Gaëtan : JOURNAL §48 ; règles ajoutées : REFONTE § « Revue HIG (17/11) ».
 
 **But :** appliquer la revue faite avec le skill `apple-design` (dépôt `dickwu/apple-design-skill` : 123 pages des Human Interface Guidelines d'Apple, plus un regard de studio) : corriger ce que l'audit actuel ne mesure pas (navigation sur téléphone, texte agrandi, contraste renforcé, fonctions qui changent de place selon la largeur), sans toucher à l'identité (thème sombre, échiquier vert, Geist et Source Serif 4).
 
@@ -124,10 +124,10 @@ Ordre : 0, puis 1, 2, 3 (indépendantes), puis 5, 4, 6, 7, 8, 9. Les tâches 4, 
 
 **Interfaces :** produit les variables d'environnement `ONLY` (noms d'écrans séparés par des virgules) et `SIZES` (identifiants de tailles), utilisées par toutes les tâches suivantes.
 
-- [ ] **Étape 1** : lancer `ONLY=accueil SIZES=390x664 node tests/audit-ui.js`. Attendu aujourd'hui : les 32 écrans aux 4 tailles (3 à 4 min), les variables étant ignorées.
-- [ ] **Étape 2** : filtrer `SIZES` et `SCREENS` sur ces variables quand elles sont présentes ; sans elles, tout tourne comme avant.
-- [ ] **Étape 3** : relancer la commande de l'étape 1. Attendu : une seule ligne `390x664  accueil  rien à signaler`, en moins d'une minute.
-- [ ] **Étape 4** : ajouter l'exemple au bloc « Tester » de `CLAUDE.md`, créer dans `docs/REFONTE.md` la section vide « Revue HIG (17/11) » qui renvoie à ce plan. Publier (contraintes globales).
+- [x] **Étape 1** : lancer `ONLY=accueil SIZES=390x664 node tests/audit-ui.js`. Attendu aujourd'hui : les 32 écrans aux 4 tailles (3 à 4 min), les variables étant ignorées.
+- [x] **Étape 2** : filtrer `SIZES` et `SCREENS` sur ces variables quand elles sont présentes ; sans elles, tout tourne comme avant.
+- [x] **Étape 3** : relancer la commande de l'étape 1. Attendu : une seule ligne `390x664  accueil  rien à signaler`, en moins d'une minute.
+- [x] **Étape 4** : ajouter l'exemple au bloc « Tester » de `CLAUDE.md`, créer dans `docs/REFONTE.md` la section vide « Revue HIG (17/11) » qui renvoie à ce plan. Publier (contraintes globales).
 
 ### Task 1 : texte agrandi (H3)
 
@@ -135,11 +135,11 @@ Ordre : 0, puis 1, 2, 3 (indépendantes), puis 5, 4, 6, 7, 8, 9. Les tâches 4, 
 
 **Interfaces :** consomme `ONLY`, `SIZES` (tâche 0). Produit la taille `312x531` et la règle « libellé sur une ligne », valables pour la suite.
 
-- [ ] **Étape 1 : la mesure.** Dans `SIZES`, ajouter `{ id: '312x531', width: 312, height: 531, mobile: true, zoom: true }` (390 × 664 au zoom 125 % de Safari). Dans `measure`, à toutes les tailles : tout élément visible de `#ttl, .tools .chip, .seg2 > *, .actbar .btn, .nav .grp-h span` plus haut que 1,6 fois sa hauteur de ligne est noté « libellé sur deux lignes ». À la taille `zoom` seulement : le défilement de la page est permis hors écran d'échiquier ; l'échiquier `#xb` d'un écran `body.fit` mesure au moins 240 px (200 px pour `partie` et `partie-debrief`).
-- [ ] **Étape 2** : `SIZES=312x531 ONLY=puzzles,erreur,drill-sur,partie,accueil node tests/audit-ui.js`. Attendu : écarts sur `puzzles` (échiquier de 160 px, libellés sur deux lignes), au moins.
-- [ ] **Étape 3 : le correctif**, un bloc `@media (max-width: 859px) and (max-height: 560px)` dans `css/app.css` : cacher sur un écran d'exercice (`body.fit` seulement : les onglets des autres pages restent) les onglets `.seg2.pztabs` (le retour mène à S'entraîner, qui les liste), les ronds `.dots` de la barre du haut (le compteur reste) et la ligne de contexte `.meta` ; `white-space: nowrap` sur `#ttl` (avec `overflow: hidden`, `text-overflow: ellipsis`, `min-width: 0`, car la tâche 6 y mettra des titres longs) et sur les puces de `.tools`. Ne rien changer au-dessus de 560 px de haut. Si un écran d'échiquier n'atteint pas le seuil après ces retraits, ne pas baisser le seuil : rendre compte de la mesure obtenue et de la cause (statut DONE_WITH_CONCERNS).
-- [ ] **Étape 4** : relancer l'étape 2, puis l'audit complet (5 tailles). Attendu : aucun écart, et toujours aucun aux 4 tailles d'origine.
-- [ ] **Étape 5** : noter la règle dans `REFONTE.md`, passer « 4 tailles » à « 5 tailles » dans `CLAUDE.md`. Publier.
+- [x] **Étape 1 : la mesure.** Dans `SIZES`, ajouter `{ id: '312x531', width: 312, height: 531, mobile: true, zoom: true }` (390 × 664 au zoom 125 % de Safari). Dans `measure`, à toutes les tailles : tout élément visible de `#ttl, .tools .chip, .seg2 > *, .actbar .btn, .nav .grp-h span` plus haut que 1,6 fois sa hauteur de ligne est noté « libellé sur deux lignes ». À la taille `zoom` seulement : le défilement de la page est permis hors écran d'échiquier ; l'échiquier `#xb` d'un écran `body.fit` mesure au moins 240 px (200 px pour `partie` et `partie-debrief`).
+- [x] **Étape 2** : `SIZES=312x531 ONLY=puzzles,erreur,drill-sur,partie,accueil node tests/audit-ui.js`. Attendu : écarts sur `puzzles` (échiquier de 160 px, libellés sur deux lignes), au moins.
+- [x] **Étape 3 : le correctif**, un bloc `@media (max-width: 859px) and (max-height: 560px)` dans `css/app.css` : cacher sur un écran d'exercice (`body.fit` seulement : les onglets des autres pages restent) les onglets `.seg2.pztabs` (le retour mène à S'entraîner, qui les liste), les ronds `.dots` de la barre du haut (le compteur reste) et la ligne de contexte `.meta` ; `white-space: nowrap` sur `#ttl` (avec `overflow: hidden`, `text-overflow: ellipsis`, `min-width: 0`, car la tâche 6 y mettra des titres longs) et sur les puces de `.tools`. Ne rien changer au-dessus de 560 px de haut. Si un écran d'échiquier n'atteint pas le seuil après ces retraits, ne pas baisser le seuil : rendre compte de la mesure obtenue et de la cause (statut DONE_WITH_CONCERNS).
+- [x] **Étape 4** : relancer l'étape 2, puis l'audit complet (5 tailles). Attendu : aucun écart, et toujours aucun aux 4 tailles d'origine.
+- [x] **Étape 5** : noter la règle dans `REFONTE.md`, passer « 4 tailles » à « 5 tailles » dans `CLAUDE.md`. Publier.
 
 ### Task 2 : contraste renforcé (M4)
 
@@ -147,10 +147,10 @@ Ordre : 0, puis 1, 2, 3 (indépendantes), puis 5, 4, 6, 7, 8, 9. Les tâches 4, 
 
 **Interfaces :** produit la passe `390x664-hc` de l'audit.
 
-- [ ] **Étape 1 : la mesure.** Ajouter une passe `{ id: '390x664-hc', width: 390, height: 664, mobile: true, hc: true }` qui appelle `page.emulateMedia({ contrast: 'more' })` avant la première page. Dans cette passe, le seuil de contraste du texte passe de 4.5 à 7, et le bord de chaque `.card` visible doit atteindre 3:1 contre le fond de la page.
-- [ ] **Étape 2** : `SIZES=390x664-hc node tests/audit-ui.js`. Attendu : écarts de contraste (`--ink3` sur `--btn2` à 4.72:1) et de bord de carte (transparent).
-- [ ] **Étape 3 : le correctif**, `@media (prefers-contrast: more) { :root { … } }` dans `css/app.css`. Valeurs de départ, contraste sur `--surface` / `--bg` : `--ink2: #e4e1da` (11.85 / 10.37), `--ink3: #d8d5cd` (10.55 / 9.23), `--bad: #ffb0a6` (8.85 / 7.74), `--warn: #ffcc70` (10.41 / 9.10), `--line: #8a877f` (4.31 / 3.77) ; `.card` y prend `border-color: var(--line)` ; anneau de focus à 3 px. Si un texte reste sous 7:1 (rouge sur `--btn2` à 6.48:1 par exemple), éclaircir ce jeton jusqu'à passer.
-- [ ] **Étape 4** : relancer l'étape 2, puis l'audit complet. Regarder `puzzles.png` et `partie.png` de la passe `-hc` avec les palettes bois et bleu (point à surveiller 5). Noter la règle, publier.
+- [x] **Étape 1 : la mesure.** Ajouter une passe `{ id: '390x664-hc', width: 390, height: 664, mobile: true, hc: true }` qui appelle `page.emulateMedia({ contrast: 'more' })` avant la première page. Dans cette passe, le seuil de contraste du texte passe de 4.5 à 7, et le bord de chaque `.card` visible doit atteindre 3:1 contre le fond de la page.
+- [x] **Étape 2** : `SIZES=390x664-hc node tests/audit-ui.js`. Attendu : écarts de contraste (`--ink3` sur `--btn2` à 4.72:1) et de bord de carte (transparent).
+- [x] **Étape 3 : le correctif**, `@media (prefers-contrast: more) { :root { … } }` dans `css/app.css`. Valeurs de départ, contraste sur `--surface` / `--bg` : `--ink2: #e4e1da` (11.85 / 10.37), `--ink3: #d8d5cd` (10.55 / 9.23), `--bad: #ffb0a6` (8.85 / 7.74), `--warn: #ffcc70` (10.41 / 9.10), `--line: #8a877f` (4.31 / 3.77) ; `.card` y prend `border-color: var(--line)` ; anneau de focus à 3 px. Si un texte reste sous 7:1 (rouge sur `--btn2` à 6.48:1 par exemple), éclaircir ce jeton jusqu'à passer.
+- [x] **Étape 4** : relancer l'étape 2, puis l'audit complet. Regarder `puzzles.png` et `partie.png` de la passe `-hc` avec les palettes bois et bleu (point à surveiller 5). Noter la règle, publier.
 
 ### Task 3 : bord estompé des panneaux qui défilent (M3)
 
@@ -158,10 +158,10 @@ Ordre : 0, puis 1, 2, 3 (indépendantes), puis 5, 4, 6, 7, 8, 9. Les tâches 4, 
 
 **Interfaces :** produit `watchEdges(root: ParentNode = document): void` dans `js/ui.js` : pour chaque élément `[data-edge]` pas encore suivi, pose `edge-b` tant qu'il reste du contenu en dessous et `edge-t` dès qu'il est défilé depuis le haut, recalculés au défilement et au changement de taille (contenu compris, `ResizeObserver` sur l'élément et son premier enfant).
 
-- [ ] **Étape 1 : la mesure.** Dans `measure`, tout élément visible en `overflow-y: auto | scroll` (hors `textarea`, `select`, `input`) à qui il reste plus de 4 px de contenu sous la partie visible (`scrollHeight - scrollTop - clientHeight > 4`) doit porter `edge-b`. Après la mesure, une seconde évaluation fait défiler chaque `[data-edge]` jusqu'en bas, attend deux images, et note tout `edge-b` restant (point à surveiller 4).
-- [ ] **Étape 2** : `ONLY=partie,puzzles,cours-position SIZES=390x664,1366x768 node tests/audit-ui.js`. Attendu : écart « panneau qui défile sans bord » sur `partie` en 390 × 664.
-- [ ] **Étape 3** : `data-edge` sur `#xpanel` et `#xcap` dans `exo.screen` ; `exo.attach()` appelle `watchEdges()`. Tout autre conteneur que la mesure signale (liste des coups de la relecture, par exemple) reçoit aussi `data-edge` et passe par `watchEdges`. CSS : `.edge-b` masque les 24 px du bas (`mask-image` et `-webkit-mask-image`, dégradé vers transparent), `.edge-t` les 24 px du haut, les deux ensemble se combinent.
-- [ ] **Étape 4** : relancer l'étape 2, puis l'audit complet. Ajouter `watchEdges` à la ligne de `ui.js` dans `CLAUDE.md`, noter la règle, publier.
+- [x] **Étape 1 : la mesure.** Dans `measure`, tout élément visible en `overflow-y: auto | scroll` (hors `textarea`, `select`, `input`) à qui il reste plus de 4 px de contenu sous la partie visible (`scrollHeight - scrollTop - clientHeight > 4`) doit porter `edge-b`. Après la mesure, une seconde évaluation fait défiler chaque `[data-edge]` jusqu'en bas, attend deux images, et note tout `edge-b` restant (point à surveiller 4).
+- [x] **Étape 2** : `ONLY=partie,puzzles,cours-position SIZES=390x664,1366x768 node tests/audit-ui.js`. Attendu : écart « panneau qui défile sans bord » sur `partie` en 390 × 664.
+- [x] **Étape 3** : `data-edge` sur `#xpanel` et `#xcap` dans `exo.screen` ; `exo.attach()` appelle `watchEdges()`. Tout autre conteneur que la mesure signale (liste des coups de la relecture, par exemple) reçoit aussi `data-edge` et passe par `watchEdges`. CSS : `.edge-b` masque les 24 px du bas (`mask-image` et `-webkit-mask-image`, dégradé vers transparent), `.edge-t` les 24 px du haut, les deux ensemble se combinent.
+- [x] **Étape 4** : relancer l'étape 2, puis l'audit complet. Ajouter `watchEdges` à la ligne de `ui.js` dans `CLAUDE.md`, noter la règle, publier.
 
 ### Task 5 : filtres, réglage de cadence, mise à jour automatique (H2)
 
@@ -169,7 +169,7 @@ Ordre : 0, puis 1, 2, 3 (indépendantes), puis 5, 4, 6, 7, 8, 9. Les tâches 4, 
 
 **Interfaces :** produit `agoFr(ms: number): string` dans `js/ui.js`, et la ligne d'état de Parties (`#upd`) que la tâche 8 utilise.
 
-- [ ] **Étape 1 : test rouge**, `tests/ui.test.mjs` :
+- [x] **Étape 1 : test rouge**, `tests/ui.test.mjs` :
 
 ```js
 test('agoFr', () => {
@@ -181,16 +181,16 @@ test('agoFr', () => {
 });
 ```
 
-- [ ] **Étape 2** : `node --test tests/ui.test.mjs`. Attendu : échec, `agoFr` absent.
-- [ ] **Étape 3** : écrire `agoFr` (moins d'une minute, minutes, heures jusqu'à 24, « hier » jusqu'à 48 h, puis jours). Relancer : vert.
-- [ ] **Étape 4 : étapes rouges du parcours** (`tests/parcours.js`) : en 1366 × 768, `#tools select` est absent ; `#plan` montre un `<label>` « Cadence suivie » ; `#bilan` montre un sélecteur de période ; pendant un puzzle, `__cap.data.fetchedAt = 0` puis un `visibilitychange` laisse le même nœud `#xb` en place (point à surveiller 2). Attendu : échecs.
-- [ ] **Étape 5 : le correctif.**
+- [x] **Étape 2** : `node --test tests/ui.test.mjs`. Attendu : échec, `agoFr` absent.
+- [x] **Étape 3** : écrire `agoFr` (moins d'une minute, minutes, heures jusqu'à 24, « hier » jusqu'à 48 h, puis jours). Relancer : vert.
+- [x] **Étape 4 : étapes rouges du parcours** (`tests/parcours.js`) : en 1366 × 768, `#tools select` est absent ; `#plan` montre un `<label>` « Cadence suivie » ; `#bilan` montre un sélecteur de période ; pendant un puzzle, `__cap.data.fetchedAt = 0` puis un `visibilitychange` laisse le même nœud `#xb` en place (point à surveiller 2). Attendu : échecs.
+- [x] **Étape 5 : le correctif.**
   - `header()` ne rend plus les filtres ; sur ordinateur la colonne ne garde que la navigation et le bouton son.
   - Vue Plan, carte « Tes données » (les deux tailles, plus de `m-only`) : sélecteur de cadence avec `<label>` « Cadence suivie », « Mettre à jour » et « À jour : » + `agoFr`.
   - Vue Mon jeu, et toute autre vue qui lit `S.f.days` (le vérifier avec `grep`) : sélecteur `.seg2.mini` « Tout · 90 j · 30 j » à côté du titre, en boutons `data-f="days" data-v="0|90|30"` ; le gestionnaire de `data-f` accepte ces boutons.
   - Vue Parties : ligne d'état `#upd` (« À jour, il y a 3 min ») et bouton icône `data-act="refresh"` avec `aria-label="Mettre à jour"`, `aria-busy` pendant l'import (icône `refresh` à ajouter à `IC` si elle manque).
   - Démarrage : seuil unique `STALE = 10 * 60000` au chargement (au lieu de 6 h) et à chaque `visibilitychange` vers visible ; l'import ainsi lancé passe par `bgRender()`.
-- [ ] **Étape 6** : `node --test tests/*.test.mjs`, `node tests/parcours.js`, audit complet. Mettre à jour `CLAUDE.md` (barre de navigation, `agoFr`, vue Plan), noter la règle, publier.
+- [x] **Étape 6** : `node --test tests/*.test.mjs`, `node tests/parcours.js`, audit complet. Mettre à jour `CLAUDE.md` (barre de navigation, `agoFr`, vue Plan), noter la règle, publier.
 
 ### Task 4 : onglets du téléphone (H1), D1 = A
 
@@ -202,7 +202,7 @@ test('agoFr', () => {
 - `sectionOf(hash: string): 'acc' | 'ent' | 'par' | 'pro' | null`, avec la règle actuelle de `#ouvertures` : sans argument → `par`, avec argument → `ent` ;
 - `tabTarget(sec: string, cur: string, last: Record<string, string>): string` : même section que `cur` → `'#' + ROOT[sec]` ; sinon `last[sec]` s'il appartient bien à `sec` ; sinon `'#' + ROOT[sec]`.
 
-- [ ] **Étape 1 : test rouge**, `tests/nav.test.mjs` :
+- [x] **Étape 1 : test rouge**, `tests/nav.test.mjs` :
 
 ```js
 test('sectionOf', () => {
@@ -220,29 +220,29 @@ test('tabTarget', () => {
 });
 ```
 
-- [ ] **Étape 2** : `node --test tests/nav.test.mjs`. Attendu : échec, module absent. Écrire `js/nav.js`. Relancer : vert.
-- [ ] **Étape 3 : étape rouge du parcours**, en 390 × 664 : un appui sur `#nh-ent` mène à `#entrainer` sans `.fly` visible ; depuis `#stats`, appui sur `#nh-par` puis `#nh-pro` → `#stats` ; nouvel appui sur `#nh-pro` → `#bilan`. Attendu : échec.
-- [ ] **Étape 4 : le correctif.** `app.js` garde `navLast` en mémoire (pas de stockage), mis à jour à chaque changement de route par `sectionOf` ; l'état actif des liens passe par `sectionOf`. Sur téléphone (`phoneNav`), l'appui sur `.grp-h` va à `tabTarget(...)` ; `.fly` reste caché sous 860 px ; `aria-haspopup` et `aria-expanded` ne sont posés que sur ordinateur. Mon jeu, Stats et Plan reçoivent en tête les onglets `.seg2.pztabs` « Mon jeu · Stats · Plan » (aide `tabs()` existante).
-- [ ] **Étape 5** : tests, parcours, audit complet. Ajouter `js/nav.js` à la table de `CLAUDE.md`, réécrire la ligne `index.html`, noter la règle, publier.
+- [x] **Étape 2** : `node --test tests/nav.test.mjs`. Attendu : échec, module absent. Écrire `js/nav.js`. Relancer : vert.
+- [x] **Étape 3 : étape rouge du parcours**, en 390 × 664 : un appui sur `#nh-ent` mène à `#entrainer` sans `.fly` visible ; depuis `#stats`, appui sur `#nh-par` puis `#nh-pro` → `#stats` ; nouvel appui sur `#nh-pro` → `#bilan`. Attendu : échec.
+- [x] **Étape 4 : le correctif.** `app.js` garde `navLast` en mémoire (pas de stockage), mis à jour à chaque changement de route par `sectionOf` ; l'état actif des liens passe par `sectionOf`. Sur téléphone (`phoneNav`), l'appui sur `.grp-h` va à `tabTarget(...)` ; `.fly` reste caché sous 860 px ; `aria-haspopup` et `aria-expanded` ne sont posés que sur ordinateur. Mon jeu, Stats et Plan reçoivent en tête les onglets `.seg2.pztabs` « Mon jeu · Stats · Plan » (aide `tabs()` existante).
+- [x] **Étape 5** : tests, parcours, audit complet. Ajouter `js/nav.js` à la table de `CLAUDE.md`, réécrire la ligne `index.html`, noter la règle, publier.
 
 
 ### Task 6 : titre de la page dans la barre du haut (M1), D3 = A
 
 **Fichiers :** modifier `js/app.js` (`header`, ordre d'appel dans `render`), `css/app.css`, `tests/audit-ui.js`.
 
-- [ ] **Étape 1 : la mesure**, tailles téléphone : hors accueil et hors pages à barre de retour (`body.imm`), `.brand` invisible, `#ttl` non vide, et aucun `h1` visible de même texte que `#ttl` ; sur l'accueil, `.brand` visible et aucune puce « Elo » dans `#tools`.
-- [ ] **Étape 2** : `ONLY=accueil,entrainer,parties,bilan,plan SIZES=390x664 node tests/audit-ui.js`. Attendu : écarts sur les 5.
-- [ ] **Étape 3 : le correctif.** Après l'écriture de la vue, `header()` recopie dans `#ttl` le texte du premier `h1` de `#view` et lui pose la classe `vh` (caché à l'écran, lu par les lecteurs d'écran), sous 860 px seulement ; `.brand` caché sous 860 px hors accueil ; puce Elo retirée sur l'accueil.
-- [ ] **Étape 4** : audit complet (l'accueil doit rester sans défilement en 390 × 664). Mettre à jour `CLAUDE.md`, noter la règle, publier.
+- [x] **Étape 1 : la mesure**, tailles téléphone : hors accueil et hors pages à barre de retour (`body.imm`), `.brand` invisible, `#ttl` non vide, et aucun `h1` visible de même texte que `#ttl` ; sur l'accueil, `.brand` visible et aucune puce « Elo » dans `#tools`.
+- [x] **Étape 2** : `ONLY=accueil,entrainer,parties,bilan,plan SIZES=390x664 node tests/audit-ui.js`. Attendu : écarts sur les 5.
+- [x] **Étape 3 : le correctif.** Après l'écriture de la vue, `header()` recopie dans `#ttl` le texte du premier `h1` de `#view` et lui pose la classe `vh` (caché à l'écran, lu par les lecteurs d'écran), sous 860 px seulement ; `.brand` caché sous 860 px hors accueil ; puce Elo retirée sur l'accueil.
+- [x] **Étape 4** : audit complet (l'accueil doit rester sans défilement en 390 × 664). Mettre à jour `CLAUDE.md`, noter la règle, publier.
 
 ### Task 7 : couleurs de section (M2)
 
 **Fichiers :** modifier `tests/css.test.mjs`, `css/app.css`.
 
-- [ ] **Étape 1 : test rouge** dans `tests/css.test.mjs` (D2 = B) : lire les jetons de `:root` ; l'écart de teinte entre chacune de `--c-train`, `--c-games`, `--c-prog` et chacune de `--warn`, `--bad` est d'au moins 40°. Aujourd'hui : 2° (S'entraîner / avertissement), 9° (Progrès / erreur).
-- [ ] **Étape 2** : `node --test tests/css.test.mjs`. Attendu : échec.
-- [ ] **Étape 3** : `--c-train: #93c2f5` (8.31:1 sur `--surface`, 7.27:1 sur `--bg`), `--c-prog: #6fd3c6` (8.70 / 7.61) ; `--c-learn` supprimé s'il ne sert plus, sinon `var(--c-train)`.
-- [ ] **Étape 4** : tests, audit complet, coup d'œil sur les captures de navigation. Corriger la note des couleurs dans `REFONTE.md` (§ « Navigation et icônes »), publier.
+- [x] **Étape 1 : test rouge** dans `tests/css.test.mjs` (D2 = B) : lire les jetons de `:root` ; l'écart de teinte entre chacune de `--c-train`, `--c-games`, `--c-prog` et chacune de `--warn`, `--bad` est d'au moins 40°. Aujourd'hui : 2° (S'entraîner / avertissement), 9° (Progrès / erreur).
+- [x] **Étape 2** : `node --test tests/css.test.mjs`. Attendu : échec.
+- [x] **Étape 3** : `--c-train: #93c2f5` (8.31:1 sur `--surface`, 7.27:1 sur `--bg`), `--c-prog: #6fd3c6` (8.70 / 7.61) ; `--c-learn` supprimé s'il ne sert plus, sinon `var(--c-train)`.
+- [x] **Étape 4** : tests, audit complet, coup d'œil sur les captures de navigation. Corriger la note des couleurs dans `REFONTE.md` (§ « Navigation et icônes »), publier.
 
 ### Task 8 : messages d'arrière-plan (M5)
 
@@ -250,23 +250,23 @@ test('tabTarget', () => {
 
 **Interfaces :** consomme la ligne d'état `#upd` (tâche 5).
 
-- [ ] **Étape 1 : étape rouge du parcours** : après l'analyse automatique du démarrage, 500 ms plus tard, aucun `.toast` ne contient « analysée ». Attendu : échec.
-- [ ] **Étape 2 : le correctif.** Message éphémère d'import seulement si `first || manual` ; message de fin d'analyse seulement si l'analyse a été lancée par un clic (`S.job.manual`, posé par l'action `analyse`). Sinon, rien : les nombres changent sur place (ligne `#upd`, pastilles).
-- [ ] **Étape 3** : parcours, audit complet. Mettre à jour la ligne `toast.js` de `CLAUDE.md`, publier.
+- [x] **Étape 1 : étape rouge du parcours** : après l'analyse automatique du démarrage, 500 ms plus tard, aucun `.toast` ne contient « analysée ». Attendu : échec.
+- [x] **Étape 2 : le correctif.** Message éphémère d'import seulement si `first || manual` ; message de fin d'analyse seulement si l'analyse a été lancée par un clic (`S.job.manual`, posé par l'action `analyse`). Sinon, rien : les nombres changent sur place (ligne `#upd`, pastilles).
+- [x] **Étape 3** : parcours, audit complet. Mettre à jour la ligne `toast.js` de `CLAUDE.md`, publier.
 
 ### Task 9 : échiquier d'exercice plus grand sur ordinateur (M6)
 
 **Fichiers :** modifier `js/exercise.js` (ligne 25), `tests/audit-ui.js`.
 
-- [ ] **Étape 1 : la mesure** : aux tailles 1366 × 768 et 1280 × 860, l'échiquier des écrans `body.fit` mesure au moins 640 px. Si un écran ne peut pas l'atteindre pour une raison de structure, ne pas baisser le seuil : rendre compte de la mesure et de la cause (DONE_WITH_CONCERNS).
-- [ ] **Étape 2** : `ONLY=puzzles,erreur,drill-sur,ligne-reciter,finale,jouer SIZES=1366x768,1280x860 node tests/audit-ui.js`. Attendu : écarts (544 px sur `puzzles` en 1366 × 768).
-- [ ] **Étape 3** : `capSide` vrai par défaut (`spec.capSide !== false`) : sur ordinateur, le bandeau passe en tête de la colonne de droite sur tous les écrans d'exercice, comme la relecture.
-- [ ] **Étape 4** : audit complet ; regarder chaque capture d'ordinateur des 6 écrans (colonne de droite sans défilement de page, bandeau lisible). Mettre à jour la description de `capSide` dans `CLAUDE.md`, publier.
+- [x] **Étape 1 : la mesure** : aux tailles 1366 × 768 et 1280 × 860, l'échiquier des écrans `body.fit` mesure au moins 640 px. Si un écran ne peut pas l'atteindre pour une raison de structure, ne pas baisser le seuil : rendre compte de la mesure et de la cause (DONE_WITH_CONCERNS).
+- [x] **Étape 2** : `ONLY=puzzles,erreur,drill-sur,ligne-reciter,finale,jouer SIZES=1366x768,1280x860 node tests/audit-ui.js`. Attendu : écarts (544 px sur `puzzles` en 1366 × 768).
+- [x] **Étape 3** : `capSide` vrai par défaut (`spec.capSide !== false`) : sur ordinateur, le bandeau passe en tête de la colonne de droite sur tous les écrans d'exercice, comme la relecture.
+- [x] **Étape 4** : audit complet ; regarder chaque capture d'ordinateur des 6 écrans (colonne de droite sans défilement de page, bandeau lisible). Mettre à jour la description de `capSide` dans `CLAUDE.md`, publier.
 
 ### Fin
 
-- [ ] `superpowers:verification-before-completion`, puis `/code-review` et `/simplify` sur l'ensemble.
-- [ ] `docs/JOURNAL.md` : un paragraphe par tâche faite ; ce plan passe en « fait » avec la date.
+- [x] `superpowers:verification-before-completion`, puis `/code-review` et `/simplify` sur l'ensemble.
+- [x] `docs/JOURNAL.md` : un paragraphe par tâche faite ; ce plan passe en « fait » avec la date.
 
 ---
 

@@ -513,7 +513,30 @@ Suite (« oui mets les joueurs autour de l'échiquier comme chess.com […] essa
 - Skill lu (relecteur de design fondé sur 123 pages des Human Interface Guidelines, 5 angles : accessibilité, conventions, craft, interaction, écriture). Appliqué à une appli web : principes et fondations, conventions iOS comme principes.
 - Matériau : audit du jour (32 écrans, 4 tailles, aucun écart), captures en plus (menu du téléphone ouvert, zoom 125 % en 312 × 531), contrastes calculés depuis `:root`.
 - Note : « à retravailler » à cause de la coquille. Trois écarts hauts : sur téléphone un onglet ouvre un menu au lieu de naviguer ; Cadence, Période et « Mettre à jour » changent de place selon la largeur (bas de la colonne sur ordinateur, réglages sur téléphone) ; à 125 % de zoom, l'échiquier du puzzle tombe à 160 px et des libellés passent sur deux lignes. Six écarts moyens, dont les couleurs d'icônes trop proches des couleurs d'état (2° et 9° d'écart de teinte).
-- Plan en 10 tâches dans `docs/PLAN-HIG.md`, chacune avec sa mesure ajoutée à l'audit ou son test d'abord. Trois décisions attendues de Gaëtan (onglets du téléphone, couleurs des icônes, barre du haut). Rien n'est codé.
+- Plan en 10 tâches dans `docs/PLAN-HIG.md`, chacune avec sa mesure ajoutée à l'audit ou son test d'abord. Trois décisions attendues de Gaëtan (onglets du téléphone, couleurs des icônes, barre du haut). Réalisé les 17 et 18/11 : voir § 48.
+
+## 48. Revue HIG réalisée (17-18/11)
+
+> D1 = A, D2 = B, D3 = A (les trois recommandations)
+
+Les 10 tâches de `docs/PLAN-HIG.md` sont faites, chacune avec sa mesure dans l'audit ou son test d'abord, puis une vague de corrections après la relecture de l'ensemble. Les règles ajoutées sont dans `docs/REFONTE.md` § « Revue HIG (17/11) ».
+
+- **Tâche 0, audit ciblé** : l'audit peut ne vérifier que quelques écrans et quelques tailles (`ONLY=…`, `SIZES=…`), en moins d'une minute. Un nom mal tapé arrête l'audit au lieu de dire « rien à signaler ».
+- **Tâche 1, texte agrandi** : avec Safari à 125 % (312 × 531), un écran d'exercice retire l'accessoire (onglets des puzzles, ronds de progression, ligne de contexte) et le texte du coach défile dans sa boîte : l'échiquier garde au moins 240 px (200 en relecture), aucun libellé court ne passe sur deux lignes. Vague finale : à cette taille, le bouton son et la puce « De mémoire / Découverte » quittent la barre du haut, pour que le titre de l'écran (« Comprendre », « Finale », « Ouverture », « Échauffement ») tienne en entier. Le son reste réglable dans Plan et réglages.
+- **Tâche 2, contraste renforcé** : avec le réglage « Augmenter le contraste » de l'iPhone, les textes gris et colorés s'éclaircissent (7:1 au moins), les cartes prennent un bord visible et l'anneau de focus s'épaissit. Les palettes d'échiquier ne changent pas.
+- **Tâche 3, bord estompé** : un panneau qui défile (explication, bandeau, liste des coups) estompe son bord du bas tant qu'il reste du texte dessous ; la dernière ligne n'est jamais estompée.
+- **Tâche 5, filtres** : plus de filtres au bas de la colonne. La cadence suivie est un réglage nommé dans Plan et réglages ; la période (Tout · 90 j · 30 j) est à côté du titre de Mon jeu, Parties, Mes ouvertures et du détail d'une ouverture, et ne filtre que ces pages (les cours et le chantier prennent toutes les parties de la cadence). Les nouvelles parties arrivent toutes seules au chargement et au retour sur l'onglet (données de plus de 10 minutes) ; Parties dit « À jour, il y a 3 min » et garde un bouton « Mettre à jour ».
+- **Tâche 4, onglets du téléphone** : sur téléphone, un onglet de la barre du bas ne déplie plus de menu : il mène à la dernière page vue de sa section, ou à son entrée au second appui. Progrès porte les onglets « Mon jeu · Stats · Plan ». Sur ordinateur, les volets au survol et au clavier restent.
+- **Tâche 6, titre dans la barre du haut** : sur téléphone, hors accueil, la barre du haut porte le titre de la page à la place du logo (le logo reste sur l'accueil, qui n'y met plus la puce Elo, déjà dans son objectif). Les lecteurs d'écran lisent le titre une seule fois. Vague finale : la page Stats garde ses boutons de cadence à droite, et la phrase « Cette page ignore le filtre de période » disparaît (le sélecteur n'y est pas).
+- **Tâche 7, couleurs des icônes** : S'entraîner passe de l'ambre au bleu, Progrès du corail au turquoise, pour ne plus ressembler à un avertissement ou à une erreur. Un test vérifie l'écart de teinte.
+- **Tâche 8, messages d'arrière-plan** : un message éphémère ne répond plus qu'à un geste (copier, restaurer, « Mettre à jour », « Analyser »). Ce qui arrive tout seul change les nombres sur place. Un import automatique qui échoue l'écrit dans la ligne d'état de Parties et dans Plan (« Mise à jour impossible, dernière réussie il y a 3 h »), qui revient à « À jour, … » au premier import réussi.
+- **Tâche 9, grand échiquier sur ordinateur** : le bandeau d'un exercice passe en tête de la colonne de droite, sous la consigne du coach : l'échiquier passe de 544 à 720 px en 1366 × 768 (616 px dans la relecture, qui garde ses bandeaux de joueurs).
+
+À savoir :
+
+- La fin d'une analyse automatique n'est plus annoncée par un message : les puzzles et les chiffres apparaissent sur place. Seule une analyse lancée par un clic l'annonce.
+- Sur ordinateur, le bandeau à droite d'un exercice a une hauteur fixe de 170 px, pour que le panneau dessous ne bouge pas pendant une lecture : il paraît vide sur un texte court, et un texte long y défile.
+- À vérifier sur iPhone (jamais vu, l'audit simule) : Safari à 125 %, les palettes bois et bleu avec « Augmenter le contraste », et le bleu et le turquoise des icônes.
 
 ## Décisions à retenir
 
