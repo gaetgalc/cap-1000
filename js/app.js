@@ -2192,8 +2192,7 @@ function mountPartie() {
     const o = { min: 0, max: 100, base: 0, marks, cursor: Math.min(v.k, pts.length - 1), label: 'Chances de gain au fil de la partie', onPick: gvGo };
     v.chart = lineChart(c, pts, matchMedia('(min-width: 860px)').matches ? { ...o, h: 104, step: 50, yfmt: (y) => y + ' %', x0: 'Début', x1: 'Fin' } : { ...o, h: 48, compact: true, mid: 50 });
   }
-  X.on({ first: () => gvGo(0), prev: () => gvGo(v.k - 1), next: () => gvGo(v.k + 1), last: () => gvGo(v.mv.length) });
-  // Clavier : géré par l'écouteur global (variante comprise), voir keydown plus bas
+  // Boutons (data-act="goto") et clavier : gérés par les écouteurs globaux (variante comprise), voir plus bas
   gvSync();
 }
 
@@ -2626,7 +2625,6 @@ document.addEventListener('click', (ev) => {
   else if (act === 'opfam') location.hash = famHref(el.dataset.fam, S.white);
   else if (act === 'exline') { S.white = el.dataset.w === '1'; S.path = el.dataset.san ? el.dataset.san.split(' ') : []; location.hash = '#ouvertures'; }
   else if (act === 'expath') { S.path = S.path.slice(0, +el.dataset.n); render(true); }
-  else if (act === 'open') location.hash = '#partie/' + el.dataset.t;
   else if (act === 'more') { S.listN += 50; render(true); }
   else if (act === 'goto') gvGo(+el.dataset.k);
   else if (act === 'dbgo') gvDb(+el.dataset.i);
@@ -2653,7 +2651,8 @@ document.addEventListener('change', (ev) => {
   if (el.dataset.f === 'liangle' || el.dataset.f === 'lidiff') { S.li[el.dataset.f === 'liangle' ? 'angle' : 'diff'] = el.value; ls.set('li', { angle: S.li.angle, diff: S.li.diff }); S.li.cur = null; S.li.err = null; render(true); return; }
   if (el.dataset.f === 'snd') { sound.setEnabled(el.checked); sound.play('good'); return; }
   if (el.dataset.f === 'focus') { ls.set('focus', { id: el.value, since: Math.floor(Date.now() / 1000) }); render(true); return; }
-  if (el.dataset.f === 'tc') { S.f.tc = el.value; if (S.pz) pzReset('', false); } else S.f.days = +el.value;
+  if (el.dataset.f !== 'tc') return; // la période (data-f="days") : des boutons, voir l'écouteur de clics suivant
+  S.f.tc = el.value; if (S.pz) pzReset('', false);
   ls.set('filter', S.f); S.path = []; render(true);
 });
 document.addEventListener('click', (ev) => {

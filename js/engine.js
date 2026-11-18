@@ -73,7 +73,6 @@ export class Engine {
       this.w.postMessage('go depth ' + depth);
     });
   }
-  stop() { try { this.w.terminate(); } catch { /* rien */ } }
 }
 
 // Évalue chaque position d'une partie. Renvoie les données brutes { ev, best, pv, nb, depth },
