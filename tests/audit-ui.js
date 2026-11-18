@@ -200,8 +200,8 @@ async function visit(ctx, size, report) {
     await page.evaluate(() => Promise.race([new Promise((r) => setTimeout(r, 4000)), Promise.all([document.activeViewTransition?.finished, ...document.getAnimations().filter((a) => isFinite(a.effect?.getComputedTiming().endTime)).map((a) => a.finished)].map((p) => Promise.resolve(p).catch(() => {})))])).catch(() => {});
     const m = await page.evaluate(measure, [!!size.mobile, !!size.hc]);
     m.route = hash; m.errors = errs.splice(0);
-    // Heures qui changent d'une exécution à l'autre (pendule du Rush, « À jour, il y a … » de Parties et du Plan) : masquées sur la capture seulement.
-    await page.screenshot({ path: path.join(OUT, size.id, name + '.png'), mask: [page.locator('.rushclk'), page.locator('#upd'), page.getByText(/^À jour : /)], maskColor: '#ff00ff' });
+    // Heures qui changent d'une exécution à l'autre (pendule du Rush, « À jour, il y a … » de Parties et du Plan, masqué avec sa ligne entière pour que le masque garde la même largeur) : masquées sur la capture seulement.
+    await page.screenshot({ path: path.join(OUT, size.id, name + '.png'), mask: [page.locator('.rushclk'), page.locator('.row:has([data-act="refresh"])')], maskColor: '#ff00ff' });
     // Défilés jusqu'en bas : plus de bord estompé sur la dernière ligne.
     m.edgeEnd = await page.evaluate(async () => {
       const bad = [], fr = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -253,7 +253,10 @@ async function visit(ctx, size, report) {
       if (m.coords.length) pb.push('coordonnées : ' + m.coords.slice(0, 3).join(', '));
       if (m.wide && sid.startsWith('390x') && m.board < 360) pb.push('échiquier de ' + m.board + ' px (360 au moins)');
       if (m.wraps.length) pb.push('libellé sur deux lignes : ' + m.wraps.slice(0, 3).join(', '));
-      if (sid === '312x531' && m.fit && m.board && m.board < (name.startsWith('partie') ? 200 : 240)) pb.push('échiquier de ' + m.board + ' px (' + (name.startsWith('partie') ? 200 : 240) + ' au moins)');
+      // Seuil à 125 % : 200 px pour la relecture ; 170 px après la solution (erreur-resolue) tant que la taille de l'échiquier
+      // après la solution n'est pas tranchée (point ouvert du 15/11 dans CLAUDE.md : explication réduite ou défilement permis).
+      const minB = name.startsWith('partie') ? 200 : name === 'erreur-resolue' ? 170 : 240;
+      if (sid === '312x531' && m.fit && m.board && m.board < minB) pb.push('échiquier de ' + m.board + ' px (' + minB + ' au moins)');
       if (m.noEdge.length) pb.push('panneau qui défile sans bord : ' + m.noEdge.slice(0, 3).join(', '));
       if (m.edgeEnd.length) pb.push('bord estompé gardé en bas du défilement : ' + m.edgeEnd.join(', '));
       if (m.errors.length) pb.push('erreurs JS : ' + m.errors.join(' | '));

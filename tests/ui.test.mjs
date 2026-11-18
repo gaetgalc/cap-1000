@@ -56,7 +56,7 @@ test('datef garde le formateur : 10 000 appels de dfmt en moins de 50 ms', () =>
   const t0 = performance.now();
   for (let i = 0; i < 10000; i++) dfmt(1700000000 + i * 3600);
   const ms = performance.now() - t0;
-  assert.ok(ms < 50, `${ms.toFixed(1)} ms`);
+  assert.ok(ms < 50 * (process.env.CI ? 4 : 1), `${ms.toFixed(1)} ms`); // machines de GitHub plus lentes : marge × 4
 });
 
 test('agoFr', () => {
@@ -65,4 +65,10 @@ test('agoFr', () => {
   assert.equal(agoFr(2 * 3600e3), 'il y a 2 h');
   assert.equal(agoFr(30 * 3600e3), 'hier');
   assert.equal(agoFr(5 * 86400e3), 'il y a 5 jours');
+});
+
+test('dayLetter : lettre du jour local, du lundi au dimanche', async () => {
+  const { dayLetter } = await import('../js/ui.js');
+  const lundi = new Date(2026, 10, 16, 12).getTime(); // lundi 16 novembre 2026, midi local
+  assert.equal(Array.from({ length: 7 }, (_, i) => dayLetter(lundi + i * 86400000)).join(' '), 'L M M J V S D');
 });

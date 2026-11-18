@@ -67,7 +67,11 @@ node --test tests/*.test.mjs  # règles de planification et explications ; moins
 node tests/parcours.js        # parcours puzzles, journal, reprise, échauffement ; 1 à 2 minutes
 node tests/audit-ui.js        # captures et mesures de chaque écran aux 6 passes (5 tailles + contraste renforcé) (tests/out/audit) ; 4 à 5 minutes
 ONLY=accueil,bilan SIZES=390x664 node tests/audit-ui.js  # audit ciblé : écrans (noms de SCREENS) et tailles au choix, moins d'une minute
+node tests/perf.js            # fluidité sur 5 000 parties simulées : toute vue ≤ 100 ms de blocage, rechargement ≤ 150 ms ; --report pour mesurer sans échouer ; 90 s
+node tests/shots-diff.js A B  # comparaison pixel de deux dossiers d'audit (même jour : les dates des parties simulées suivent le jour courant)
 ```
+
+Tests automatiques sur GitHub à chaque push (`.github/workflows/tests.yml`) : tests unitaires et syntaxe des modules ; les tests de temps y ont une marge × 4 (`CI`).
 
 Le test génère des parties par coups semi-aléatoires au format Chess.com, intercepte `api.chess.com` et pilote Chromium avec Playwright. Ajouter `&debug` à l'URL expose l'état `S` dans `window.__cap`. Pour un cours privé, injecter un cours dans `S.ai` ; pour Lichess, intercepter `lichess.org`. Toujours vérifier le rendu par captures en 390 × 664 (iPhone avec les barres de Safari), 390 × 760, 1366 × 768 et 1280 × 860 : la page ne doit jamais défiler sur un écran d'échiquier.
 
@@ -75,6 +79,7 @@ Le test génère des parties par coups semi-aléatoires au format Chess.com, int
 
 - Publication (demande de Gaëtan du 15/11) : une fois les tests passés, fusionner directement dans `main` et pousser, sans pull request et sans redemander.
 
+- Fluidité (17/11) : toute vue reste sous 100 ms de blocage sur `tests/perf.js`. Un calcul qui ne dépend que des parties, des analyses, du filtre et du jour passe par `memo(nom, fn)` ; toute écriture de `S.data` ou `S.an` est suivie de `touch()` (`S.rev`), sinon les vues gardées restent périmées. Un calcul long se fait après l'affichage, par tranches (`idle`, `js/idle.js`), avec un bloc gris (`skel`).
 - Tout rendu déclenché en arrière-plan (fin d'analyse, import, génération) passe par `bgRender()`, qui ne touche pas à un exercice en cours. `render()` est réservé aux actions de l'utilisateur.
 - Filtres (revue HIG, 17/11) : la colonne de navigation ne porte plus de filtres. La cadence se règle dans Progrès > Plan et réglages (« Cadence suivie », avec « Mettre à jour » et « À jour : … »), la période (`S.f.days`, boutons `data-f="days" data-v="0|90|30"`, `periodSeg()`) dans Mon jeu, Parties, Mes ouvertures et le détail d'une ouverture (`#monouv`) : la période ne filtre que les vues où son sélecteur est visible (`games()`). Cours, priorités et chantier lisent `cadenceGames()` (cadence seule, toute la période). Parties affiche la ligne d'état `#upd` et un bouton `data-act="refresh"`. Mise à jour automatique : au chargement et au retour sur l'onglet si les données ont plus de 10 minutes (`STALE`), par `bgRender()` (jamais pendant un exercice ; rien dans une relecture).
 - `data-act` = actions globales (navigation, analyse…), `data-x` = actions de l'exercice affiché (indice, solution, lecture d'une suite ; enregistrées par `X.on`), `data-f` = filtres et sélecteurs, `data-mini` = mini-échiquiers des fiches.
@@ -100,6 +105,7 @@ Le test génère des parties par coups semi-aléatoires au format Chess.com, int
 - Plan d'agrément du 16/11 (`docs/PLAN-AGREMENT.md`) testé sur parties simulées seulement : sons jamais écoutés, rendu iPhone non vu, `!` (seul coup qui tenait) de la relecture jamais observé.
 - Échiquier sur téléphone après la solution (258 px sur 664 px de haut) : deux options proposées le 15/11 sans réponse (explication réduite à une ligne, ou défilement autorisé).
 - Non faits faute de demande : indice en deux niveaux sur les positions inédites, lecture automatique d'une partie dans la relecture.
+- Plan d'amélioration du 17/11 (`docs/PLAN-AMELIORATION.md`) : revue écran par écran et découpage de `app.js` en un module par écran non faits (décision de Gaëtan du 18/11, coût en jetons).
 - Pistes 3 à 6 de la revue d'architecture du 15/11 non engagées : plan d'entraînement hors affichage, un module par écran, données versionnées, feuille de style par composant.
 - Les explications de `explain.js` reposent sur des heuristiques (attaquants, défenseurs, matériel, clouages, enfilades, attaques à la découverte) : elles ignorent qu'une pièce clouée ne défend pas, et les coups purement positionnels restent commentés sobrement.
 - Stockage : toutes les parties d'un compte dans une seule entrée IndexedDB (sans effet avant plusieurs milliers de parties).

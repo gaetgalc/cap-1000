@@ -15,6 +15,9 @@ export const TC = { rapid: 'Rapide', blitz: 'Blitz', bullet: 'Bullet', daily: 'D
 export const HOW = { checkmated: 'mat', timeout: 'temps', resigned: 'abandon', abandoned: 'partie quittée', stalemate: 'pat', agreed: 'nulle par accord', repetition: 'répétition', insufficient: 'matériel insuffisant', '50move': '50 coups', timevsinsufficient: 'temps contre matériel insuffisant' };
 export const coach = (html, cls = '') => `<div class="coach ${cls}"><span class="coach-av" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="7" r="3.6" fill="currentColor"/><path d="M8 20c0-4 1.5-6 4-8.5 2.5 2.5 4 4.500 4 8.500z" fill="currentColor"/><rect x="6" y="19.500" width="12" height="2.500" rx="1" fill="currentColor"/></svg></span><div class="coach-b" data-edge>${html}</div></div>`;
 export const txt = (t) => esc(t).replace(/\n/g, '<br>');
+// Lettre du jour de la semaine, jour local (lundi L … dimanche D) : repère sous les cases de la semaine de l'accueil.
+const DAY_LETTERS = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+export const dayLetter = (ms) => DAY_LETTERS[new Date(ms).getDay()];
 export const pl = (n, w) => `${n} ${w}${n > 1 ? 's' : ''}`;
 export const f1 = (x) => x.toFixed(1).replace('.', ',');
 // Icônes dessinées : les flèches Unicode deviennent des émojis sur iPhone.

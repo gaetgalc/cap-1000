@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 globalThis.Chess = require('../vendor/chess.js').Chess;
+const SLOW = process.env.CI ? 4 : 1; // tests de temps : marge × 4 sur les machines de GitHub, plus lentes et partagées
 const { bigGames } = require('./fixture.js');
 const { makeRound } = await import('../js/drills.js');
 const { replay, hasReplay } = await import('../js/classify.js');
@@ -24,7 +25,7 @@ for (const type of ['sur', 'menace', 'cadeau', 'compte']) {
     // meilleur de trois appels : le tirage au sort change la charge d'un appel à l'autre, pas le budget
     let ms = Infinity;
     for (let k = 0; k < 3; k++) { const t0 = performance.now(); makeRound(type, games, 10); ms = Math.min(ms, performance.now() - t0); }
-    assert.ok(ms < 80, `second appel en ${Math.round(ms)} ms (limite 80)`);
+    assert.ok(ms < 80 * SLOW, `second appel en ${Math.round(ms)} ms (limite ${80 * SLOW})`);
   });
 }
 
@@ -56,5 +57,5 @@ test('cas froid : 200 parties dont 20 réchauffées, 10 positions en moins de 10
   let ms = Infinity, n = 0;
   for (let k = 0; k < 3; k++) { const t0 = performance.now(); n = makeRound('sur', cold, 10).length; ms = Math.min(ms, performance.now() - t0); }
   assert.equal(n, 10);
-  assert.ok(ms < 100, `${Math.round(ms)} ms (limite 100)`);
+  assert.ok(ms < 100 * SLOW, `${Math.round(ms)} ms (limite ${100 * SLOW})`);
 });

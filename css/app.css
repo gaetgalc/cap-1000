@@ -380,7 +380,7 @@ body.homefit .view { flex: 1; min-height: 0; width: 100%; padding-bottom: 16px; 
 .lgtxt { display: flex; flex-direction: column; gap: var(--s-2); min-width: 0; }
 .lgpos { flex: none; width: 192px; display: block; border-radius: var(--r-s); }
 .lgpos .board { display: block; }
-details.gd summary { cursor: pointer; font-size: var(--t-s); color: var(--accent-ink); font-weight: 600; margin-bottom: 8px; }
+details.gd summary, details.gl-leg summary { cursor: pointer; font-size: var(--t-s); color: var(--accent-ink); font-weight: 600; margin-bottom: 8px; }
 
 /* Chantier, exercices */
 .focus { border-color: var(--accent); gap: 10px; }
@@ -671,9 +671,11 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
   .home { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; }
   .gstrip { grid-column: 1 / -1; padding: var(--s-3) var(--s-4) var(--s-4); background: var(--surface); border-radius: var(--r); gap: var(--s-3) var(--s-4); }
   .gtiles { flex: 1 1 100%; grid-template-columns: repeat(6, minmax(0, 1fr)); } /* encarts de l'objectif sous la barre (17/11) */
-  .spark { display: block; width: 100%; height: 20px; margin-top: 2px; color: var(--accent); }
+  .spark { display: block; width: 100%; height: 20px; margin-top: 2px; color: var(--accent); } .spark.dn { color: var(--bad); }
   .week { display: flex; gap: var(--s-1); margin-top: var(--s-1); }
-  .week i { flex: 1; height: 14px; border-radius: var(--r-s); background: var(--bg); }
+  .week .wd { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .week i { width: 100%; height: 10px; border-radius: var(--r-s); background: var(--bg); }
+  .week .wd b { font: 500 var(--t-xs)/1 var(--body); color: var(--ink2); } .week .wd.td b { color: var(--ink); font-weight: 600; }
   .week i.pl { background: var(--accent-soft); } .week i.on { background: var(--accent); }
   .week i.now { box-shadow: inset 0 0 0 2px var(--ink3); } .week i.on.now { box-shadow: none; }
   a.revue { color: var(--ink); text-decoration: none; min-width: 0; }
@@ -724,7 +726,7 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
   h1 { font-size: var(--t-l); } h2 { font-size: var(--t-m); }
   .btn.sm { min-height: var(--hit); }
   .seg2 a, .seg2 button { min-height: var(--hit); display: flex; align-items: center; justify-content: center; }
-  details.gd summary { min-height: var(--hit); }
+  details.gd summary, details.gl-leg summary { min-height: var(--hit); }
   /* Cibles tactiles de 44 px sur les éléments qui ne sont pas des boutons */
   .brand, .gnum, .tools .pzprog, a.row, .sig a { min-height: var(--hit); display: flex; align-items: center; }
   td a, p.small > a:only-child, .meta.small > a:only-child, .kv dd > a, .rule > a { min-height: var(--hit); display: inline-flex; align-items: center; }
@@ -747,9 +749,9 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
   .ex { grid-template-columns: 1fr; } .board.mini { max-width: none; }
   .job { font-size: var(--t-xs); padding: 8px 14px; }
   /* Liste des parties */
-  .glsum { grid-template-columns: repeat(3, minmax(0, 1fr)); } .glt { padding: var(--s-2); } .glt b { font-size: var(--t-m); }
+  .glsum { grid-template-columns: repeat(2, minmax(0, 1fr)); } .glsum > .glt:first-child { grid-column: 1 / -1; } /* le total en tête, puis 2 × 2 : aucune case vide */ .glt { padding: var(--s-2); } .glt b { font-size: var(--t-m); }
   .gl-meta::after { content: ""; order: -1; flex-basis: 100%; }
-  .gll { padding: 16px; } /* marges ordinaires de carte sur téléphone */
+  .gll { padding: var(--s-4); } /* marges ordinaires de carte sur téléphone */
   /* Relecture de partie : barre d'évaluation horizontale au-dessus de l'échiquier (8 px et 4 px d'espace) ; le bandeau
      garde 128 px, de quoi montrer un moment clé (en-tête avec « Comprendre », trois lignes) sans défiler */
   body.fit .bwrap.gv .board, .bwrap.gv .evbar { width: min(100cqw, 100cqh - 140px); }
@@ -922,8 +924,7 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
 }
 @media (hover: hover) and (pointer: fine) {
   /* Bouton désactivé : teinte de survol de la première version, gardée telle quelle (même poids que .btn:hover) */
-  .btn:where([disabled]:not(.pri)):hover { background: var(--btn2-hover); border-color: var(--btn2-hover); }
-  .btn.pri:hover { filter: brightness(1.12); }
+  .btn.pri:not([disabled]):hover { filter: brightness(1.12); }
   .btn:not(.pri):not([disabled]):hover { background: var(--btn2-hover); border-color: var(--hover-line); color: var(--ink); }
   .btn.pri:not([disabled]):hover, .opdue:hover, .gnum:hover, a.revue:hover, .pzprog:hover, .lgpos:hover, .brand:hover, .hbar:hover .track i { filter: brightness(1.15); }
   .seg2 button:not(.on):hover, .seg2 a:not(.on):hover, .nav a:not(.on):hover, .grp:hover .grp-h:not(.on), .moves button:not(.cur):hover, .gvm .mv:not(.cur):hover, .gvnote:hover, .ent-log:hover { background: var(--hover); color: var(--ink); }

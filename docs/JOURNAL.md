@@ -515,6 +515,30 @@ Suite (« oui mets les joueurs autour de l'échiquier comme chess.com […] essa
 - Note : « à retravailler » à cause de la coquille. Trois écarts hauts : sur téléphone un onglet ouvre un menu au lieu de naviguer ; Cadence, Période et « Mettre à jour » changent de place selon la largeur (bas de la colonne sur ordinateur, réglages sur téléphone) ; à 125 % de zoom, l'échiquier du puzzle tombe à 160 px et des libellés passent sur deux lignes. Six écarts moyens, dont les couleurs d'icônes trop proches des couleurs d'état (2° et 9° d'écart de teinte).
 - Plan en 10 tâches dans `docs/PLAN-HIG.md`, chacune avec sa mesure ajoutée à l'audit ou son test d'abord. Trois décisions attendues de Gaëtan (onglets du téléphone, couleurs des icônes, barre du haut). Rien n'est codé.
 
+## 48. Plan d'amélioration : code, fluidité, lisibilité, dépôt (17-18/11)
+
+> Fais un plan pour améliorer ce repo avec ces objectifs : 1/ efficacité du code -> le moins de code avec les mêmes capacités. enlever ce qui est inutile 2/ fluidité du site 3/ ux beau claire et efficace (ex: sur la homepage rendre claire que les points correspondent à un jour de la semaine). 4/ ce que tu penses utile pour améliorer le repo · je prends tes recos, lance tout · si ça prend trop de temps, fais tout avec opus · ça prend trop de token → ok pour tes reco
+
+Plan dans `docs/PLAN-AMELIORATION.md`, exécuté par des sous-agents (Sonnet puis Opus), chacun relu par un autre. Une autre session menait en même temps la revue HIG (§47) sur `main` : ses changements ont été fusionnés dans la branche du plan, conflits réglés de ce côté. Trois coupures par la limite d'usage. Tâches 14 (revue écran par écran) et 15 (un module par écran) abandonnées le 18/11 pour économiser les jetons.
+
+**Fluidité** (plus longue tâche bloquante à l'ouverture de la vue, banc `tests/perf.js` de 5 000 parties, ordinateur / téléphone) :
+
+| Vue | Avant | Après | Cause |
+|---|---|---|---|
+| Mon jeu | 2 867 / 2 060 ms | ≈ 60 ms | `toLocaleDateString` recréé à chaque point de courbe (`datef`), phases rejouées au rendu (calcul par tranches après l'affichage) |
+| Idées de plan | 2 831 / 2 573 ms | ≈ 60 ms | intentions recalculées pour toutes les erreurs (parcours paresseux, gardé par analyse) |
+| Stats | 498 / 326 ms | ≈ 70 ms | `datef` |
+| Échauffement | 287 ms | ≈ 60 ms | rejeu des parties (`replay` en cache, parties réchauffées d'abord) |
+| Relecture | 113 ms | ≈ 65 ms | Elo de référence gardé |
+
+Aussi : `memo()` / `touch()` (calculs gardés tant que parties, analyses, filtre et jour ne changent pas), préchargement de tout le graphe de modules et des polices du premier écran, repli de `idle` pour Safari (tranches de 12 ms décomptées à l'horloge).
+
+**Code** : polices Sora et IBM Plex supprimées (110 Ko) ; feuille de style en un bloc ordinateur et un bloc téléphone (37 blocs `@media` avant), un seul bloc de survol, règles mortes et doublons retirés (90,2 → 86,8 Ko, l'objectif de 70 Ko était trop optimiste : presque toute la feuille sert) ; table `ROUTES` à la place des quatre chaînes de routage ; aides `tile`, `resChip`, `tabs` ; quatre morceaux de code jamais exécuté retirés (couverture V8). `app.js` : 240,0 → 238,1 Ko après la fusion de la revue HIG (qui avait ajouté 3,4 Ko).
+
+**Interface** : semaine de l'accueil avec la lettre de chaque jour sous sa case (les 7 derniers jours, aujourd'hui à droite, en clair) ; mini-courbe des 30 jours en rouge quand l'Elo baisse ; liste à cocher de la semaine retirée de Plan et réglages (décision 1) ; puzzle sur téléphone : « Ouvrir la partie » sur sa propre ligne (l'interligne n'est plus cassé) ; Parties sur téléphone : synthèse en 2 colonnes sans case vide, aide repliable « Comment lire une ligne » ; un bouton désactivé ne s'éclaircit plus au survol.
+
+**Dépôt** : `CLAUDE.md` allégé (33 → 14 Ko, détail dans `docs/ARCHITECTURE.md`) ; bancs `tests/perf.js` et `tests/shots-diff.js` ; tests sur GitHub à chaque push (`.github/workflows/tests.yml`) ; écran `erreur-resolue` dans l'audit ; contrôles du parcours : nouvelle partie puis mise à jour (rien de périmé), anciennes adresses, passage ordinateur / téléphone de la relecture.
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |

@@ -7,7 +7,7 @@ import * as st from './stats.js';
 import { LESSONS, ENGINE_LESSONS, RULES } from './lessons.js';
 import { viewStats, mountStats } from './alltime.js';
 import { fr, settle, buildLine, insight, hintFor, lastMoveText, moveText, material, describeAt, justPlayed, PLAN_RULE } from './explain.js';
-import { $, esc, dfmt, datef, TC, HOW, coach, txt, pl, f1, ico, wdl, WDL_LEGEND, setHtml, agoFr, tile, resWord, resChip, tabs } from './ui.js';
+import { $, esc, dfmt, datef, TC, HOW, coach, txt, pl, f1, ico, wdl, WDL_LEGEND, setHtml, agoFr, tile, resWord, resChip, tabs, dayLetter } from './ui.js';
 import { lineChart, sparkline } from './charts.js';
 import { progress, DAY } from './progress.js';
 import { board, destroyBoards, destsOf, arrow, errShapes, REDUCED } from './board.js';
@@ -312,7 +312,7 @@ function viewInedits() {
     live: true, top: () => `<span class="chip ${stat.n ? 'good' : ''}">${stat.ok} / ${stat.n} du premier coup</span>`,
     head: head + coach(`${esc(last)} <b>À toi de jouer avec les ${side}.</b> Trouve le meilleur coup${P.sol.length > 2 ? `, puis la suite (${Math.ceil(P.sol.length / 2)} coups à trouver)` : ''}.`, 'intro'),
     cap: `<p><i class="dot ${P.white ? 'w' : 'b'}"></i> <span class="m-txt">${esc(last)} </span>Trait aux ${side}. ${P.sol.length > 2 ? `Trouve le meilleur coup puis la suite (${Math.ceil(P.sol.length / 2)} coups).` : 'Trouve le meilleur coup.'}</p>`,
-    panel: `<div class="row m-only lisel">${sels}</div><div class="meta small">Puzzle Lichess n° ${esc(P.id)} · niveau ${P.rating} · <a href="${P.url}" target="_blank" rel="noopener">Voir sur Lichess</a></div>
+    panel: `<div class="row m-only lisel">${sels}</div><div class="meta small">Puzzle Lichess n° ${esc(P.id)} · niveau ${P.rating}</div><div class="meta small"><a href="${P.url}" target="_blank" rel="noopener">Voir sur Lichess</a></div>
       <div id="lix"><div class="card ghost"><h3>Comment chercher</h3><ol class="routine"><li>Que vient de faire ton adversaire ? Que menace son coup ?</li><li>As-tu un échec, une capture ou une menace ?</li><li>La case où tu vas est-elle attaquée ?</li></ol></div></div>`,
     bar: '<button class="btn" data-x="hint">Indice</button><button class="btn" data-x="show">Solution</button>',
   });
@@ -387,7 +387,7 @@ function workScreen(p, o) {
     head: o.head + coach(`${last ? esc(last) + ' ' : ''}<b>À toi de jouer avec les ${side}.</b> En partie, ton coup ici t’a coûté ${p.e.drop} points de chances de gain. ${altText(p.e)}`, 'intro'),
     cap: `<p><i class="dot ${p.g.w ? 'w' : 'b'}"></i> <span class="m-txt">${last ? esc(last) + ' ' : ''}</span>Trait aux ${side}. <span class="d-txt">Joue ton coup sur l’échiquier.</span><span class="m-txt">Trouve mieux qu’en partie.</span></p>`,
     panel: `${o.side || ''}
-      <div class="meta small">Coup ${moveNo(p.e)} de ta ${gameRef(p.g)}${p.e.theme ? ` · ${st.THEMES[p.e.theme]}` : ''} · <a href="#partie/${p.g.t}/${p.e.ply}">Ouvrir la partie</a></div>
+      <div class="meta small">Coup ${moveNo(p.e)} de ta ${gameRef(p.g)}${p.e.theme ? ` · ${st.THEMES[p.e.theme]}` : ''}</div><div class="meta small"><a href="#partie/${p.g.t}/${p.e.ply}">Ouvrir la partie</a></div>
       <div id="pzx"><div class="card ghost"><h3>Comment chercher</h3><ol class="routine"><li>Que vient de faire ton adversaire ? Que menace son coup ?</li><li>As-tu un échec, une capture ou une menace ?</li><li>La case où tu vas est-elle attaquée ?</li></ol></div></div>`,
     bar: SOLVE_BAR,
   });
@@ -1360,7 +1360,7 @@ function goalStrip() {
   const d30 = !tr.delta30 ? '' : `<span class="chip ${tr.delta30 > 0 ? 'good' : tr.delta30 < 0 ? 'bad' : ''}">${tr.delta30 >= 0 ? '+' : ''}${tr.delta30} sur 30 j</span>`;
   // Ordinateur (17/11) : les chiffres de l'objectif dans des encarts sous la barre, comme le bilan de « Parties » ;
   // téléphone : une ligne, la série est dans la barre du haut.
-  const tiles = `<div class="glsum gtiles d-only">${tile('Il manque', gap > 0 ? `${gap} pts` : 'Atteint', { sub: `pour atteindre ${g.elo}`, cls: gap > 0 ? '' : 'up' })}${tile('Échéance', `${days} j`, { sub: F_DMY(new Date(g.date)) })}${gap > 0 ? tile('Rythme nécessaire', pace.replace(' pts / sem.', ''), { sub: 'points par semaine' }) : ''}${tile('30 derniers jours', tr.delta30 ? `${tr.delta30 > 0 ? '+' : ''}${tr.delta30}` : '0', { sub: elo30(), cls: tr.delta30 > 0 ? 'up' : tr.delta30 < 0 ? 'dn' : '' })}${tile('Série', `${stk} j`, { sub: weekDots(), cls: stk ? 'warn' : '', tip: 'Jours consécutifs avec au moins un puzzle ou un cours' })}${nextReview()}</div>`;
+  const tiles = `<div class="glsum gtiles d-only">${tile('Il manque', gap > 0 ? `${gap} pts` : 'Atteint', { sub: `pour atteindre ${g.elo}`, cls: gap > 0 ? '' : 'up' })}${tile('Échéance', `${days} j`, { sub: F_DMY(new Date(g.date)) })}${gap > 0 ? tile('Rythme nécessaire', pace.replace(' pts / sem.', ''), { sub: 'points par semaine' }) : ''}${tile('30 derniers jours', tr.delta30 ? `${tr.delta30 > 0 ? '+' : ''}${tr.delta30}` : '0', { sub: elo30(), cls: tr.delta30 > 0 ? 'up' : tr.delta30 < 0 ? 'dn' : '' })}${tile('Série', `${stk} j`, { sub: weekDots(), cls: stk ? 'warn' : '', tip: 'Jours consécutifs avec au moins un puzzle ou un cours. Cases : les 7 derniers jours, aujourd’hui à droite ; vert plein = entraîné, vert sombre = partie jouée sans entraînement.' })}${nextReview()}</div>`;
   return `<section class="gstrip"><a class="gnum" href="#bilan" title="Détail de l’objectif"><b class="num">${tr.cur}</b><span class="goalbar" aria-hidden="true"><i style="width:${Math.max(3, Math.min(100, (100 * tr.cur) / g.elo))}%"></i></span><b class="num">${g.elo}</b></a>
     <span class="gmeta m-only">${gap > 0 ? `<span>Il manque <b class="num">${gap}</b></span><span>${days} j</span>` : ''}<span>${pace}</span>${d30}</span>${tiles}</section>`;
 }
@@ -1368,12 +1368,13 @@ function goalStrip() {
 function elo30() {
   const t0 = Date.now() / 1000 - 30 * 86400, gs = rapidAll().filter((g) => g.rated && g.r).sort((a, b) => a.t - b.t);
   const before = gs.filter((g) => g.t < t0).pop(), vals = [...(before ? [before] : []), ...gs.filter((g) => g.t >= t0)].map((g) => g.r);
-  return sparkline(vals, 'Ton Elo sur les 30 derniers jours') || 'points';
+  return sparkline(vals, 'Ton Elo sur les 30 derniers jours', vals.length > 1 && vals[vals.length - 1] < vals[0] ? 'dn' : '') || 'points';
 }
 function weekDots() {
   const played = {}; for (const g of S.data?.games || []) { const k = dkey(new Date(g.t * 1000)); played[k] = (played[k] || 0) + 1; }
   const today = dkey();
-  return `<span class="week">${progress.week().map((x) => { const p = played[x.d] || 0, lab = F_WDLONG_MSHORT(new Date(x.t)); return `<i class="${x.n ? 'on' : p ? 'pl' : ''}${x.d === today ? ' now' : ''}" title="${lab} : ${x.n ? pl(x.n, 'exercice') : 'pas d’entraînement'}${p ? ', ' + pl(p, 'partie') : ''}"></i>`; }).join('')}</span>`;
+  // Une case par jour (les 7 derniers jours, aujourd'hui à droite), avec sa lettre dessous : sans lettre, on ne voyait pas que chaque case est un jour.
+  return `<span class="week">${progress.week().map((x) => { const p = played[x.d] || 0, lab = F_WDLONG_MSHORT(new Date(x.t)), now = x.d === today; return `<span class="wd${now ? ' td' : ''}"><i class="${x.n ? 'on' : p ? 'pl' : ''}${now ? ' now' : ''}" title="${lab} : ${x.n ? pl(x.n, 'exercice') : 'pas d’entraînement'}${p ? ', ' + pl(p, 'partie') : ''}"></i><b aria-hidden="true">${dayLetter(x.t)}</b></span>`; }).join('')}</span>`;
 }
 // Prochaine révision (accueil, ordinateur) : lignes d'ouverture et finales dues aujourd'hui, sinon la prochaine à venir.
 function nextReview() {
@@ -1855,7 +1856,7 @@ function mountMonOuv() {
 function viewParties() {
   const gs = games().slice().reverse(), fx = st.gameFacts(S.data?.games || []), allTc = S.f.tc === 'all';
   S.listN ||= 50;
-  const head = '<div class="gl head" aria-hidden="true"><span>Joueurs et Elo</span><span>Résultat</span><span class="gl-meta"><span>Ouverture</span><span class="gl-c">Coups</span><span class="gl-c">Précision</span><span class="gl-c">Fautes</span><span class="gl-c">Pendule</span><span class="gl-d">Date</span></span></div><p class="gl-leg small">Elo : écart de l’adversaire avec toi, puis ce que la partie t’a fait gagner ou perdre. Dessous : coups, précision, temps restant, fautes (?? gaffe, ? erreur).</p>';
+  const head = '<div class="gl head" aria-hidden="true"><span>Joueurs et Elo</span><span>Résultat</span><span class="gl-meta"><span>Ouverture</span><span class="gl-c">Coups</span><span class="gl-c">Précision</span><span class="gl-c">Fautes</span><span class="gl-c">Pendule</span><span class="gl-d">Date</span></span></div><details class="gl-leg small"><summary>Comment lire une ligne</summary><p>Elo : écart de l’adversaire avec toi, puis ce que la partie t’a fait gagner ou perdre. Dessous : coups, précision, temps restant, fautes (?? gaffe, ? erreur).</p></details>';
   return `${tabs('parties', GAMES_TABS)}<div class="vhead"><h1>Parties</h1>${periodSeg()}</div><div class="row updrow"><span class="sub" id="upd">${upToDate()}</span>${refreshBtn()}</div>${gs.length ? `<div class="card">${partiesSummary(gs)}</div>` : ''}<div class="card gll">${head}
     ${gs.slice(0, S.listN).map((g) => partieRow(g, fx[g.id] || {}, allTc)).join('')}
     ${gs.length > S.listN ? '<div><button class="btn" data-act="more">Afficher 50 parties de plus</button></div>' : ''}</div>`;
