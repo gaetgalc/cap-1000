@@ -387,6 +387,12 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
   await page.setViewportSize({ width: 1366, height: 768 }); await sleep(300);
   await page.goto(`http://localhost:${PORT}/?u=${USER}&debug#accueil`); await sleep(800);
   check(await S(() => !document.querySelector('#tools select') && !!document.querySelector('#tools .sideupd [data-act="refresh"]') && /^À jour/.test(document.querySelector('#tools [data-upd]').textContent)), 'ordinateur : pas de filtres dans la colonne, mais « Mettre à jour » et son état en bas (18/11)');
+  // Fenêtre basse (19/11, capture de Gaëtan vers 1350 × 625) : l'accueil ne tient plus en hauteur ; la page défile à la
+  // molette jusqu'au bas des cartes au lieu de les couper.
+  await page.setViewportSize({ width: 1366, height: 560 }); await sleep(300);
+  await page.mouse.move(900, 300); await page.mouse.wheel(0, 3000); await sleep(500);
+  check(await S(() => Math.max(...[...document.querySelectorAll('.home *')].map((e) => e.getBoundingClientRect().bottom)) <= innerHeight + 1), 'ordinateur, fenêtre basse : l’accueil défile jusqu’au bas de ses cartes, rien n’est coupé');
+  await page.setViewportSize({ width: 1366, height: 768 }); await sleep(300);
   await page.hover('#nh-pro'); await sleep(300);
   check(await S(() => document.querySelector('#nh-pro').getAttribute('aria-expanded') === 'true' && document.querySelector('#nh-pro').getAttribute('aria-haspopup') === 'true'), 'ordinateur : le survol ouvre le volet (aria-expanded)');
   await page.click('#fly-pro a[href="#stats"]'); await sleep(500);

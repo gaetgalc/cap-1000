@@ -585,6 +585,15 @@ Aussi : `memo()` / `touch()` (calculs gardés tant que parties, analyses, filtre
 - Correctif : « Après , tu t'es trompé… » quand l'erreur qui revient est au premier coup ; dit maintenant « Dès le premier coup » (`repeatLead`).
 - À 312 × 531, la carte du bas de l'accueil (bilan ou dernière partie) passe sous la barre du bas, comme avant.
 
+## 52. Accueil coupé dans une fenêtre basse (19/11)
+
+> quand j'ai la page ouverte en petit ça rogne sur le texte (capture : Chrome sur ordinateur, fenêtre d'environ 1350 × 625)
+
+- **Cause** : l'accueil était fixé à la hauteur de l'écran avec `overflow: hidden` (`body.homefit`). Son contenu descend jusqu'à 715 px en 1366 de large : sous cette hauteur, le bas de la séance et du bilan était coupé, et la molette ne faisait rien.
+- **Fait** : hauteur minimale au lieu d'une hauteur fixe. Aux 6 passes de l'audit, rien ne change (0 capture différente, toujours sans défilement) ; dans une fenêtre plus basse, la page défile, la colonne de gauche reste en place. Effet de bord voulu : à 312 × 531, la carte du bas, qui passait sous la barre du bas (§51), s'atteint en défilant.
+- Contrôle ajouté au test de bout en bout : en 1366 × 560, la molette mène jusqu'au bas des cartes.
+- Non touché : le texte des points forts et faibles du bilan reste limité à 2 lignes sur ordinateur (« Ce… » sur la capture).
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |

@@ -323,8 +323,10 @@ ol.line li.cur { background: var(--sunken); border-left-color: var(--accent); } 
 .mrow { display: grid; grid-template-columns: 44px 1fr auto; gap: 12px; align-items: center; padding: 12px; border-radius: var(--r); background: var(--surface); border: 1px solid var(--line); text-decoration: none; color: inherit; }
 .mico { width: 44px; height: 44px; border-radius: var(--r); background: var(--accent-soft); color: var(--accent-ink); display: grid; place-items: center; font: 600 var(--t-xs) var(--display); }
 .chev { display: flex; color: var(--ink3); }
-/* Accueil sans défilement (body.homefit) : objectif, séance à gauche, chantier et dernière partie à droite */
-body.homefit { height: 100vh; height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
+/* Accueil sans défilement (body.homefit) : objectif, séance à gauche, chantier et dernière partie à droite.
+   Hauteur minimale, pas fixe (19/11) : aux tailles de référence tout tient et rien ne défile ; dans une fenêtre plus basse,
+   la page s'allonge et défile au lieu de couper le bas des cartes. */
+body.homefit { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
 body.homefit .view { flex: 1; min-height: 0; width: 100%; padding-bottom: 16px; }
 /* Même colonne que les autres pages (.view) : le bord gauche du contenu ne bouge pas d'une page à l'autre */
 .home { flex: 1; min-height: 0; width: 100%; display: grid; gap: 12px; grid-template-rows: auto auto auto; align-content: start; }
