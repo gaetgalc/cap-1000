@@ -2,7 +2,7 @@
 import { dbGet, dbSet, dbDel, ls } from './store.js';
 import { importPlayer } from './chesscom.js';
 import { Engine, evaluateGame, multiPass } from './engine.js';
-import { classify, VERSION, winPct, fmtEval, uciMove, isPuzzle, replay } from './classify.js';
+import { classify, VERSION, winPct, fmtEval, uciMove, isPuzzle, replay, MATE } from './classify.js';
 import * as st from './stats.js';
 import { LESSONS, ENGINE_LESSONS, RULES } from './lessons.js';
 import { viewStats, mountStats } from './alltime.js';
@@ -35,7 +35,7 @@ import { phaseJob, pieceStats, hourStats, sessionStats, perfRef, gameRating, ins
 import { fetchExplorer, explorerRows, LEVEL } from './explorer.js';
 import { makeMemo, viewKey } from './memo.js';
 import { makeIdle } from './idle.js';
-import { replyRows, repliesHead } from './replies.js';
+import { replyRows, repliesHead, moveImpact } from './replies.js';
 
 // Formats de date : un Intl.DateTimeFormat par jeu d'options (datef), les mêmes options qu'avec toLocale…String('fr-FR', …).
 const F_HM = datef({ hour: '2-digit', minute: '2-digit' }), F_WDLONG = datef({ weekday: 'long', day: 'numeric', month: 'long' }), F_DSHORT = datef({ day: 'numeric', month: 'short' });
@@ -2525,13 +2525,35 @@ function fbMoves(P) {
   const ply0 = (P.fens[0].split(' ')[1] === 'b' ? 1 : 0) + 2 * (+P.fens[0].split(' ')[5] - 1);
   return P.mv.map((m, j) => { const n = ply0 + j; return `${n % 2 === 0 || j === 0 ? `<span class="n">${Math.floor(n / 2) + 1}${n % 2 ? '…' : '.'}</span>` : ''}<button data-act="fbgo" data-i="${j + 1}" class="${j + 1 === P.i ? 'cur' : ''}">${fr(m.san)}</button>`; }).join('') || '<span class="small">Aucun coup encore : joue sur l’échiquier, pour les deux camps.</span>';
 }
+// Éval de la position pour le camp au trait (null en attendant le moteur) : meilleure ligne, ou fin de partie.
+function fbEval(fen, lines) {
+  if (!lines) return null;
+  if (lines.length) return { cp: lines[0].cp, best: lines[0].pv?.[0] };
+  return { cp: new Chess(fen).in_checkmate() ? -MATE : 0 };
+}
+// Impact du dernier coup : éval avant (position précédente) et après ; null tant qu'une des deux manque.
+function fbImpact(P) {
+  if (!P.i) return null;
+  const pf = P.fens[P.i - 1], f = P.fens[P.i], m = P.mv[P.i - 1];
+  return moveImpact(fbEval(pf, REP.get(pf)), fbEval(f, REP.get(f)), m.from + m.to + (m.promotion || ''));
+}
+const IMPACT_CLS = { best: 'good', good: 'good', imprecision: '', erreur: 'warn', gaffe: 'bad' };
 function fbCap(P, lines) {
-  const fen = P.fens[P.i], last = P.i ? P.mv[P.i - 1] : null, ch = new Chess(fen);
+  const fen = P.fens[P.i], last = P.i ? P.mv[P.i - 1] : null, ch = new Chess(fen), turn = fen.split(' ')[1];
   const over = ch.in_checkmate() ? 'Échec et mat.' : ch.in_stalemate() ? 'Pat.' : ch.in_draw() ? 'Nulle.' : '';
-  const best = lines?.[0], b = best?.pv?.[0] ? uciMove(new Chess(fen), best.pv[0]) : null;
-  const ev = over ? `<span class="chip">${over}</span>` : lines === false ? '<span class="small">moteur indisponible</span>' : best ? `<span class="chip evnum" title="Évaluation du moteur, de ton point de vue">${fmtEval(fen.split(' ')[1] === P.me ? best.cp : -best.cp)}</span>${b ? `<span class="capbest">Meilleur <b>${fr(b.san)}</b></span>` : ''}` : '<span class="small">éval…</span>';
+  const e = lines === false ? false : fbEval(fen, lines), b = e?.best ? uciMove(new Chess(fen), e.best) : null, im = fbImpact(P);
+  const evc = e === false ? '<span class="small">moteur indisponible</span>' : e ? `<span class="chip evnum" title="Évaluation du moteur, de ton point de vue">${fmtEval(turn === P.me ? e.cp : -e.cp)}</span>` : '<span class="small">éval…</span>';
+  const pov = (cp) => (turn === P.me ? -cp : cp); // im.before et im.after sont du point de vue du camp qui a joué (l'autre que celui au trait)
+  const imc = last ? (im ? `<span class="chip ${IMPACT_CLS[im.kind]}" title="Effet du coup ${esc(fr(last.san))} sur l’éval, de ton point de vue">${esc(fr(last.san))} : ${im.label}${im.kind === 'best' ? '' : `, ${fmtEval(pov(im.before))} → ${fmtEval(pov(im.after))}`}</span>` : e === false ? '' : '<span class="small">impact…</span>') : '';
+  const bestc = over ? `<span class="chip">${over}</span>` : b ? `<span class="capbest">Meilleur <b>${fr(b.san)}</b></span>` : '';
   const txtK = last ? describeAt(P.fens[P.i - 1], last.san, P.me) : 'Joue les coups des deux camps : le moteur donne les meilleures réponses.';
-  return `<div class="capm"><span class="capn"><i class="dot ${fen.split(' ')[1] === 'w' ? 'w' : 'b'}"></i>Trait aux ${fen.split(' ')[1] === 'w' ? 'Blancs' : 'Noirs'}</span>${ev}</div><p>${esc(txtK)}</p>`;
+  return `<div class="capm"><span class="capn"><i class="dot ${turn === 'w' ? 'w' : 'b'}"></i>Trait aux ${turn === 'w' ? 'Blancs' : 'Noirs'}</span>${evc}${imc}${bestc}</div><p>${esc(txtK)}</p>`;
+}
+// Barre d'évaluation (part des Blancs) de la position affichée ; reste en place tant que le moteur calcule.
+function fbBarEv(P, lines) {
+  const fen = P.fens[P.i], e = fbEval(fen, lines), el = $('#fbev'); if (!el) return;
+  el.classList.toggle('flip', P.me === 'b');
+  if (e) el.style.setProperty('--ev', evalShare(fen.split(' ')[1] === 'w' ? e.cp : -e.cp));
 }
 function fbBar(P) {
   const i = P.i, n = P.mv.length;
@@ -2540,8 +2562,9 @@ function fbBar(P) {
 function viewEchiquier() {
   const P = (S.fb ||= fbNew());
   return exo.screen({
-    live: true, capSide: true,
-    head: tabs('fb', GAMES_TABS) + '<div class="pzhead main"><h1>Échiquier libre</h1></div>',
+    live: true, capSide: true, wrap: 'gv fb',
+    rail: `<div class="evbar ${P.me === 'b' ? 'flip' : ''}" id="fbev" aria-hidden="true" title="Qui domine : part des Blancs d’après le moteur"><i></i></div>`,
+    head: `<div class="fbtabs">${tabs('fb', GAMES_TABS)}</div><div class="pzhead main"><h1>Échiquier libre</h1></div>`,
     cap: fbCap(P, REP.get(P.fens[P.i])),
     panel: `<div class="card rep" id="rep"></div>
       <div class="card"><h3>Coups joués</h3><div class="moves vline" id="fbm">${fbMoves(P)}</div></div>
@@ -2560,8 +2583,10 @@ function mountEchiquier() {
 }
 function fbSync() {
   const X = exo.current(), P = S.fb; if (!X?.cg || !P || route()[0] !== 'echiquier') return;
-  const fen = P.fens[P.i], last = P.i ? P.mv[P.i - 1] : null, lines = repLines(fen, () => { if (S.fb === P && P.fens[P.i] === fen) fbSync(); });
-  const best = lines?.[0]?.pv?.[0];
+  const fen = P.fens[P.i], last = P.i ? P.mv[P.i - 1] : null, again = () => { if (S.fb === P && P.fens[P.i] === fen) fbSync(); };
+  const lines = repLines(fen, again), best = lines?.[0]?.pv?.[0];
+  if (lines && P.i && !REP.has(P.fens[P.i - 1])) repLines(P.fens[P.i - 1], again); // éval d'avant le coup, pour son impact
+  fbBarEv(P, lines);
   X.cg.set({ fen, turnColor: fen.split(' ')[1] === 'w' ? 'white' : 'black', lastMove: last ? [last.from, last.to] : undefined, movable: fbMov(fen), drawable: { autoShapes: best ? [arrow(best, 'green')] : [] } });
   X.say('', fbCap(P, lines));
   X.setBar(fbBar(P));

@@ -607,6 +607,16 @@ Choix de Gaëtan : les deux endroits (relecture et nouvel échiquier libre), aff
 - Audit : écrans `echiquier`, `echiquier-ligne` et `partie-variante` (une ligne jouée d'un clic) ; coups d'une variante à 44 px sur téléphone.
 - Non vérifié : vitesse du MultiPV sur iPhone ; PGN réel copié depuis Chess.com.
 
+## 54. Échiquier libre : plus grand, barre d'évaluation, impact du coup (20/11)
+
+> réorganise pour que ça soit plus grand que c'est sur une moitié d'écran. je veux aussi avoir la barre pour voir qui domine, plus l'impact direct d'un coup sur le score en direct (capture : Chrome en demi-écran, environ 733 × 742)
+
+- **Plus grand** : l'échiquier libre reprend la mise en page de la relecture (`wrap: 'gv fb'`). Panneau limité à deux lignes de réponses sous l'échiquier, onglets masqués sur un écran d'échiquier (Parties y mène), bandeau de deux lignes (80 px) au lieu de la réserve des moments clés. En 733 × 742 : 376 px au lieu de 304 ; sur ordinateur, plus de réserve pour les joueurs.
+- **Barre « qui domine »** (`#fbev`) : verticale à gauche sur ordinateur, horizontale au-dessus de l'échiquier sur téléphone ; elle suit l'éval du moteur et se retourne avec l'échiquier.
+- **Impact du coup** (`moveImpact` de `replies.js`) : dans le bandeau, « g4 : Gaffe, -0.6 → -M1 », éval avant → après de ton point de vue. Classement selon les chances de gain perdues, avec les mêmes seuils que `classify.js` (≥ 20 gaffe, ≥ 10 erreur, ≥ 5 imprécision), « Meilleur » si c'est le coup du moteur. L'éval d'avant le coup est calculée si elle manque.
+- Sur téléphone, le bandeau ne répète plus « Meilleur … » : c'est déjà la flèche verte et la première ligne des réponses.
+- Audit : taille `733x742` sur demande (`SIZES=733x742`), écran `echiquier-gaffe` (1. f3 e5 2. g4 collé en PGN : la gaffe doit s'afficher).
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |

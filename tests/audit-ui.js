@@ -23,10 +23,12 @@ const TOUTES_TAILLES = [
   { id: '312x531', width: 312, height: 531, mobile: true, zoom: true },
   // 390 × 664 avec le réglage « Augmenter le contraste » (prefers-contrast: more) : texte à 7:1, bord de carte à 3:1.
   { id: '390x664-hc', width: 390, height: 664, mobile: true, hc: true },
+  // Fenêtre d'ordinateur en demi-écran (capture du 20/11) : sur demande seulement (SIZES=733x742).
+  { id: '733x742', width: 733, height: 742, extra: true },
 ];
 // Audit ciblé : SIZES=390x664,1366x768 et ONLY=accueil,bilan (noms d'écrans) ; sans variable, tout tourne.
 const liste = (v) => (v || '').split(',').map((x) => x.trim()).filter(Boolean);
-const SIZES = liste(process.env.SIZES).length ? TOUTES_TAILLES.filter((z) => liste(process.env.SIZES).includes(z.id)) : TOUTES_TAILLES;
+const SIZES = liste(process.env.SIZES).length ? TOUTES_TAILLES.filter((z) => liste(process.env.SIZES).includes(z.id)) : TOUTES_TAILLES.filter((z) => !z.extra);
 
 // Écrans : route fixe, ou fonction qui la calcule sur l'état chargé (window.__cap) ; act : gestes faits avant la capture.
 const ERREUR = () => { const s = window.__cap; for (const g of s.data.games) { const e = s.an[g.id]?.errs?.[0]; if (e) return 'erreur/' + g.t + '/' + e.ply; } return 'puzzles'; };
@@ -56,6 +58,8 @@ const TOUS_ECRANS = [
   // Réponses aux coups adverses (20/11) : une ligne jouée d'un clic ouvre une variante ; la carte suivante s'affiche.
   ['partie-variante', () => { const s = window.__cap, g = s.data.games.find((x) => s.an[x.id] && !s.an[x.id].bad); return 'partie/' + g.t + '/1'; }, { act: repJoue }],
   ['echiquier-ligne', 'echiquier', { act: repJoue }],
+  // Impact d'un coup en direct (20/11) : 1. f3 e5 2. g4, la gaffe des Blancs (mat en un) doit s'afficher.
+  ['echiquier-gaffe', 'echiquier', { act: async (page) => { await page.evaluate(() => { document.querySelector('[data-act="fbreset"]')?.click(); }); await page.locator('details.fbload summary').click(); await page.fill('#fbin', '1. f3 e5 2. g4'); await page.click('[data-act="fbload"]'); await page.locator('#xcap .chip.bad').waitFor({ timeout: 60000 }); } }],
   ['partie-debrief', () => { const s = window.__cap, g = s.data.games.find((x) => s.an[x.id] && !s.an[x.id].bad); return 'partie/' + g.t + '/d'; }],
   ['erreur', ERREUR],
   // Position d'un cours privé : cours simulé injecté dans l'état (jamais enregistré), sur la première erreur analysée.

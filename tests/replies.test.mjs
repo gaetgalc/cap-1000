@@ -38,3 +38,20 @@ test('le titre dit qui joue : l’adversaire au trait → « S’il joue », toi
   assert.match(repliesHead(START, 'w').reply, /il répond/);
   assert.match(repliesHead(AFTER_E4, 'w').reply, /réponds/);
 });
+
+const { moveImpact } = await import('../js/replies.js');
+test('impact d’un coup : écart avec le meilleur coup, du point de vue de celui qui joue', () => {
+  // before.cp : éval avant le coup, pour celui qui joue ; after.cp : éval après, pour l'adversaire (au trait).
+  const best = moveImpact({ cp: 40, best: 'e2e4' }, { cp: -40 }, 'e2e4');
+  assert.deepEqual([best.kind, best.delta], ['best', 0]);
+  const ok = moveImpact({ cp: 40, best: 'e2e4' }, { cp: -20 }, 'd2d4');
+  assert.deepEqual([ok.kind, ok.delta, ok.after], ['good', -20, 20]);
+  assert.equal(moveImpact({ cp: 40, best: 'e2e4' }, { cp: 60 }, 'g2g4').kind, 'imprecision');
+  assert.equal(moveImpact({ cp: 40, best: 'e2e4' }, { cp: 150 }, 'f2f3').kind, 'erreur');
+  assert.equal(moveImpact({ cp: 40, best: 'e2e4' }, { cp: 900 }, 'f2f3').kind, 'gaffe');
+  assert.equal(moveImpact({ cp: 40, best: 'e2e4' }, { cp: 900 }, 'f2f3').label, 'Gaffe');
+});
+test('impact inconnu tant qu’une des deux évals manque', () => {
+  assert.equal(moveImpact(null, { cp: 0 }, 'e2e4'), null);
+  assert.equal(moveImpact({ cp: 0, best: 'e2e4' }, null, 'e2e4'), null);
+});

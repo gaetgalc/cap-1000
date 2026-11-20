@@ -653,6 +653,7 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
   /* Relecture de partie */
   body.fit .bwrap.gv { position: relative; }
   .bwrap.gv .evbar { position: absolute; left: -16px; top: calc(var(--hit) + var(--s-2)); width: 8px; height: var(--bsr, var(--bs)); }
+  .bwrap.gv.fb .evbar { top: var(--s-3); } /* échiquier libre : pas de bandeau de joueur au-dessus de l'échiquier */
   /* Le panneau ne défile pas : seule la liste de coups défile, sous le bilan et la courbe */
   body.fit .bwrap.gv + .fitside .fitpanel { overflow: hidden; gap: 12px; }
   .gvsum, .gvch { flex: none; }
@@ -663,6 +664,7 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
   .gvact { display: flex; gap: var(--s-2); }
   /* Joueurs autour de l'échiquier, pendule du coup affiché (celle du camp au trait en clair, comme Chess.com) */
   body.fit:has(.bwrap.gv) { --capmin: calc(2 * (var(--hit) + var(--s-2))); }
+  body.fit:has(.bwrap.fb) { --capmin: var(--s-5); } /* échiquier libre : ni joueurs ni pendules, l'échiquier prend toute la hauteur */
   .gvbar { display: flex; align-items: center; gap: var(--s-2); min-height: var(--hit); font-size: var(--t-m); min-width: 0; }
   .gvbar b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .gvbar .num { color: var(--ink3); }
   .gvclk { margin-left: auto; min-width: 96px; padding: var(--s-1) var(--s-3); border-radius: var(--r-s); background: var(--surface); color: var(--ink2); font: 600 var(--t-l) var(--mono); text-align: right; }
@@ -782,6 +784,9 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
   body.fit .bwrap.gv .board, .bwrap.gv .evbar { width: min(100cqw, 100cqh - 140px); }
   body.fit .bwrap.gv .board { height: min(100cqw, 100cqh - 140px); }
   .bwrap.gv .evbar { flex: none; height: 8px; margin: 0 auto 4px; }
+  /* Échiquier libre (20/11, demi-écran) : bandeau de deux lignes (80 px) au lieu de la réserve des moments clés de la relecture */
+  body.fit .bwrap.fb .board, .bwrap.fb .evbar { width: min(100cqw, 100cqh - 92px); }
+  body.fit .bwrap.fb .board { height: min(100cqw, 100cqh - 92px); }
   .bwrap.gv .evbar i { transform-origin: left; transform: scaleX(var(--ev, .5)); }
   .bwrap.gv .evbar.flip i { transform-origin: right; }
   .bwrap.gv .evbar::after { left: 50%; right: auto; top: 0; bottom: 0; width: 2px; height: auto; margin: 0 0 0 -1px; }
@@ -799,6 +804,8 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
   body.fit:has(#xcap.var) .gvch { display: none; }
   body.fit .bwrap.gv + .fitside .rep { flex: none; padding: 0; background: none; gap: 4px; }
   body.fit .bwrap.gv + .fitside .rep > :is(h3, .small) { display: none; }
+  .bwrap.fb > .cap .capbest { display: none; } /* téléphone : le meilleur coup est déjà la flèche verte et la 1re ligne des réponses */
+  body.fit .fbtabs { display: none; } /* échiquier libre : la place va à l'échiquier ; Parties y mène par ses onglets */
   .moves.vline button { min-width: var(--hit); min-height: var(--hit); } /* coups d'une variante ou de l'échiquier libre : cibles tactiles */
   .actbar .gvfl { display: none; }
   .actbar .btn.gve { flex: 1; }
