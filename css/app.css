@@ -228,6 +228,10 @@ cg-board { background-color: var(--sq-light); background-image: repeating-conic-
 .evbar { position: relative; overflow: hidden; background: var(--black); box-shadow: inset 0 0 0 1px var(--line); border-radius: var(--r-s); }
 .evbar i { position: absolute; inset: 0; background: var(--ink); transform-origin: bottom; transform: scaleY(var(--ev, .5)); transition: transform var(--m-panel) var(--ease); }
 .evbar.flip i { transform-origin: top; }
+/* Score dans la barre (échiquier libre, 20/11) : au bout du camp qui mène, en sombre sur le clair et inversement */
+.evbar > b { position: absolute; left: 0; right: 0; z-index: 1; font: 600 var(--t-xs)/1 var(--mono); text-align: center; letter-spacing: -.04em; }
+.evbar > b { padding: 2px 0; } .evbar > b.w { bottom: 4px; color: var(--black); background: var(--ink); } .evbar > b.k { top: 4px; color: var(--ink); background: var(--black); } /* fond propre : lisible même si la part du camp est mince */
+.evbar.flip > b.w { bottom: auto; top: 4px; } .evbar.flip > b.k { top: auto; bottom: 4px; }
 .evbar::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 2px; margin-top: -1px; background: var(--neutral); opacity: .7; }
 .fb { padding: 12px; border-radius: var(--r-s); background: var(--sunken); font-size: var(--t-s); }
 .fb.ok { background: var(--good-soft); } .fb.ko { background: var(--bad-soft); }
@@ -653,7 +657,8 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
   /* Relecture de partie */
   body.fit .bwrap.gv { position: relative; }
   .bwrap.gv .evbar { position: absolute; left: -16px; top: calc(var(--hit) + var(--s-2)); width: 8px; height: var(--bsr, var(--bs)); }
-  .bwrap.gv.fb .evbar { top: var(--s-3); } /* échiquier libre : pas de bandeau de joueur au-dessus de l'échiquier */
+  .bwrap.gv.fb { padding-left: 30px; }
+  .bwrap.gv.fb .evbar { top: var(--s-3); left: 0; width: 26px; } /* échiquier libre : pas de bandeau de joueur au-dessus de l'échiquier */
   /* Le panneau ne défile pas : seule la liste de coups défile, sous le bilan et la courbe */
   body.fit .bwrap.gv + .fitside .fitpanel { overflow: hidden; gap: 12px; }
   .gvsum, .gvch { flex: none; }
@@ -715,6 +720,7 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
   body.fit .view { max-width: 1440px; display: grid; grid-template-columns: var(--bs) minmax(0, 1fr); grid-template-rows: 100%; gap: 24px; padding: 20px 24px; }
   body.fit .bwrap { min-height: 0; }
   body.fit .bwrap .board { width: var(--bsr, var(--bs)); height: var(--bsr, var(--bs)); }
+  body.fit:has(.bwrap.fb) .view { grid-template-columns: calc(var(--bs) + 30px) minmax(0, 1fr); } /* échiquier libre : place de la barre chiffrée */
   body.fit .cap { flex: 1; min-height: 0; }
   body.fit .fitpanel { flex: 1; }
   body.fit .actbar { position: static; flex: none; box-shadow: none; }
@@ -785,8 +791,13 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
   body.fit .bwrap.gv .board { height: min(100cqw, 100cqh - 140px); }
   .bwrap.gv .evbar { flex: none; height: 8px; margin: 0 auto 4px; }
   /* Échiquier libre (20/11, demi-écran) : bandeau de deux lignes (80 px) au lieu de la réserve des moments clés de la relecture */
-  body.fit .bwrap.fb .board, .bwrap.fb .evbar { width: min(100cqw, 100cqh - 92px); }
-  body.fit .bwrap.fb .board { height: min(100cqw, 100cqh - 92px); }
+  body.fit .bwrap.fb .board, .bwrap.fb .evbar { width: min(100cqw, 100cqh - 100px); }
+  body.fit .bwrap.fb .board { height: min(100cqw, 100cqh - 100px); }
+  .bwrap.fb .evbar { height: 20px; }
+  .bwrap.fb .evbar > b, .bwrap.fb .evbar.flip > b { top: 0; bottom: 0; left: auto; right: auto; display: flex; align-items: center; }
+  .bwrap.fb .evbar > b.w { left: 6px; } .bwrap.fb .evbar > b.k { right: 6px; }
+  .bwrap.fb .evbar.flip > b.w { left: auto; right: 6px; } .bwrap.fb .evbar.flip > b.k { right: auto; left: 6px; }
+  body.fit .bwrap.gv.fb + .fitside .fitpanel { max-height: var(--hit); } /* une seule réponse visible, les autres en faisant défiler */
   .bwrap.gv .evbar i { transform-origin: left; transform: scaleX(var(--ev, .5)); }
   .bwrap.gv .evbar.flip i { transform-origin: right; }
   .bwrap.gv .evbar::after { left: 50%; right: auto; top: 0; bottom: 0; width: 2px; height: auto; margin: 0 0 0 -1px; }

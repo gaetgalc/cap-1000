@@ -2553,7 +2553,12 @@ function fbCap(P, lines) {
 function fbBarEv(P, lines) {
   const fen = P.fens[P.i], e = fbEval(fen, lines), el = $('#fbev'); if (!el) return;
   el.classList.toggle('flip', P.me === 'b');
-  if (e) el.style.setProperty('--ev', evalShare(fen.split(' ')[1] === 'w' ? e.cp : -e.cp));
+  if (!e) return;
+  const cp = fen.split(' ')[1] === 'w' ? e.cp : -e.cp, n = el.querySelector('b');
+  el.style.setProperty('--ev', evalShare(cp));
+  // Score comme sur Chess.com : sans signe, du côté du camp qui mène (Blancs : bout clair, Noirs : bout sombre)
+  n.textContent = fmtEval(Math.abs(cp)).replace('+', '');
+  n.className = cp >= 0 ? 'w' : 'k';
 }
 function fbBar(P) {
   const i = P.i, n = P.mv.length;
@@ -2563,7 +2568,7 @@ function viewEchiquier() {
   const P = (S.fb ||= fbNew());
   return exo.screen({
     live: true, capSide: true, wrap: 'gv fb',
-    rail: `<div class="evbar ${P.me === 'b' ? 'flip' : ''}" id="fbev" aria-hidden="true" title="Qui domine : part des Blancs d’après le moteur"><i></i></div>`,
+    rail: `<div class="evbar ${P.me === 'b' ? 'flip' : ''}" id="fbev" aria-hidden="true" title="Qui domine : part des Blancs d’après le moteur, score du camp qui mène"><i></i><b></b></div>`,
     head: `<div class="fbtabs">${tabs('fb', GAMES_TABS)}</div><div class="pzhead main"><h1>Échiquier libre</h1></div>`,
     cap: fbCap(P, REP.get(P.fens[P.i])),
     panel: `<div class="card rep" id="rep"></div>

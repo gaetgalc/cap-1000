@@ -617,6 +617,13 @@ Choix de Gaëtan : les deux endroits (relecture et nouvel échiquier libre), aff
 - Sur téléphone, le bandeau ne répète plus « Meilleur … » : c'est déjà la flèche verte et la première ligne des réponses.
 - Audit : taille `733x742` sur demande (`SIZES=733x742`), écran `echiquier-gaffe` (1. f3 e5 2. g4 collé en PGN : la gaffe doit s'afficher).
 
+## 55. Score dans la barre, échiquier libre encore plus grand (20/11)
+
+> je veux que la barre affiche le score aussi. oui c'est trop petit, exécute ta piste suivante
+
+- **Score dans la barre** (`#fbev > b`) : comme sur Chess.com, sans signe, au bout du camp qui mène (clair pour les Blancs, sombre pour les Noirs), sur un fond propre pour rester lisible. Barre de 26 px sur ordinateur (colonne de l'échiquier élargie de 30 px), de 20 px sur téléphone.
+- **Une seule réponse visible** sous l'échiquier (panneau limité à 44 px) ; les deux autres, les coups joués et le chargement d'une position se voient en faisant défiler le panneau. En 733 × 742 : échiquier de 425 px (304 au départ, 376 après le §54).
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |
