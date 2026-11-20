@@ -25,7 +25,9 @@ const LN = 'fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap=
 const LT = 'fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"';
 const IC = {
   prev: `<path d="M15 5l-7 7 7 7" ${LN}/>`, next: `<path d="M9 5l7 7-7 7" ${LN}/>`,
-  first: `<path d="M18 5l-7 7 7 7M7 5v14" ${LN}/>`, last: `<path d="M6 5l7 7-7 7M17 5v14" ${LN}/>`,
+  first: `<path d="M18 5l-7 7 7 7M7 5v14" ${LN}/>`,
+  arrow: `<path d="M5 19L18 6M10 6h8v8" ${LN}/>`, arrowoff: `<path d="M5 19L18 6M10 6h8v8" ${LN} opacity=".45"/><path d="M4 4l16 16" ${LN}/>`, // flèche du meilleur coup affichée ou masquée
+  last: `<path d="M6 5l7 7-7 7M17 5v14" ${LN}/>`,
   play: '<path d="M8 5v14l11-7z" fill="currentColor"/>', pause: '<path d="M7 5h3.500v14H7zM13.500 5H17v14h-3.500z" fill="currentColor"/>',
   replay: '<path d="M12 6V2.500L7 6.500l5 4V8a4.500 4.500 0 1 1-4.500 4.500h-2A6.500 6.500 0 1 0 12 6z" fill="currentColor"/>',
   // Exercices de la page S'entraîner (16/11) : un dessin par activité, trait fin

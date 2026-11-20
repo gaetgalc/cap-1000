@@ -553,7 +553,7 @@ body.imm .toasts { bottom: calc(84px + var(--s-3) + env(safe-area-inset-bottom))
 ::view-transition-new(tabs) { animation: none; }
 /* Sons (lot 3) : bouton son / muet d'un exercice, dans la barre du haut (téléphone) ou en bas de la colonne d'icônes (ordinateur) */
 .btn.snd { flex: none; width: var(--hit); height: var(--hit); padding: 0; color: var(--ink2); }
-.btn.snd[aria-pressed="true"] { color: var(--accent-ink); }
+.btn.snd[aria-pressed="true"], .btn.fbarr[aria-pressed="true"] { color: var(--accent-ink); }
 /* Apparence (Plan et réglages) : aperçu de l'échiquier et choix en segments */
 .grid > .card.look { grid-column: 1 / -1; }
 .lookgrid { display: grid; grid-template-columns: 200px minmax(0, 520px); gap: var(--s-5); align-items: start; }
@@ -828,7 +828,7 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
   .bwrap.fb > .cap .capbest { display: none; } /* téléphone : le meilleur coup est déjà la flèche verte et la 1re ligne des réponses */
   body.fit .fbtabs { display: none; } /* échiquier libre : la place va à l'échiquier ; Parties y mène par ses onglets */
   .moves.vline button { min-width: var(--hit); min-height: var(--hit); } /* coups d'une variante ou de l'échiquier libre : cibles tactiles */
-  .actbar .gvfl { display: none; }
+  .actbar .gvfl, .actbar .btn.gvfl { display: none; }
   .actbar .btn.gve { flex: 1; }
   /* Accueil */
   .m-only-i { display: inline; }

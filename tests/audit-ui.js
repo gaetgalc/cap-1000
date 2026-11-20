@@ -58,6 +58,8 @@ const TOUS_ECRANS = [
   // Réponses aux coups adverses (20/11) : une ligne jouée d'un clic ouvre une variante ; la carte suivante s'affiche.
   ['partie-variante', () => { const s = window.__cap, g = s.data.games.find((x) => s.an[x.id] && !s.an[x.id].bad); return 'partie/' + g.t + '/1'; }, { act: repJoue }],
   ['echiquier-ligne', 'echiquier', { act: repJoue }],
+  // Flèche du meilleur coup masquée (20/11) : plus aucune flèche sur l'échiquier, bouton à l'état « non pressé ».
+  ['echiquier-sansfleche', 'echiquier', { act: async (page) => { await repJoue(page); await page.click('[data-act="fbarrow"]'); await page.waitForFunction(() => document.querySelector('[data-act="fbarrow"]')?.getAttribute('aria-pressed') === 'false' && !document.querySelector('#xb svg.cg-shapes g g, #xb .cg-custom-svgs g g, #xb .cg-custom-svgs polyline')); } }],
   // Impact d'un coup en direct (20/11) : 1. f3 e5 2. g4, la gaffe des Blancs (mat en un) doit s'afficher.
   ['echiquier-gaffe', 'echiquier', { act: async (page) => { await page.evaluate(() => { document.querySelector('[data-act="fbreset"]')?.click(); }); await page.locator('details.fbload summary').click(); await page.fill('#fbin', '1. f3 e5 2. g4'); await page.click('[data-act="fbload"]'); await page.locator('#xcap .chip.bad').waitFor({ timeout: 60000 }); } }],
   ['partie-debrief', () => { const s = window.__cap, g = s.data.games.find((x) => s.an[x.id] && !s.an[x.id].bad); return 'partie/' + g.t + '/d'; }],

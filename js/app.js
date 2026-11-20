@@ -2619,9 +2619,12 @@ function fbBarEv(P, lines) {
   n.textContent = fmtEval(Math.abs(cp)).replace('+', '');
   n.className = cp >= 0 ? 'w' : 'k';
 }
+// Flèche du meilleur coup sur l'échiquier libre (demande du 20/11) : affichée par défaut, réglage gardé sur l'appareil.
+const fbArrowOn = () => ls.get('fbArrow', true) !== false;
+const fbArrowBtn = () => { const on = fbArrowOn(); return `<button class="btn ico fbarr" data-act="fbarrow" aria-pressed="${on}" aria-label="Flèche du meilleur coup" title="${on ? 'Masquer' : 'Afficher'} la flèche du meilleur coup">${ico(on ? 'arrow' : 'arrowoff')}</button>`; };
 function fbBar(P) {
   const i = P.i, n = P.mv.length;
-  return `<button class="btn ico" data-act="fbgo" data-i="0" aria-label="Début" ${i === 0 ? 'disabled' : ''}>${ico('first')}</button><button class="btn ico" data-act="fbgo" data-i="${i - 1}" aria-label="Coup précédent" ${i === 0 ? 'disabled' : ''}>${ico('prev')}</button><button class="btn ico" data-act="fbgo" data-i="${i + 1}" aria-label="Coup suivant" ${i === n ? 'disabled' : ''}>${ico('next')}</button><button class="btn ico" data-act="fbgo" data-i="${n}" aria-label="Fin" ${i === n ? 'disabled' : ''}>${ico('last')}</button><button class="btn" data-act="fbflip">Retourner</button>`;
+  return `<button class="btn ico gvfl" data-act="fbgo" data-i="0" aria-label="Début" ${i === 0 ? 'disabled' : ''}>${ico('first')}</button><button class="btn ico" data-act="fbgo" data-i="${i - 1}" aria-label="Coup précédent" ${i === 0 ? 'disabled' : ''}>${ico('prev')}</button><button class="btn ico" data-act="fbgo" data-i="${i + 1}" aria-label="Coup suivant" ${i === n ? 'disabled' : ''}>${ico('next')}</button><button class="btn ico gvfl" data-act="fbgo" data-i="${n}" aria-label="Fin" ${i === n ? 'disabled' : ''}>${ico('last')}</button>${fbArrowBtn()}<button class="btn" data-act="fbflip">Retourner</button>`;
 }
 function viewEchiquier() {
   const P = (S.fb ||= fbNew());
@@ -2651,7 +2654,7 @@ function fbSync() {
   const lines = repLines(fen, again), best = lines?.[0]?.pv?.[0];
   if (lines && P.i && !REP.has(P.fens[P.i - 1])) repLines(P.fens[P.i - 1], again); // éval d'avant le coup, pour son impact
   fbBarEv(P, lines);
-  X.cg.set({ fen, turnColor: fen.split(' ')[1] === 'w' ? 'white' : 'black', lastMove: last ? [last.from, last.to] : undefined, movable: fbMov(fen), drawable: { autoShapes: best ? [arrow(best, 'green')] : [] } });
+  X.cg.set({ fen, turnColor: fen.split(' ')[1] === 'w' ? 'white' : 'black', lastMove: last ? [last.from, last.to] : undefined, movable: fbMov(fen), drawable: { autoShapes: best && fbArrowOn() ? [arrow(best, 'green')] : [] } });
   X.say('', fbCap(P, lines));
   X.setBar(fbBar(P));
   setHtml($('#fbm'), fbMoves(P));
@@ -2901,6 +2904,7 @@ document.addEventListener('click', (ev) => {
   else if (act === 'qgo') gvQGo(el.dataset.q, el.dataset.s);
   else if (act === 'gvtab') { if (S.gv) gvTab(S.gv, el.dataset.v); }
   else if (act === 'fbgo') fbGo(+el.dataset.i);
+  else if (act === 'fbarrow') { ls.set('fbArrow', !fbArrowOn()); fbSync(); }
   else if (act === 'fbflip') { S.fb.me = S.fb.me === 'w' ? 'b' : 'w'; exo.current()?.cg?.set({ orientation: S.fb.me === 'w' ? 'white' : 'black' }); fbSync(); }
   else if (act === 'fbreset') { S.fb = fbNew(); render(); }
   else if (act === 'fbload') { const P = fbParse($('#fbin').value); if (P) { S.fb = P; render(); } else $('#fberr').textContent = 'Position ou partie illisible : colle une FEN complète ou un PGN.'; }

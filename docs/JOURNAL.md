@@ -635,6 +635,14 @@ Choix de Gaëtan : les deux endroits (relecture et nouvel échiquier libre), aff
 - Le tableau peut différer de la tuile « Fautes » (tirée de `a.errs`, qui alimente puzzles et statistiques) : une erreur qui suit une faute de l'adversaire y devient « Occasion manquée », et un coup de théorie n'y est jamais une faute.
 - Non vérifié : comparaison avec les chiffres de Chess.com sur une vraie partie (leurs seuils et leur moteur diffèrent ; les nombres ne seront pas identiques).
 
+## 57. Échiquier libre : flèche du meilleur coup à la demande (20/11)
+
+> dans échiquier libre je veux un toggle pour activer ou non les meilleurs coups affiché sur l'échiquier. par défaut c'est affiché
+
+- Bouton à bascule dans la barre (icône flèche, barrée quand masquée, `data-act="fbarrow"`, `aria-pressed`) : affiche ou masque la flèche verte du meilleur coup sur l'échiquier. Affichée par défaut ; réglage gardé sur l'appareil (`cap1000:fbArrow`). Le bandeau et la carte des réponses restent inchangés.
+- Sur téléphone, Début et Fin quittent la barre (comme dans la relecture) pour laisser la place au bouton.
+- Audit : écran `echiquier-sansfleche` (plus aucune flèche après un clic).
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |
