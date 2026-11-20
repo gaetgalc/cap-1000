@@ -43,7 +43,7 @@ async function solveToEnd(page) {
     await next.click();
   }
 }
-const repJoue = async (page) => { const b = page.locator('[data-act="repplay"]').first(); await b.waitFor({ timeout: 30000 }); await b.click(); await page.locator('[data-act="repplay"]').first().waitFor({ timeout: 30000 }); };
+const repJoue = async (page) => { await sleep(900); const t = page.locator('[data-act="gvtab"][data-v="coups"]'); if (await t.isVisible()) await t.click(); const b = page.locator('[data-act="repplay"]').first(); await b.waitFor({ timeout: 30000 }); await b.click(); await page.locator('[data-act="repplay"]').first().waitFor({ timeout: 30000 }); };
 const TOUS_ECRANS = [
   ['accueil-bilan', () => { const k = 'cap1000:recap', b = localStorage.getItem(k) || localStorage.getItem(k + '-audit'); if (b) { localStorage.setItem(k, b); localStorage.setItem(k + '-audit', b); } return 'accueil'; }],
   ['accueil', () => { localStorage.removeItem('cap1000:recap'); return 'accueil'; }], ['bilan'], ['plan'], ['puzzles'], ['historique'], ['exos'], ['drill-sur', 'drill/sur'], ['drill-compte', 'drill/compte'],

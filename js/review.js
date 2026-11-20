@@ -1,6 +1,6 @@
 // Relecture de partie : calculs purs (symbole d'un coup, barre d'évaluation, navigation entre les erreurs).
 // Sans affichage ni moteur : testés dans tests/review.test.mjs.
-import { winPct, goodMoves } from './classify.js';
+import { winPct, goodMoves, freeCapture } from './classify.js';
 
 const KIND = {
   gaffe: { s: '??', c: 'bad', t: 'Gaffe' },
@@ -55,4 +55,50 @@ export function clocksAt(g, k) {
   if (!g.base || !g.clk || g.clk.length !== g.san.length) return null;
   const last = (side) => { for (let i = Math.min(k, g.clk.length) - 1; i >= 0; i--) if (i % 2 === side) return g.clk[i]; return g.base; };
   return { w: last(0), b: last(1) };
+}
+
+// ---------- Qualité de chaque coup, pour les deux camps (20/11, « comme Chess.com ») ----------
+// Mêmes seuils de chances de gain perdues que classify.js : imprécision ≥ 5, erreur ≥ 10, gaffe ≥ 20.
+// k : clé ; t : libellé ; s : symbole sur l'échiquier ('' : aucun) ; c : jeton de couleur.
+export const QUALITY = [
+  { k: 'brillant', t: 'Brillant', s: '!!', c: 'q-brill' },
+  { k: 'seul', t: 'Seul bon coup', s: '!', c: 'q-great' },
+  { k: 'theorie', t: 'Théorie', s: '', c: 'q-book' },
+  { k: 'meilleur', t: 'Meilleur', s: '★', c: 'good' },
+  { k: 'excellent', t: 'Excellent', s: '', c: 'good' },
+  { k: 'bon', t: 'Bon', s: '', c: 'ink2' },
+  { k: 'imprecision', t: 'Imprécision', s: '?!', c: 'q-inacc' },
+  { k: 'erreur', t: 'Erreur', s: '?', c: 'warn' },
+  { k: 'manque', t: 'Occasion manquée', s: '×', c: 'bad' },
+  { k: 'gaffe', t: 'Gaffe', s: '??', c: 'bad' },
+];
+export const QBY = Object.fromEntries(QUALITY.map((q) => [q.k, q]));
+// o : { ev (éval avant chaque coup, Blancs), best (meilleur coup UCI par position), mv (coups verbose de chess.js), fens,
+//       book (demi-coups de théorie), mp ({ ply: cp des 3 meilleurs coups, camp au trait }) }.
+// Renvoie une catégorie par coup (null si l'éval d'après manque). Brillant : meilleur coup qui laisse du matériel
+// (au moins 2 points nets) que le moteur conseille de prendre, hors position déjà gagnée. Occasion manquée : l'adversaire
+// vient de perdre au moins 10 points et ce coup en rend autant. Seul bon coup : le deuxième coup perd au moins 6 points.
+export function moveQualities({ ev, best, mv, fens, book = 0, mp = {} }) {
+  const out = [];
+  let prevDrop = 0;
+  for (let i = 0; i < mv.length; i++) {
+    if (ev[i] == null || ev[i + 1] == null) { out.push(null); prevDrop = 0; continue; }
+    const s = i % 2 === 0 ? 1 : -1, w0 = winPct(s * ev[i]), drop = Math.max(0, w0 - winPct(s * ev[i + 1]));
+    const m = mv[i], b = best[i], isBest = !!b && (m.from + m.to) === b.slice(0, 4);
+    let k;
+    if (i < book) k = 'theorie';
+    else if (!isBest && drop >= 5) k = drop >= 10 && prevDrop >= 10 ? 'manque' : drop >= 20 ? 'gaffe' : drop >= 10 ? 'erreur' : 'imprecision';
+    else if (!isBest) k = drop < 2 ? 'excellent' : 'bon';
+    else if (w0 < 90 && fens?.[i + 1] && best[i + 1] && (freeCapture(fens[i + 1], best[i + 1])?.gain ?? 0) >= 2) k = 'brillant';
+    else k = mp[i]?.length > 1 && goodMoves(mp[i]) === 1 ? 'seul' : 'meilleur';
+    out.push(k);
+    prevDrop = i < book ? 0 : drop;
+  }
+  return out;
+}
+// Décompte par camp : { w: { clé: n }, b: { clé: n } }.
+export function qualityCounts(q) {
+  const c = { w: {}, b: {} };
+  q.forEach((k, i) => { if (k) { const side = c[i % 2 === 0 ? 'w' : 'b']; side[k] = (side[k] || 0) + 1; } });
+  return c;
 }

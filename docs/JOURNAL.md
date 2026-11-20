@@ -624,6 +624,17 @@ Choix de Gaëtan : les deux endroits (relecture et nouvel échiquier libre), aff
 - **Score dans la barre** (`#fbev > b`) : comme sur Chess.com, sans signe, au bout du camp qui mène (clair pour les Blancs, sombre pour les Noirs), sur un fond propre pour rester lisible. Barre de 26 px sur ordinateur (colonne de l'échiquier élargie de 30 px), de 20 px sur téléphone.
 - **Une seule réponse visible** sous l'échiquier (panneau limité à 44 px) ; les deux autres, les coups joués et le chargement d'une position se voient en faisant défiler le panneau. En 733 × 742 : échiquier de 425 px (304 au départ, 376 après le §54).
 
+## 56. Qualité de chaque coup dans la relecture, comme le bilan de Chess.com (20/11)
+
+> pour quand je relis mes parties je veux avoir ce détail au niveau de la qualité des coups. aujourd'hui je crois que c'est pas le cas (captures : relecture du site, et « Game Review » de Chess.com avec Brilliant, Great, Book, Best, Excellent, Good, Inaccuracy, Mistake, Miss, Blunder pour les deux joueurs)
+
+- Avant : seuls tes coups étaient classés, en trois catégories (?? ? ?!) plus « ! » sur la position affichée.
+- **Dix catégories pour les deux camps** (`moveQualities` de `review.js`) : Brillant (!!), Seul bon coup (!), Théorie, Meilleur (★), Excellent, Bon, Imprécision (?!), Erreur (?), Occasion manquée (×), Gaffe (??). Seuils de chances de gain perdues identiques à `classify.js` : excellent sous 2, bon sous 5, imprécision dès 5, erreur dès 10, gaffe dès 20. Occasion manquée : l'adversaire vient de perdre au moins 10 points et ton coup en rend autant. Seul bon coup : meilleur coup, et le 2e coup perd au moins 6 points (3 meilleurs coups calculés en arrière-plan pour chaque meilleur coup des deux camps, `gvGreat`, gardés dans `a.mp` et enregistrés : une fois par partie). Brillant : meilleur coup qui laisse au moins 2 points de matériel que le moteur conseille de prendre, hors position déjà gagnée (plus de 90 % de chances).
+- **Théorie** : positions de la base d'ouvertures de Lichess (CC0), 7 981 positions sous forme d'empreintes (`vendor/book.txt`, 36 Ko compressé, chargé à la première relecture ; `js/book.js`, `scripts/book.mjs`). Reconnue par position, donc aussi par transposition.
+- **Affichage** : sur ordinateur, onglets « Coups » / « Bilan » dans la colonne de droite. Le bilan (précision, Elo estimé, fautes, tableau « Qualité des coups » toi / adversaire) s'ouvre en premier sur une partie analysée ; tout déplacement dans la partie repasse sur « Coups ». Un nombre du tableau mène au coup suivant de cette catégorie (on reste sur le bilan). Symboles sur la case d'arrivée et dans la liste, pour les deux camps. Sur téléphone, le tableau est à la suite dans le panneau. Carte des réponses plus compacte sur ordinateur pour laisser la place à la liste.
+- Le tableau peut différer de la tuile « Fautes » (tirée de `a.errs`, qui alimente puzzles et statistiques) : une erreur qui suit une faute de l'adversaire y devient « Occasion manquée », et un coup de théorie n'y est jamais une faute.
+- Non vérifié : comparaison avec les chiffres de Chess.com sur une vraie partie (leurs seuils et leur moteur diffèrent ; les nombres ne seront pas identiques).
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |

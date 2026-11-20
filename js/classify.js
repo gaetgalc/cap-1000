@@ -25,7 +25,7 @@ export function uciMove(ch, uci) {
   return ch.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] || 'q' });
 }
 // Une prise gagne-t-elle du matériel ? gain = valeur prise (si non reprise) ou différence.
-function freeCapture(fen, uci) {
+export function freeCapture(fen, uci) {
   const c = new Chess(fen);
   const m = uciMove(c, uci);
   if (!m || !m.captured) return null;

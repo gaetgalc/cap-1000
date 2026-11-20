@@ -152,7 +152,7 @@ const check = (ok, label) => { console.log((ok ? 'ok   ' : 'ÉCHEC') + ' ' + lab
     await page.click('#xbar [aria-label="Erreur suivante"]'); await sleep(300); gs = await gvState();
     const e1 = gs.keys.find((p) => p > 8) ?? null;
     check(e1 == null || gs.k === e1, 'relecture : « Erreur suivante » mène au moment clé');
-    if (e1 != null) { await page.click(`#gvm .mv[data-k="${e1 + 1}"]`); await sleep(300); gs = await gvState(); check(gs.k === e1 + 1 && /\?/.test(gs.mark), 'relecture : clic sur un coup de la liste, symbole de l’erreur sur la case'); }
+    if (e1 != null) { await page.click(`#gvm .mv[data-k="${e1 + 1}"]`); await sleep(300); gs = await gvState(); check(gs.k === e1 + 1 && /[?×]/.test(gs.mark), 'relecture : clic sur un coup de la liste, symbole de l’erreur sur la case'); }
   }
   await page.locator('#evc rect').click({ position: { x: 1, y: 20 } }); await sleep(300);
   check((await gvState()).k === 0, 'relecture : clic sur la courbe, retour au début');

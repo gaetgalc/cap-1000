@@ -20,6 +20,8 @@
   --menu-shadow: 0 12px 32px rgba(0, 0, 0, .5); /* volets de la navigation */
   --logo-a: var(--accent); --logo-b: var(--sq-light); /* logo : anneau et pointe verte, pointe claire */
   --neutral: #8a877f;
+  /* Qualité des coups (relecture, 20/11) : teintes propres au site pour brillant, seul bon coup, théorie, imprécision */
+  --q-brill: #5fd6c8; --q-great: #8cb8f2; --q-book: #d2b48c; --q-inacc: #f0d264;
   /* Couleur des icônes par section (demande du 16/11) : teintes douces, au moins 6.9:1 sur --surface et 6:1 sur --bg.
      Revue HIG (17/11, D2 = B) : une couleur, un sens ; aucune teinte de section à moins de 40° de --warn ou --bad (tests/css.test.mjs) */
   --c-jour: #8fd16a; /* Aujourd'hui : vert, parent de l'échiquier */
@@ -661,6 +663,13 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
   .bwrap.gv.fb .evbar { top: var(--s-3); left: 0; width: 26px; } /* échiquier libre : pas de bandeau de joueur au-dessus de l'échiquier */
   /* Le panneau ne défile pas : seule la liste de coups défile, sous le bilan et la courbe */
   body.fit .bwrap.gv + .fitside .fitpanel { overflow: hidden; gap: 12px; }
+  /* Onglets Coups / Bilan (20/11) : le bilan (précision, Elo, qualité des coups) a sa vue, la relecture garde la sienne */
+  .gvtabs { flex: none; }
+  #xpanel[data-tab="coups"] > :is(.gvsum, .gvq) { display: none; }
+  #xpanel[data-tab="bilan"] > :is(.rep, .gvch, .gvm, .gvmore) { display: none; }
+  #xpanel[data-tab="bilan"] { overflow-y: auto; }
+  .bwrap.gv:not(.fb) + .fitside .rep { gap: var(--s-2); padding: var(--s-3) var(--s-4); } .bwrap.gv:not(.fb) + .fitside .rep > .small { display: none; } /* relecture : la liste des coups garde sa place */
+  @media (pointer: fine) { .bwrap.gv:not(.fb) + .fitside .reprow { min-height: 34px; } }
   .gvsum, .gvch { flex: none; }
   .gvch { display: flex; flex-direction: column; gap: 4px; padding: 8px 16px 4px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); }
   /* Relecture (17/11, « comme Chess.com ») : en-tête des joueurs, encarts du bilan, coups en lignes pleine largeur */
@@ -813,6 +822,7 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
   .gvch { order: -1; flex: none; }
   /* Variante en cours (20/11) : la courbe cède la place aux réponses, juste sous la bande de coups, sans titre ni légende */
   body.fit:has(#xcap.var) .gvch { display: none; }
+  .gvtabs { display: none; } /* téléphone : bilan et qualité des coups à la suite, en faisant défiler le panneau */
   body.fit .bwrap.gv + .fitside .rep { flex: none; padding: 0; background: none; gap: 4px; }
   body.fit .bwrap.gv + .fitside .rep > :is(h3, .small) { display: none; }
   .bwrap.fb > .cap .capbest { display: none; } /* téléphone : le meilleur coup est déjà la flèche verte et la 1re ligne des réponses */
@@ -934,7 +944,7 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
 /* Contraste renforcé (réglage « Augmenter le contraste », revue HIG) : texte à 7:1 au moins, bord de carte et anneau de focus nets. Valeurs revérifiées par la passe 390x664-hc de l'audit. */
 @media (prefers-contrast: more) {
   :root {
-    --ink2: #e4e1da; --ink3: #d8d5cd; --bad: #ffc4bc; --bad-ink: #ffc4bc; --warn: #ffcc70; --good: #b4e68e; --accent-ink: #b4e68e; --line: #8a877f;
+    --ink2: #e4e1da; --ink3: #d8d5cd; --bad: #ffc4bc; --bad-ink: #ffc4bc; --warn: #ffcc70; --good: #b4e68e; --q-brill: #9ee8df; --q-great: #bcd6f8; --q-book: #e6d2b4; --q-inacc: #f7e39a; --accent-ink: #b4e68e; --line: #8a877f;
     --btn: #2b6318; --btn-edge: #1c4210; /* bouton plein : blanc à 7:1 */
   }
   .card { border-color: var(--line); }
@@ -965,6 +975,16 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
 .fbload textarea { width: 100%; min-height: 72px; padding: var(--s-2); border: 1px solid var(--line); border-radius: var(--r-s); background: var(--sunken); color: var(--ink); font: var(--t-s) var(--mono); resize: vertical; }
 .fbload summary { cursor: pointer; min-height: var(--hit); display: flex; align-items: center; font-weight: 600; }
 
+/* Qualité des coups (relecture, 20/11, « comme Chess.com ») : libellé, tes coups, symbole, ceux de l'adversaire */
+.gvqt { display: grid; grid-template-columns: minmax(0, 1fr) 56px 32px 56px; align-items: center; gap: 2px var(--s-2); font-size: var(--t-s); }
+.gvqt > b { text-align: center; font-size: var(--t-xs); color: var(--ink2); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gvql { color: var(--ink2); }
+.gvm .mv.cur sup { color: inherit !important; } /* coup courant : fond vert plein, symbole dans la couleur du texte */
+.gvqn { min-height: 32px; display: grid; place-items: center; border: 0; border-radius: var(--r-s); background: none; color: var(--ink3); font: 600 var(--t-m) var(--mono); }
+button.gvqn { color: var(--ink); cursor: pointer; }
+.gvqs { justify-self: center; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--q); color: var(--bg); font: normal 700 var(--t-xs)/1 var(--mono); }
+@media (pointer: coarse) { .gvqn { min-height: var(--hit); } }
+
 /* ===== Mouvement réduit (réglage du système) ===== */
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
@@ -974,7 +994,7 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
 }
 
 /* ===== Survol (demande du 16/11) : tout élément cliquable s'éclaire sous la souris, jamais au toucher ===== */
-.btn, .seg2 button, .seg2 a, .mrow, a.revue, .oprow, .gl, .opdue, .fmini, .check, .gnum, .pzprog, .lgpos, a.card, .nav a, .nav a > svg, .brand, .moves button, .gvm .mv, .gvnote, .reprow {
+.btn, .seg2 button, .seg2 a, .mrow, a.revue, .oprow, .gl, .opdue, .fmini, .check, .gnum, .pzprog, .lgpos, a.card, .nav a, .nav a > svg, .brand, .moves button, .gvm .mv, .gvnote, .reprow, button.gvqn {
   transition: background-color var(--m-in) var(--ease), border-color var(--m-in) var(--ease), color var(--m-in) var(--ease), filter var(--m-in) var(--ease), transform var(--m-press) var(--ease);
 }
 @media (hover: hover) and (pointer: fine) {
@@ -982,7 +1002,7 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
   .btn.pri:not([disabled]):hover { filter: brightness(1.12); }
   .btn:not(.pri):not([disabled]):hover { background: var(--btn2-hover); border-color: var(--hover-line); color: var(--ink); }
   .btn.pri:not([disabled]):hover, .opdue:hover, .gnum:hover, a.revue:hover, .pzprog:hover, .lgpos:hover, .brand:hover, .hbar:hover .track i { filter: brightness(1.15); }
-  .seg2 button:not(.on):hover, .seg2 a:not(.on):hover, .nav a:not(.on):hover, .grp:hover .grp-h:not(.on), .moves button:not(.cur):hover, .gvm .mv:not(.cur):hover, .gvnote:hover, .reprow:hover, .ent-log:hover, .ent-row:hover { background: var(--hover); color: var(--ink); }
+  .seg2 button:not(.on):hover, .seg2 a:not(.on):hover, .nav a:not(.on):hover, .grp:hover .grp-h:not(.on), .moves button:not(.cur):hover, .gvm .mv:not(.cur):hover, .gvnote:hover, .reprow:hover, button.gvqn:hover, .ent-log:hover, .ent-row:hover { background: var(--hover); color: var(--ink); }
   .nav a:hover > svg, .grp:hover .grp-h > svg { color: var(--sec); filter: brightness(1.12); } /* icône plus vive sous la souris */
   .mrow:hover, a.card:hover, .fmini:hover { background: var(--hover); border-color: var(--hover-line); }
   .oprow:hover, .check:hover, tr.click:hover td, ol.line li:hover, .gl:not(.head):hover { background: var(--hover); }
