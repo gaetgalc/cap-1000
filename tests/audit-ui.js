@@ -41,17 +41,21 @@ async function solveToEnd(page) {
     await next.click();
   }
 }
+const repJoue = async (page) => { const b = page.locator('[data-act="repplay"]').first(); await b.waitFor({ timeout: 30000 }); await b.click(); await page.locator('[data-act="repplay"]').first().waitFor({ timeout: 30000 }); };
 const TOUS_ECRANS = [
   ['accueil-bilan', () => { const k = 'cap1000:recap', b = localStorage.getItem(k) || localStorage.getItem(k + '-audit'); if (b) { localStorage.setItem(k, b); localStorage.setItem(k + '-audit', b); } return 'accueil'; }],
   ['accueil', () => { localStorage.removeItem('cap1000:recap'); return 'accueil'; }], ['bilan'], ['plan'], ['puzzles'], ['historique'], ['exos'], ['drill-sur', 'drill/sur'], ['drill-compte', 'drill/compte'],
   ['cours'], ['cours-fiche', 'cours/en_prise_pose/fiche'], ['cours-prive', 'cours/en_prise_pose'],
   ['gagner'], ['ouvertures'], ['ouvertures-apprendre', 'ouvertures/apprendre'], ['ouverture-fiche', 'ouvertures/italienne'],
   ['ligne-reciter', 'ligne/italienne/0'], ['ligne-voir', 'ligne/italienne/0/voir'],
-  ['parties'], ['stats'], ['entrainer'], ['idees'], ['avantpartie'],
+  ['parties'], ['echiquier'], ['stats'], ['entrainer'], ['idees'], ['avantpartie'],
   ['rush'], ['rush-3min', 'rush/t3'], ['finales'], ['finale', 'finale/lucena'],
   ['jouer', () => { const s = window.__cap, g = s.data.games.find((x) => s.an[x.id] && !s.an[x.id].bad); return 'jouer/' + g.t + '/20'; }],
   ['mon-ouverture', () => { const s = window.__cap, g = s.data.games.find((x) => x.w); return 'monouv/w/' + encodeURIComponent(g.fam); }],
   ['partie', () => { const s = window.__cap, g = s.data.games.find((x) => s.an[x.id] && !s.an[x.id].bad); return 'partie/' + g.t; }],
+  // Réponses aux coups adverses (20/11) : une ligne jouée d'un clic ouvre une variante ; la carte suivante s'affiche.
+  ['partie-variante', () => { const s = window.__cap, g = s.data.games.find((x) => s.an[x.id] && !s.an[x.id].bad); return 'partie/' + g.t + '/1'; }, { act: repJoue }],
+  ['echiquier-ligne', 'echiquier', { act: repJoue }],
   ['partie-debrief', () => { const s = window.__cap, g = s.data.games.find((x) => s.an[x.id] && !s.an[x.id].bad); return 'partie/' + g.t + '/d'; }],
   ['erreur', ERREUR],
   // Position d'un cours privé : cours simulé injecté dans l'état (jamais enregistré), sur la première erreur analysée.

@@ -35,6 +35,7 @@ import { phaseJob, pieceStats, hourStats, sessionStats, perfRef, gameRating, ins
 import { fetchExplorer, explorerRows, LEVEL } from './explorer.js';
 import { makeMemo, viewKey } from './memo.js';
 import { makeIdle } from './idle.js';
+import { replyRows, repliesHead } from './replies.js';
 
 // Formats de date : un Intl.DateTimeFormat par jeu d'options (datef), les mêmes options qu'avec toLocale…String('fr-FR', …).
 const F_HM = datef({ hour: '2-digit', minute: '2-digit' }), F_WDLONG = datef({ weekday: 'long', day: 'numeric', month: 'long' }), F_DSHORT = datef({ day: 'numeric', month: 'short' });
@@ -666,7 +667,7 @@ function mountPuzzle() {
 // Fiches (histoire, idées, pièges, lignes) et lignes récitées de mémoire, en révision espacée comme les puzzles.
 // Onglets internes (refonte du 16/11) : Cours / Ouvertures, Parties / Mes ouvertures. Ils doublent le volet de la navigation, utile sur téléphone.
 const LEARN_TABS = [['cours', '#cours', 'Cours'], ['ouv', '#ouvertures/apprendre', 'Ouvertures']];
-const GAMES_TABS = [['parties', '#parties', 'Parties'], ['ouv', '#ouvertures', 'Mes ouvertures']];
+const GAMES_TABS = [['parties', '#parties', 'Parties'], ['ouv', '#ouvertures', 'Ouvertures'], ['fb', '#echiquier', 'Échiquier']];
 const PRO_TABS = [['bilan', '#bilan', 'Mon jeu'], ['stats', '#stats', 'Stats'], ['plan', '#plan', 'Plan']];
 const allLineKeys = () => OPENINGS.flatMap((o) => o.lines.map((_, k) => lineKey(o, k)));
 const lineHref = (key, voir) => '#ligne/' + key.replace(':', '/') + (voir ? '/voir' : '');
@@ -2117,7 +2118,7 @@ function viewPartie(t, plyArg) {
     wrap: 'gv',
     rail: a ? `<div class="evbar ${g.w ? '' : 'flip'}" id="gvev" aria-hidden="true" style="--ev:${evalShare(a.ev[v.k])}"><i></i></div>` : '',
     cap: cap.html, capClass: cap.cls,
-    panel: `${a ? `${gvTiles(g, a)}
+    panel: `<div class="card rep" id="rep"></div>${a ? `${gvTiles(g, a)}
       <div class="gvch" title="Tes chances de gain. Points rouges : gaffes, orange : erreurs. Touche la courbe pour aller au coup."><p class="small">Tes chances de gain. Points rouges : gaffes, orange : erreurs. Touche la courbe pour aller au coup.</p><div class="chart" id="evc"></div></div>`
     : `<div class="card"><p class="sub">Cette partie n’est pas encore analysée.</p><div><button class="btn pri" data-act="analyse1" ${S.job.running ? 'disabled' : ''}>${S.job.running ? 'Analyse en cours' : 'Analyser cette partie'}</button></div></div>`}
       <div class="gvm" id="gvm" data-edge>${gvMoves(v)}</div>
@@ -2207,12 +2208,14 @@ function gvSync() {
     v.x.setBar(gvVarBar(v));
     document.querySelectorAll('#gvm .mv').forEach((b) => b.classList.toggle('cur', +b.dataset.k === w.k0));
     gvVarEval(v);
+    gvRep(v);
     return;
   }
   const cap = gvCap(v);
   v.cg.set({ fen: v.fens[k], turnColor: v.fens[k].split(' ')[1] === 'w' ? 'white' : 'black', lastMove: k > 0 ? [v.mv[k - 1].from, v.mv[k - 1].to] : undefined, movable: gvMov(v), drawable: { autoShapes: gvAuto(v) } });
   v.x.say(cap.cls, cap.html);
   v.x.setBar(gvBar(v));
+  gvRep(v);
   const box = $('#gvm');
   if (box) { // coup courant surligné et gardé au centre de la liste, qui défile seule (jamais la page)
     box.querySelectorAll('.mv').forEach((b) => b.classList.toggle('cur', +b.dataset.k === k));
@@ -2459,6 +2462,123 @@ async function restoreFrom(file) {
   } catch (e) { if (m) m.textContent = e.message || String(e); }
 }
 
+// ---------- Réponses aux coups adverses (20/11) : relecture et échiquier libre ----------
+// Pour la position affichée, les 3 meilleurs coups du camp au trait (MultiPV), chacun avec la meilleure réponse de l'autre
+// camp : « S'il joue e5, réponds Cf3 ». Lignes brutes du moteur gardées par position ; un seul calcul à la fois, toujours
+// celui de la dernière position demandée (parcourir vite une partie n'empile pas les calculs).
+const REP = new Map();
+let repQ = null, repBusy = false;
+async function repFetch(fen, done) {
+  repQ = { fen, done };
+  if (repBusy) return;
+  repBusy = true;
+  while (repQ && !REP.has(repQ.fen)) {
+    const f = repQ.fen;
+    try { S.play ||= new Engine(); REP.set(f, (await S.play.evalFen(f, DEPTH, false, 3)).lines); } catch { S.play = null; REP.set(f, false); }
+    if (REP.size > 400) REP.delete(REP.keys().next().value);
+  }
+  repBusy = false;
+  const q = repQ; repQ = null;
+  if (q && REP.has(q.fen)) q.done();
+}
+// Lignes de la position, ou null en attendant le moteur (again est rappelée quand elles arrivent).
+function repLines(fen, again) {
+  if (REP.has(fen)) return REP.get(fen); // false : le moteur a échoué (pas de nouvel essai avant rechargement)
+  if (new Chess(fen).game_over()) { REP.set(fen, []); return []; }
+  repFetch(fen, again);
+  return null;
+}
+function repCard(fen, me, lines) {
+  const h = repliesHead(fen, me), head = `<h3>${h.title}</h3>`;
+  if (lines === false) return `${head}<p class="small">Le moteur ne répond pas sur ce navigateur. Recharge la page pour réessayer.</p>`;
+  if (lines && !lines.length) return `${head}<p class="small">Partie terminée : plus de coup à jouer.</p>`;
+  if (!lines) return head + skel('Le moteur cherche les meilleurs coups', 92, 84, 76);
+  const rows = replyRows(fen, lines, me);
+  return `${head}<div class="replist">${rows.map((r) => `<button class="reprow" data-act="repplay" data-u="${r.uci}"><b>${fr(r.san)}</b><span class="repv">${r.reply ? `${h.reply} <b>${fr(r.reply.san)}</b>` : ''}</span><span class="num">${fmtEval(r.cp)}</span></button>`).join('')}</div>
+    <p class="small">${h.who === 'opp' ? 'Ses 3 meilleurs coups et ta réponse. Il joue autre chose ? Joue-le sur l’échiquier : ta meilleure réponse s’affiche.' : 'Tes 3 meilleurs coups et sa meilleure réponse.'} Éval de ton point de vue ; touche une ligne pour la jouer.</p>`;
+}
+function gvRep(v) {
+  const fen = gvFen(v), me = v.g.w ? 'w' : 'b';
+  setHtml($('#rep'), repCard(fen, me, repLines(fen, () => { if (S.gv === v && v.x?.alive() && gvFen(v) === fen) gvRep(v); })));
+}
+function repPlay(uci) {
+  if (route()[0] === 'partie' && S.gv) gvMove(uci.slice(0, 2), uci.slice(2, 4));
+  else if (route()[0] === 'echiquier' && S.fb) fbMove(uci.slice(0, 2), uci.slice(2, 4));
+}
+
+// ---------- Échiquier libre (#echiquier) : explorer n'importe quelle position, les deux camps ----------
+// S.fb : { mv, fens, i, me } ; une ligne unique, un coup joué au milieu remplace la suite. me : camp en bas de l'échiquier.
+const START_FEN = new Chess().fen();
+const fbNew = (fen = START_FEN, mv = [], fens = [fen]) => ({ mv, fens, i: mv.length, me: S.fb?.me || 'w' });
+// Texte collé : FEN, ou PGN (partie Chess.com copiée), ou suite de coups « 1. e4 e5 2. Nf3 ».
+function fbParse(t) {
+  t = t.trim(); if (!t) return null;
+  const f = new Chess();
+  if (f.load(t)) return fbNew(f.fen());
+  const ch = new Chess();
+  if (!ch.load_pgn(t, { sloppy: true })) return null;
+  const head = ch.header().FEN, line = ch.history({ verbose: true }), r = new Chess(head || START_FEN), mv = [], fens = [r.fen()];
+  for (const m of line) { const x = r.move({ from: m.from, to: m.to, promotion: m.promotion }); if (!x) break; mv.push(x); fens.push(r.fen()); }
+  return mv.length || head ? fbNew(fens[0], mv, fens) : null;
+}
+function fbMoves(P) {
+  const ply0 = (P.fens[0].split(' ')[1] === 'b' ? 1 : 0) + 2 * (+P.fens[0].split(' ')[5] - 1);
+  return P.mv.map((m, j) => { const n = ply0 + j; return `${n % 2 === 0 || j === 0 ? `<span class="n">${Math.floor(n / 2) + 1}${n % 2 ? '…' : '.'}</span>` : ''}<button data-act="fbgo" data-i="${j + 1}" class="${j + 1 === P.i ? 'cur' : ''}">${fr(m.san)}</button>`; }).join('') || '<span class="small">Aucun coup encore : joue sur l’échiquier, pour les deux camps.</span>';
+}
+function fbCap(P, lines) {
+  const fen = P.fens[P.i], last = P.i ? P.mv[P.i - 1] : null, ch = new Chess(fen);
+  const over = ch.in_checkmate() ? 'Échec et mat.' : ch.in_stalemate() ? 'Pat.' : ch.in_draw() ? 'Nulle.' : '';
+  const best = lines?.[0], b = best?.pv?.[0] ? uciMove(new Chess(fen), best.pv[0]) : null;
+  const ev = over ? `<span class="chip">${over}</span>` : lines === false ? '<span class="small">moteur indisponible</span>' : best ? `<span class="chip evnum" title="Évaluation du moteur, de ton point de vue">${fmtEval(fen.split(' ')[1] === P.me ? best.cp : -best.cp)}</span>${b ? `<span class="capbest">Meilleur <b>${fr(b.san)}</b></span>` : ''}` : '<span class="small">éval…</span>';
+  const txtK = last ? describeAt(P.fens[P.i - 1], last.san, P.me) : 'Joue les coups des deux camps : le moteur donne les meilleures réponses.';
+  return `<div class="capm"><span class="capn"><i class="dot ${fen.split(' ')[1] === 'w' ? 'w' : 'b'}"></i>Trait aux ${fen.split(' ')[1] === 'w' ? 'Blancs' : 'Noirs'}</span>${ev}</div><p>${esc(txtK)}</p>`;
+}
+function fbBar(P) {
+  const i = P.i, n = P.mv.length;
+  return `<button class="btn ico" data-act="fbgo" data-i="0" aria-label="Début" ${i === 0 ? 'disabled' : ''}>${ico('first')}</button><button class="btn ico" data-act="fbgo" data-i="${i - 1}" aria-label="Coup précédent" ${i === 0 ? 'disabled' : ''}>${ico('prev')}</button><button class="btn ico" data-act="fbgo" data-i="${i + 1}" aria-label="Coup suivant" ${i === n ? 'disabled' : ''}>${ico('next')}</button><button class="btn ico" data-act="fbgo" data-i="${n}" aria-label="Fin" ${i === n ? 'disabled' : ''}>${ico('last')}</button><button class="btn" data-act="fbflip">Retourner</button>`;
+}
+function viewEchiquier() {
+  const P = (S.fb ||= fbNew());
+  return exo.screen({
+    live: true, capSide: true,
+    head: tabs('fb', GAMES_TABS) + '<div class="pzhead main"><h1>Échiquier libre</h1></div>',
+    cap: fbCap(P, REP.get(P.fens[P.i])),
+    panel: `<div class="card rep" id="rep"></div>
+      <div class="card"><h3>Coups joués</h3><div class="moves vline" id="fbm">${fbMoves(P)}</div></div>
+      <details class="card fbload"><summary>Partir d’une autre position</summary>
+        <label class="small" for="fbin">Colle une position (FEN) ou une partie (PGN, copiée depuis Chess.com).</label>
+        <textarea id="fbin" rows="3" spellcheck="false" autocomplete="off"></textarea>
+        <div class="row"><button class="btn" data-act="fbload">Charger</button><button class="btn" data-act="fbreset">Position de départ</button></div><p class="small" id="fberr" role="status"></p></details>`,
+    bar: fbBar(P),
+  });
+}
+const fbMov = (fen) => ({ free: false, color: fen.split(' ')[1] === 'w' ? 'white' : 'black', dests: destsOf(new Chess(fen)), showDests: true, events: { after: fbMove } });
+function mountEchiquier() {
+  const X = exo.current(), P = S.fb; if (!X || !P) return;
+  X.board({ fen: P.fens[P.i], orientation: P.me === 'w' ? 'white' : 'black', movable: fbMov(P.fens[P.i]), drawable: { enabled: true } });
+  fbSync();
+}
+function fbSync() {
+  const X = exo.current(), P = S.fb; if (!X?.cg || !P || route()[0] !== 'echiquier') return;
+  const fen = P.fens[P.i], last = P.i ? P.mv[P.i - 1] : null, lines = repLines(fen, () => { if (S.fb === P && P.fens[P.i] === fen) fbSync(); });
+  const best = lines?.[0]?.pv?.[0];
+  X.cg.set({ fen, turnColor: fen.split(' ')[1] === 'w' ? 'white' : 'black', lastMove: last ? [last.from, last.to] : undefined, movable: fbMov(fen), drawable: { autoShapes: best ? [arrow(best, 'green')] : [] } });
+  X.say('', fbCap(P, lines));
+  X.setBar(fbBar(P));
+  setHtml($('#fbm'), fbMoves(P));
+  setHtml($('#rep'), repCard(fen, P.me, lines));
+}
+function fbMove(from, to) {
+  const P = S.fb; if (!P) return;
+  const ch = new Chess(P.fens[P.i]), p = ch.get(from), m = ch.move({ from, to, promotion: p?.type === 'p' && (to[1] === '8' || to[1] === '1') ? 'q' : undefined });
+  if (!m) { fbSync(); return; }
+  const nx = P.mv[P.i];
+  if (!(nx && nx.from === m.from && nx.to === m.to && nx.promotion === m.promotion)) { P.mv.length = P.i; P.fens.length = P.i + 1; P.mv.push(m); P.fens.push(ch.fen()); }
+  P.i++;
+  fbSync();
+}
+function fbGo(i) { const P = S.fb; if (!P) return; P.i = Math.max(0, Math.min(P.mv.length, i)); fbSync(); }
+
 // ---------- Routage et événements ----------
 const route = () => (location.hash.slice(1) || 'accueil').split('/');
 // Table des routes (#route/a/b/c) : view rend le HTML de la vue ; mount monte échiquiers, courbes et écouteurs juste après ;
@@ -2495,6 +2615,7 @@ const ROUTES = {
   // Relecture : au passage ordinateur / téléphone, le bandeau change de colonne (vue reconstruite), sinon mise à jour sur place
   partie: { view: viewPartie, mount: mountPartie, title: 'Partie', back: '#parties', resize: () => { if (S.gv?.cg) gvSync(); } }, // exercise.js change le bandeau de colonne sur place au passage ordinateur / téléphone ; gvSync recale l'affichage
   jouer: { view: viewJouer, mount: mountJouer, title: 'Jouer', back: (a) => '#partie/' + a },
+  echiquier: { view: viewEchiquier, mount: mountEchiquier, title: 'Échiquier', resize: fbSync },
   bilan: { view: viewBilan, mount: mountBilan, resize: mountBilan },
   stats: { view: () => tabs('stats', PRO_TABS) + viewStats(S) /* viewStats vit dans alltime.js : les onglets sont ajoutés ici */, mount: () => mountStats(S), resize: () => mountStats(S) },
   plan: { view: viewPlan, mount: mountPlan },
@@ -2687,6 +2808,11 @@ document.addEventListener('click', (ev) => {
   else if (act === 'selfck') { progress.recordSelf(el.dataset.id, el.dataset.v === '1'); render(true); }
   else if (act === 'askclose') { if (S.gv) { S.gv.ask = null; gvSync(); } }
   else if (act === 'vgo') gvVarGo(+el.dataset.i);
+  else if (act === 'repplay') repPlay(el.dataset.u);
+  else if (act === 'fbgo') fbGo(+el.dataset.i);
+  else if (act === 'fbflip') { S.fb.me = S.fb.me === 'w' ? 'b' : 'w'; exo.current()?.cg?.set({ orientation: S.fb.me === 'w' ? 'white' : 'black' }); fbSync(); }
+  else if (act === 'fbreset') { S.fb = fbNew(); render(); }
+  else if (act === 'fbload') { const P = fbParse($('#fbin').value); if (P) { S.fb = P; render(); } else $('#fberr').textContent = 'Position ou partie illisible : colle une FEN complète ou un PGN.'; }
   else if (act === 'vexit') { const k0 = S.gv?.var?.k0; if (k0 != null) gvGo(k0); }
   else if (act === 'bakexp') { const m = $('#bakmsg'); backup.exportFile(S.user).then((n) => { if (m) m.textContent = `Fichier ${n} téléchargé. Range-le dans tes fichiers ou envoie-le sur ton autre appareil.`; toast('Sauvegarde téléchargée'); }).catch((e) => { if (m) m.textContent = 'Sauvegarde impossible : ' + (e.message || e); }); }
   else if (act === 'opgrp') { S.opGrp = el.dataset.g; render(true); }
@@ -2731,6 +2857,11 @@ document.addEventListener('submit', async (ev) => {
 document.addEventListener('keydown', (ev) => {
   if (/INPUT|SELECT|TEXTAREA/.test(ev.target.tagName)) return;
   if (exo.key(ev)) return; // lecture d'une suite : flèches pour avancer, espace pour lire ou mettre en pause
+  if (route()[0] === 'echiquier' && S.fb) {
+    const P = S.fb, k = { ArrowLeft: P.i - 1, ArrowRight: P.i + 1, Home: 0, End: P.mv.length }[ev.key];
+    if (k != null) { ev.preventDefault(); fbGo(k); }
+    return;
+  }
   if (route()[0] !== 'partie' || !S.gv) return;
   const w = S.gv.var;
   if (w) { if (ev.key === 'ArrowLeft') gvVarGo(w.i - 1); else if (ev.key === 'ArrowRight') gvVarGo(w.i + 1); else if (ev.key === 'Escape') gvGo(w.k0); return; }

@@ -594,6 +594,19 @@ Aussi : `memo()` / `touch()` (calculs gardés tant que parties, analyses, filtre
 - Contrôle ajouté au test de bout en bout : en 1366 × 560, la molette mène jusqu'au bas des cartes.
 - Non touché : le texte des points forts et faibles du bilan reste limité à 2 lignes sur ordinateur (« Ce… » sur la capture).
 
+## 53. Réponses aux coups adverses, échiquier libre (20/11)
+
+> je veux avoir un endroit ou j'explore les parties. je veux juste avoir le meilleur coup de chaque coté pour voir quoi répondre selon ce que l'autre répond
+
+Choix de Gaëtan : les deux endroits (relecture et nouvel échiquier libre), affichage « réponses aux coups adverses ».
+
+- **Carte « S'il joue… / Si tu joues… »** (`js/replies.js`, `repCard` dans `app.js`) : pour la position affichée, les 3 meilleurs coups du camp au trait (MultiPV du moteur, profondeur 12), chacun suivi de la meilleure réponse de l'autre camp et de l'éval de ton point de vue. Un clic sur une ligne joue le coup. L'adversaire joue autre chose : on le joue sur l'échiquier, la carte donne alors ta meilleure réponse. Un seul calcul à la fois, toujours celui de la dernière position demandée (`repFetch`), lignes gardées par position (`REP`).
+- **Relecture** : carte en tête du panneau sur ordinateur ; sur téléphone, après la bande de coups et la courbe, et à la place de la courbe pendant une variante.
+- **Échiquier libre `#echiquier`** (onglet « Échiquier » de Parties, entrée « Échiquier libre » du volet) : les deux camps se jouent, flèche verte du meilleur coup, éval et meilleur coup dans le bandeau, liste des coups, début / précédent / suivant / fin (et flèches du clavier), « Retourner » (change aussi le camp dont l'éval est donnée), « Partir d'une autre position » : FEN ou PGN collé. État en mémoire (`S.fb`), perdu au rechargement.
+- Onglet « Mes ouvertures » renommé « Ouvertures » dans les onglets de Parties (trois onglets sur 390 px).
+- Audit : écrans `echiquier`, `echiquier-ligne` et `partie-variante` (une ligne jouée d'un clic) ; coups d'une variante à 44 px sur téléphone.
+- Non vérifié : vitesse du MultiPV sur iPhone ; PGN réel copié depuis Chess.com.
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |

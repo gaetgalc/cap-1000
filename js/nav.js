@@ -3,7 +3,7 @@
 export const SECTIONS = {
   acc: ['accueil', 'avantpartie'],
   ent: ['entrainer', 'puzzles', 'erreur', 'inedits', 'historique', 'exos', 'drill', 'gagner', 'idees', 'rush', 'finales', 'finale', 'cours', 'apprendre', 'ligne'],
-  par: ['parties', 'partie', 'jouer', 'mesouvertures', 'monouv'],
+  par: ['parties', 'partie', 'jouer', 'mesouvertures', 'monouv', 'echiquier'],
   pro: ['bilan', 'stats', 'plan', 'plus'],
 };
 export const ROOT = { acc: 'accueil', ent: 'entrainer', par: 'parties', pro: 'bilan' };

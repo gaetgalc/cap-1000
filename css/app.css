@@ -560,7 +560,7 @@ body.imm .toasts { bottom: calc(84px + var(--s-3) + env(safe-area-inset-bottom))
 a { --sec: var(--ink3); }
 a:is([href^="#accueil"], [href^="#avantpartie"]) { --sec: var(--c-jour); }
 a:is([href^="#entrainer"], [href^="#puzzles"], [href^="#erreur"], [href^="#inedits"], [href^="#historique"], [href^="#exos"], [href^="#drill"], [href^="#gagner"], [href^="#idees"], [href^="#rush"], [href^="#finale"]) { --sec: var(--c-train); }
-a:is([href^="#partie"], [href^="#jouer"], [href^="#mesouvertures"], [href^="#monouv"], [href="#ouvertures"]) { --sec: var(--c-games); }
+a:is([href^="#partie"], [href^="#jouer"], [href^="#mesouvertures"], [href^="#monouv"], [href="#ouvertures"], [href^="#echiquier"]) { --sec: var(--c-games); }
 a:is([href^="#cours"], [href^="#apprendre"], [href^="#ligne"], [href^="#ouvertures/"]) { --sec: var(--c-learn); }
 a:is([href^="#bilan"], [href^="#stats"], [href^="#plan"], [href^="#plus"]) { --sec: var(--c-prog); }
 /* Entrée inactive : teinte atténuée mais reconnaissable ; entrée active : pleine couleur et fond légèrement teinté */
@@ -795,6 +795,11 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
   .gvr { display: contents; } .gvr > span:empty, .gvt { display: none; }
   .gvnote, .gvch .small { display: none; }
   .gvch { order: -1; flex: none; }
+  /* Variante en cours (20/11) : la courbe cède la place aux réponses, juste sous la bande de coups, sans titre ni légende */
+  body.fit:has(#xcap.var) .gvch { display: none; }
+  body.fit .bwrap.gv + .fitside .rep { flex: none; padding: 0; background: none; gap: 4px; }
+  body.fit .bwrap.gv + .fitside .rep > :is(h3, .small) { display: none; }
+  .moves.vline button { min-width: var(--hit); min-height: var(--hit); } /* coups d'une variante ou de l'échiquier libre : cibles tactiles */
   .actbar .gvfl { display: none; }
   .actbar .btn.gve { flex: 1; }
   /* Accueil */
@@ -932,6 +937,16 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
 .vhead .seg2.mini button { min-width: var(--hit); }
 .vhead > .vh + * { margin-left: auto; } /* titre passé dans la barre du haut (téléphone) : la période garde sa place à droite */
 
+/* Réponses aux coups adverses (20/11) : relecture et échiquier libre. Coup, réponse, éval ; une ligne se joue d'un clic. */
+.rep h3 { margin: 0; }
+.replist { display: flex; flex-direction: column; gap: var(--s-1); }
+.reprow { display: grid; grid-template-columns: minmax(3.5em, auto) 1fr auto; align-items: center; gap: var(--s-3); min-height: var(--hit); padding: 0 var(--s-3); border: 0; border-radius: var(--r-s); background: var(--sunken); color: var(--ink2); font: inherit; font-size: var(--t-s); text-align: left; cursor: pointer; }
+.reprow > b { color: var(--ink); font-size: var(--t-m); }
+.reprow .repv b { color: var(--accent-ink); }
+.reprow .num { font-family: var(--mono); color: var(--ink2); }
+.fbload textarea { width: 100%; min-height: 72px; padding: var(--s-2); border: 1px solid var(--line); border-radius: var(--r-s); background: var(--sunken); color: var(--ink); font: var(--t-s) var(--mono); resize: vertical; }
+.fbload summary { cursor: pointer; min-height: var(--hit); display: flex; align-items: center; font-weight: 600; }
+
 /* ===== Mouvement réduit (réglage du système) ===== */
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
@@ -941,7 +956,7 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
 }
 
 /* ===== Survol (demande du 16/11) : tout élément cliquable s'éclaire sous la souris, jamais au toucher ===== */
-.btn, .seg2 button, .seg2 a, .mrow, a.revue, .oprow, .gl, .opdue, .fmini, .check, .gnum, .pzprog, .lgpos, a.card, .nav a, .nav a > svg, .brand, .moves button, .gvm .mv, .gvnote {
+.btn, .seg2 button, .seg2 a, .mrow, a.revue, .oprow, .gl, .opdue, .fmini, .check, .gnum, .pzprog, .lgpos, a.card, .nav a, .nav a > svg, .brand, .moves button, .gvm .mv, .gvnote, .reprow {
   transition: background-color var(--m-in) var(--ease), border-color var(--m-in) var(--ease), color var(--m-in) var(--ease), filter var(--m-in) var(--ease), transform var(--m-press) var(--ease);
 }
 @media (hover: hover) and (pointer: fine) {
@@ -949,7 +964,7 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
   .btn.pri:not([disabled]):hover { filter: brightness(1.12); }
   .btn:not(.pri):not([disabled]):hover { background: var(--btn2-hover); border-color: var(--hover-line); color: var(--ink); }
   .btn.pri:not([disabled]):hover, .opdue:hover, .gnum:hover, a.revue:hover, .pzprog:hover, .lgpos:hover, .brand:hover, .hbar:hover .track i { filter: brightness(1.15); }
-  .seg2 button:not(.on):hover, .seg2 a:not(.on):hover, .nav a:not(.on):hover, .grp:hover .grp-h:not(.on), .moves button:not(.cur):hover, .gvm .mv:not(.cur):hover, .gvnote:hover, .ent-log:hover, .ent-row:hover { background: var(--hover); color: var(--ink); }
+  .seg2 button:not(.on):hover, .seg2 a:not(.on):hover, .nav a:not(.on):hover, .grp:hover .grp-h:not(.on), .moves button:not(.cur):hover, .gvm .mv:not(.cur):hover, .gvnote:hover, .reprow:hover, .ent-log:hover, .ent-row:hover { background: var(--hover); color: var(--ink); }
   .nav a:hover > svg, .grp:hover .grp-h > svg { color: var(--sec); filter: brightness(1.12); } /* icône plus vive sous la souris */
   .mrow:hover, a.card:hover, .fmini:hover { background: var(--hover); border-color: var(--hover-line); }
   .oprow:hover, .check:hover, tr.click:hover td, ol.line li:hover, .gl:not(.head):hover { background: var(--hover); }
