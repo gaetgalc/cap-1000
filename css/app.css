@@ -113,6 +113,7 @@ select, input[type=text], input[type=number], input[type=date] { font: inherit; 
 .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
 .split { display: grid; gap: 20px; grid-template-columns: 1fr; align-items: start; }
 .card { background: var(--surface); border: 1px solid transparent; border-radius: var(--r); padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+h1 .chip, h2 .chip { font-family: var(--body); letter-spacing: 0; }
 .card > h2 { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .sub { color: var(--ink2); font-size: var(--t-s); }
 .small { font-size: var(--t-xs); color: var(--ink3); }
@@ -179,9 +180,9 @@ td.r, th.r { text-align: right; font-variant-numeric: tabular-nums; white-space:
 .gl-meta b { color: var(--ink); font-weight: 500; }
 .gl-op { flex: 1 1 0; min-width: 0; order: -2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
 .gl-f { display: inline-flex; gap: var(--s-1); order: 1; }
-.flt { display: inline-flex; align-items: baseline; justify-content: center; gap: 2px; min-width: 44px; padding: 2px var(--s-2); border-radius: var(--r-s); background: var(--sunken); color: var(--ink3); font-size: var(--t-xs); font-weight: 600; }
+.flt { display: inline-flex; align-items: baseline; justify-content: center; gap: 2px; min-width: 44px; padding: 2px var(--s-2); color: var(--ink3); font-family: var(--mono); font-size: var(--t-xs); font-weight: 600; }
 .flt b { font-size: var(--t-s); color: inherit; }
-.flt.bad { background: var(--bad-soft); color: var(--bad-ink); } .flt.warn { background: var(--warn-soft); color: var(--warn); }
+.flt.bad { color: var(--bad-ink); } .flt.warn { color: var(--warn); } /* unslop (22/11) : la couleur du texte suffit, pas de fond */
 .gl-d { order: -1; }
 .gl-leg { margin: var(--s-2) 0; }
 
@@ -252,9 +253,9 @@ ol.routine { margin: 0; padding-left: 20px; display: flex; flex-direction: colum
 .welcome { max-width: 520px; margin: 8vh auto 0; }
 .err { color: var(--bad); font-weight: 500; }
 
-.tiles { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
-.tile { background: var(--surface); border: 1px solid transparent; border-radius: var(--r); padding: 12px 16px; display: flex; flex-direction: column; gap: 2px; }
-.tile b { font: 600 var(--t-xl)/1.1 var(--display); } .tile span { font-size: var(--t-xs); color: var(--ink2); }
+.tiles { display: grid; gap: 0; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); background: var(--surface); border-radius: var(--r); overflow: clip; } /* unslop (22/11) : bande à filets, comme .glsum */
+.tile { padding: var(--s-3) var(--s-4); display: flex; flex-direction: column; gap: 2px; box-shadow: -1px 0 0 var(--line), 0 -1px 0 var(--line); }
+.tile b { font: 500 var(--t-xl)/1.1 var(--display); font-variant-numeric: tabular-nums; } .tile span { font-size: var(--t-xs); color: var(--ink2); }
 .bars { display: flex; align-items: flex-end; gap: 2px; height: 140px; border-bottom: 1px solid var(--line); }
 .bars i { flex: 1; min-width: 2px; background: var(--accent); border-radius: var(--r-s) var(--r-s) 0 0; }
 div.hbar { cursor: default; grid-template-columns: minmax(80px, 150px) 1fr minmax(72px, auto); }
@@ -265,14 +266,14 @@ div.hbar { cursor: default; grid-template-columns: minmax(80px, 150px) 1fr minma
 .stepc b { font: 600 var(--t-m) var(--display); } .stepc > span { font-size: var(--t-s); color: var(--ink2); }
 /* Coach */
 .coach { display: flex; gap: 12px; align-items: flex-start; }
-.coach-av { flex: none; width: 40px; height: 40px; border-radius: 50%; background: var(--btn); color: var(--on-btn); display: grid; place-items: center; }
-.coach-b { background: var(--surface); border: 1px solid transparent; border-radius: var(--r-s) var(--r) var(--r) var(--r); padding: 12px 16px; max-width: 70ch; font-size: var(--t-m); }
+.coach-b { background: var(--surface); border: 1px solid transparent; border-radius: var(--r); padding: 12px 16px; max-width: 70ch; font-size: var(--t-m); }
 .coach-b b.ko { color: var(--bad); }
+.card .coach-b { padding: 0; } /* dans une carte, le texte du coach s'aligne sur le reste de la carte */
 .seg { display: flex; gap: 4px; } .seg i { flex: 1; height: 6px; border-radius: var(--r-s); background: var(--sunken); }
 .seg i.done { background: var(--accent); } .seg i.cur { background: var(--accent-ink); }
 .rule { background: var(--accent-soft); } .rulet { font: 600 var(--t-l)/1.35 var(--serif); max-width: 40ch; }
 .btn.choice { justify-content: flex-start; text-align: left; padding: 12px 12px; white-space: normal; }
-.btn.choice[disabled] { opacity: 1; cursor: default; }
+.btn.choice[disabled] { cursor: default; }
 .btn.choice.right { border-color: var(--good); background: var(--good-soft); } .btn.choice.wrong { border-color: var(--bad); background: var(--bad-soft); }
 a.card.lesson { text-decoration: none; color: inherit; transition: border-color var(--m-in) var(--ease), transform var(--m-in) var(--ease); }
 details.manual { border-top: 1px solid var(--line); padding-top: 12px; }
@@ -328,7 +329,8 @@ ol.line li.cur { background: var(--sunken); border-left-color: var(--accent); } 
 .menu { display: flex; flex-direction: column; gap: 8px; }
 .mrow { display: grid; grid-template-columns: 44px 1fr auto; gap: 12px; align-items: center; padding: 12px; border-radius: var(--r); background: var(--surface); border: 1px solid var(--line); text-decoration: none; color: inherit; }
 .mico { width: 44px; height: 44px; border-radius: var(--r); background: var(--accent-soft); color: var(--accent-ink); display: grid; place-items: center; font: 600 var(--t-xs) var(--display); }
-.chev { display: flex; color: var(--ink3); }
+.chev { display: flex; color: var(--ink3); } .chev .ic { width: 16px; height: 16px; }
+.btn > .ic:last-child:not(:first-child) { width: 18px; height: 18px; margin-right: -4px; } /* « Suivant » et son chevron */
 /* Accueil sans défilement (body.homefit) : objectif, séance à gauche, chantier et dernière partie à droite.
    Hauteur minimale, pas fixe (19/11) : aux tailles de référence tout tient et rien ne défile ; dans une fenêtre plus basse,
    la page s'allonge et défile au lieu de couper le bas des cartes. */
@@ -395,7 +397,7 @@ body.homefit .view { flex: 1; min-height: 0; width: 100%; padding-bottom: 16px; 
 .ideas { display: flex; flex-direction: column; gap: 8px; }
 .ideas .idea-c { justify-content: flex-start; text-align: left; white-space: normal; height: auto; min-height: var(--hit); padding-top: 8px; padding-bottom: 8px; line-height: 1.4; }
 .ideas .idea-c.ok { border-color: var(--good); color: var(--ink); } .ideas .idea-c.ko { border-color: var(--bad); }
-.ideas .idea-c:disabled { opacity: 1; cursor: default; }
+.ideas .idea-c:disabled { cursor: default; }
 .portrait { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; color: var(--ink); }
 .avant { gap: 12px; } .avant h3 { margin: 4px 0 0; }
 .lgrow { display: flex; gap: var(--s-4); align-items: flex-start; }
@@ -405,7 +407,7 @@ body.homefit .view { flex: 1; min-height: 0; width: 100%; padding-bottom: 16px; 
 details.gd summary, details.gl-leg summary { cursor: pointer; font-size: var(--t-s); color: var(--accent-ink); font-weight: 600; margin-bottom: 8px; }
 
 /* Chantier, exercices */
-.focus { border-color: var(--accent); gap: 8px; }
+.focus { gap: 8px; }
 .focus .rulet { font-size: var(--t-m); max-width: 46ch; }
 .fmet { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .fmet > div { display: flex; flex-direction: column; gap: 1px; padding: 8px 12px; border-radius: var(--r); background: var(--bg); font-size: var(--t-xs); color: var(--ink2); }
@@ -415,9 +417,9 @@ details.gd summary, details.gl-leg summary { cursor: pointer; font-size: var(--t
 
 .cg-wrap .cg-shapes, .cg-wrap .cg-custom-svgs { opacity: .85; filter: drop-shadow(0 1px 2px var(--shape-shadow)); }
 .cg-wrap .cg-custom-svgs svg { overflow: visible; } /* flèches en L du cavalier : elles sortent de la case de départ */
-.capbest { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: var(--r-s); background: var(--good-soft); color: var(--good); font-size: var(--t-xs); font-weight: 600; white-space: nowrap; }
+.capbest { display: inline-flex; align-items: center; gap: 4px; padding: 2px 0; color: var(--ink2); font-size: var(--t-xs); font-weight: 600; white-space: nowrap; }
 .capbest b { color: var(--accent-ink); }
-.capbest.ko { background: var(--bad-soft); color: var(--bad); } .capbest.ko b { color: var(--bad-ink); }
+.capbest.ko { color: var(--ink2); } .capbest.ko b { color: var(--bad-ink); }
 cg-board square.last-move { background-color: var(--sq-last) !important; }
 cg-board square.selected { background-color: var(--sq-sel) !important; }
 
@@ -431,6 +433,7 @@ cg-board square.check { background: radial-gradient(circle, var(--sq-check) 0, v
 /* Lecture animée des suites */
 .ic { flex: none; }
 .seg2.mini { padding: 2px; border-radius: var(--r-s); flex: none; }
+.seg2.mini.tc button { flex: 0 0 auto; padding: 4px 8px; overflow: visible; } /* cadences de Stats : libellés de longueurs différentes, jamais abrégés */
 .seg2.mini button { font-size: var(--t-xs); padding: 4px 4px; border-radius: var(--r-s); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cap.film { gap: 8px; }
 .prog { display: flex; gap: 4px; } .prog i { flex: 1; max-width: 44px; height: 4px; border-radius: var(--r-s); background: var(--track); }
@@ -501,6 +504,7 @@ body.fit .cap { max-width: none; overflow-y: auto; }
 .rate .seg2 button { font-variant-numeric: tabular-nums; }
 /* Ouvertures : catalogue en liste serrée, fiche à onglets */
 .opdue { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 12px; border-radius: var(--r); background: var(--warn-soft); color: var(--warn); text-decoration: none; font-size: var(--t-s); }
+.opdue > span { display: inline-flex; align-items: center; } .opdue .ic { width: 16px; height: 16px; }
 .opgrp button, .optabs button { flex: 1 1 auto; }
 .optabs { overflow-x: auto; scrollbar-width: none; }
 .oplist { display: flex; flex-direction: column; background: var(--surface); border: 1px solid transparent; border-radius: var(--r); overflow: hidden; }
@@ -519,7 +523,7 @@ body.fit .cap { max-width: none; overflow-y: auto; }
 /* Détail d'une ouverture jouée (#monouv) : même en-tête que la fiche, deux colonnes de cartes sur ordinateur */
 #mob { width: 120px; height: 120px; }
 .mogrid { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); align-items: start; }
-td .chev { display: inline; }
+td .chev { display: inline-flex; vertical-align: middle; }
 .mowdl { max-width: 360px; }
 .opmoves { font: 600 var(--t-s) var(--display); color: var(--accent-ink); margin: 0; }
 .ophero .sub { margin: 0; }
@@ -742,7 +746,7 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
   body.fit .tools:has(.snd) { display: flex; align-items: center; }
   body.fit .tools > :not(.snd) { display: none; }
   /* Pastille « reste à faire » */
-  .nbadge { position: static; margin-left: auto; }
+  .nbadge { position: static; margin-left: auto; background: none; color: var(--ink3); font-family: var(--mono); font-weight: 500; } /* unslop (22/11) : un compte se lit, il ne brille pas */
   body.fit .nbadge { position: absolute; top: 2px; right: 0; left: auto; margin: 0; }
 }
 
@@ -777,7 +781,7 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
   .hbar, ol.line li { min-height: var(--hit); }
   .btn.lg { width: 100%; justify-content: center; min-height: 52px; }
   select, input[type=text], input[type=number], input[type=date] { min-height: var(--hit); font-size: var(--t-m); }
-  .coach-av { width: 34px; height: 34px; } .coach-b { padding: 8px 12px; }
+  .coach-b { padding: 8px 12px; }
   /* Écran de travail plein cadre */
   body.imm .pzhead h1 { display: none; }
   .pzhead .row { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; } .pzhead select { min-height: 34px; font-size: var(--t-s); padding: 4px 8px; }
@@ -922,7 +926,7 @@ dialog.keys dd { margin: 0; color: var(--ink2); font-size: var(--t-s); align-sel
   body.fit .view { gap: 4px; padding-top: 4px; padding-bottom: 4px; }
   .actbar { padding-top: 4px; padding-bottom: calc(6px + env(safe-area-inset-bottom)); } .actbar .btn { min-height: var(--hit); }
   body.fit .cap { min-height: var(--hit); padding: 4px 12px; }
-  body.fit .coach { padding: 4px 12px; } body.fit .coach .coach-av { display: none; } body.fit .coach-b { line-height: 1.4; max-height: 68px; } /* trois lignes au plus : un texte plus long défile dans sa boîte, l’échiquier ne rétrécit pas */
+  body.fit .coach { padding: 4px 12px; } body.fit .coach-b { line-height: 1.4; max-height: 68px; } /* trois lignes au plus : un texte plus long défile dans sa boîte, l’échiquier ne rétrécit pas */
   /* échauffement, Rush : bandeau de deux lignes au plus sous l’échiquier ; 56 px = ses deux lignes (2 × 22 px de texte) + 12 px de marge intérieure */
   body.fit:not(.solved) .bwrap:not(.gv):not(:has(.m-txt)) .board { width: min(100cqw, 100cqh - 56px); height: min(100cqw, 100cqh - 56px); }
   body.fit .bwrap.gv + .fitside .fitpanel { max-height: var(--hit); } /* relecture : seule la bande de coups reste visible, le reste défile */

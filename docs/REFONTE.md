@@ -127,3 +127,4 @@ Contrôle : `node ~/.claude/plugins/cache/hallmark/hallmark/*/hallmark/scripts/s
 - **Pas de point médian** pour enchaîner des informations dans un en-tête, pas de surtitre coloré au-dessus d'un titre.
 - **Titres sans possessif** (« Séance du jour », pas « Ta séance du jour ») ; le tutoiement reste dans les phrases.
 - **Marges sur l'échelle de 4 px**, couleurs par jetons de `:root`, bouton désactivé par fond, encre et curseur (pas par la transparence seule).
+- **Passe unslop (22/11, JOURNAL §58)** : une pastille d'état ou de compte n'a jamais de fond coloré (texte coloré seul) ; pas d'avatar rond pour le coach ; pas de chevron Unicode, `ico('next')` ; un filtre est un contrôle segmenté, jamais un bouton plein ; une rangée de chiffres est une bande à filets (`.glsum`, `.tiles`).

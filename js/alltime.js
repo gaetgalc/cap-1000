@@ -137,7 +137,7 @@ export function viewStats(S) {
   const H4 = ['', 'Parties', 'Résultats', 'Score'];
 
   return `<div class="vhead"><h1>Stats depuis le début</h1>
-    <div class="row" role="group" aria-label="Cadence">${['all', ...['rapid', 'blitz', 'bullet', 'daily'].filter((k) => has.includes(k))].map((k) => `<button class="btn sm ${sel === k ? 'pri' : ''}" data-act="stattc" data-tc="${k}">${k === 'all' ? 'Toutes' : TC[k]}</button>`).join('')}</div></div>
+    <div class="seg2 mini tc" role="group" aria-label="Cadence">${['all', ...['rapid', 'blitz', 'bullet', 'daily'].filter((k) => has.includes(k))].map((k) => `<button class="${sel === k ? 'on' : ''}" aria-pressed="${sel === k}" data-act="stattc" data-tc="${k}">${k === 'all' ? 'Toutes' : TC[k]}</button>`).join('')}</div></div>
   <p class="sub">Depuis ta première partie du ${dfmt(first.t)}.</p>
   <div class="tiles">${tiles}</div>
   <div class="card"><h2>Par cadence</h2>${tbl(['Cadence', 'Parties', 'Résultats', 'Score', 'Elo actuel', 'Record', 'Plus bas'], cad)}${WDL_LEGEND}</div>

@@ -643,6 +643,24 @@ Choix de Gaëtan : les deux endroits (relecture et nouvel échiquier libre), aff
 - Sur téléphone, Début et Fin quittent la barre (comme dans la relecture) pour laisser la place au bouton.
 - Audit : écran `echiquier-sansfleche` (plus aucune flèche après un clic).
 
+## 58. Passe « unslop » : derniers signes d'interface générée (22/11)
+
+> utilise ce skill [heydamir/unslop] pour parfaire le site […] sans signe que ça a été fait par IA
+
+Audit selon `references/signs.md` du skill unslop (Damir Sokolovsky, CC BY 4.0) sur les 40 écrans. Verdict : retouche légère (le site suivait déjà REFONTE § « Pas d'allure générée ») ; direction gardée (gris chaud, vert d'échiquier, Geist et Besley). Corrigé :
+
+- **Pastilles à fond coloré** : fautes de la liste des parties (`.flt`, chiffres en Geist Mono) et « Meilleur / Joué » de la relecture (`.capbest`) passent en texte, sans fond.
+- **Rangée de 6 boîtes chiffrées** (Stats) : bande à filets (`.tiles`), comme `.glsum` ; chiffres en 500, tabulaires.
+- **Filtre de cadence de Stats** : plus un bouton vert plein mais un contrôle segmenté `.seg2.mini.tc`, comme la période.
+- **Surtitre rouge « Priorité 1 »** (Cours) : neutre.
+- **Avatar rond du coach** (pastille verte à pion, allure de messagerie de robot) : retiré ; la bulle reste, alignée sur sa carte quand elle est dans une carte.
+- **Chevrons Unicode** « › » (« Suivant ›, Réviser ›, Le mot du coach › », 20 endroits) : icône SVG `ico('next')`.
+- **Compteur de la navigation sur ordinateur** : chiffre discret (mono, `--ink3`) au lieu d'une pastille pleine ; l'icône à pastille reste sur la barre du bas du téléphone (convention iOS).
+- **Contour vert de « Chantier en cours »** : retiré (cartes sans contour).
+- **Pastille dans un titre** (« Tendance inconnue ») : en Geist, plus en serif.
+
+Contrôles : tests unitaires, `audit-ui.js` (6 passes, sans écart), `parcours.js`, `perf.js`.
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |
