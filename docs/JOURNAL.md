@@ -679,6 +679,12 @@ Pilote fait (tâche 15 de `docs/PLAN-AMELIORATION.md`) :
 
 Contrôles : tests unitaires, `parcours.js`, `audit-ui.js` comparé pixel par pixel à l'audit d'avant (`shots-diff.js`).
 
+> go, continue écran par écran
+
+Tous les écrans déplacés le même jour : 14 modules de plus dans `js/views/` (`accueil`, `bilan`, `puzzles`, `inedits`, `explication`, `cours`, `ouvertures`, `parties`, `jeu`, `rush`, `idees`, `entrainer`, `reglages`, `cartes` pour les cartes et calculs partagés). Formats de date (`F_*`) passés dans `ui.js`, onglets (`LEARN_TABS`, `GAMES_TABS`, `PRO_TABS`) dans `nav.js`. `app.js` : 607 lignes (noyau : import, analyse, en-tête, routage, événements), n'exporte plus que 6 fonctions. Plus gros module d'écran : la relecture, 358 lignes (~10 k jetons).
+
+Contrôles en plus : ESLint (`no-undef`, `no-unused-vars`) sans erreur sur `app.js`, `state.js` et `js/views/` ; toutes les lignes de code d'origine retrouvées à l'identique (seuls des commentaires d'en-tête ajoutés).
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |

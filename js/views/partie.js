@@ -18,7 +18,10 @@ import { planOf } from '../theory.js';
 import { moments } from '../debrief.js';
 import { intent } from '../plan.js';
 import { gameRating, perfRef } from '../insights.js';
-import { ASK, askRun, explain, mmss, moveNo, render, viewParties } from '../app.js';
+import { ASK, askRun } from './explication.js';
+import { explain, moveNo } from './puzzles.js';
+import { mmss, viewParties } from './parties.js';
+import { render } from '../app.js';
 import { DEPTH, S, memo, touch } from '../state.js';
 import { repCard, repLines } from './reponses.js';
 

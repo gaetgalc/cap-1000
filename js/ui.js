@@ -94,3 +94,9 @@ export function watchEdges(root = document) {
 
 // Blocs gris de chargement à la place d'un texte « en cours » : largeurs des lignes en %, libellé pour les lecteurs d'écran.
 export const skel = (label, ...w) => `<span class="skel-g">${label ? `<span class="vh">${esc(label)}</span>` : ''}${w.map((x) => `<span class="skel" style="width:${x}%" aria-hidden="true"></span>`).join('')}</span>`;
+
+// Formats de date : un Intl.DateTimeFormat par jeu d'options (datef), les mêmes options qu'avec toLocale…String('fr-FR', …).
+export const F_HM = datef({ hour: '2-digit', minute: '2-digit' }), F_WDLONG = datef({ weekday: 'long', day: 'numeric', month: 'long' }), F_DSHORT = datef({ day: 'numeric', month: 'short' });
+export const F_DNUM = datef({}), F_DMY = datef({ day: 'numeric', month: 'short', year: 'numeric' }), F_WDLONG_MSHORT = datef({ weekday: 'long', day: 'numeric', month: 'short' });
+export const F_DSHORT_UTC = datef({ day: 'numeric', month: 'short', timeZone: 'UTC' }), F_MY_UTC = datef({ month: 'short', year: 'numeric', timeZone: 'UTC' });
+export const F_DLONG = datef({ day: 'numeric', month: 'long' });

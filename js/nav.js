@@ -22,3 +22,8 @@ export function tabTarget(sec, cur, last) {
   const l = last && last[sec];
   return l && sectionOf(l) === sec ? l : root;
 }
+
+// Onglets internes (refonte du 16/11) : Cours / Ouvertures, Parties / Mes ouvertures. Ils doublent le volet de la navigation, utile sur téléphone.
+export const LEARN_TABS = [['cours', '#cours', 'Cours'], ['ouv', '#ouvertures/apprendre', 'Ouvertures']];
+export const GAMES_TABS = [['parties', '#parties', 'Parties'], ['ouv', '#ouvertures', 'Ouvertures'], ['fb', '#echiquier', 'Échiquier']];
+export const PRO_TABS = [['bilan', '#bilan', 'Mon jeu'], ['stats', '#stats', 'Stats'], ['plan', '#plan', 'Plan']];

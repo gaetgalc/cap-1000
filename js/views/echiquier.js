@@ -4,11 +4,11 @@ import { ls } from '../store.js';
 import { MATE, fmtEval, uciMove } from '../classify.js';
 import { describeAt, fr } from '../explain.js';
 import { $, esc, ico, setHtml, tabs } from '../ui.js';
+import { GAMES_TABS } from '../nav.js';
 import { arrow, destsOf } from '../board.js';
 import { evalShare } from '../review.js';
 import * as exo from '../exercise.js';
 import { moveImpact } from '../replies.js';
-import { GAMES_TABS } from '../app.js';
 import { REP, repCard, repLines } from './reponses.js';
 import { S, route } from '../state.js';
 
