@@ -685,6 +685,18 @@ Tous les écrans déplacés le même jour : 14 modules de plus dans `js/views/` 
 
 Contrôles en plus : ESLint (`no-undef`, `no-unused-vars`) sans erreur sur `app.js`, `state.js` et `js/views/` ; toutes les lignes de code d'origine retrouvées à l'identique (seuls des commentaires d'en-tête ajoutés).
 
+## 60. Site installable sur l'écran d'accueil (23/11)
+
+> Quel autre sujet d'architecture pourrait être très important · Ça veut dire quoi le 2? · Go 1 et 2
+
+Sujet retenu : la survie des données sur iPhone. Safari peut effacer ce qu'un site stocke s'il n'est pas ouvert pendant 7 jours d'utilisation de Safari ; une app ajoutée à l'écran d'accueil y échappe.
+
+- Point 1 (demander au navigateur de garder les données, `navigator.storage.persist()`) : déjà en place dans `init` de `app.js`, rien à faire.
+- Point 2 : `manifest.webmanifest` (plein écran, `start_url` et `scope` `./`), icônes de la boussole dans `icons/` (192, 512, adaptable 512, iPhone 180), réglages iPhone dans `index.html` (barre d'état `black`, titre « Cap 1000 »). App installée (`installed()` de `ui.js`) : `viewport-fit=cover`, pour que les marges `env(safe-area-inset-*)` déjà présentes dans la feuille de style s'appliquent.
+- L'app installée a son propre stockage : l'écran de bienvenue propose « Restaurer un fichier » (et le signale dans l'app installée) ; dans Safari sur iPhone (`iosBrowser()`), la carte Sauvegarde explique l'ajout à l'écran d'accueil.
+
+Contrôles : `tests/install.test.mjs` (manifeste, icônes, réglages, détection), captures de l'accueil (Safari, app) et de la carte Sauvegarde, sauvegarde téléchargée dans un navigateur puis restaurée dans une app vide (12 parties sur 12), `parcours.js`, audit ciblé. Non vérifié : rendu réel sur l'iPhone de Gaëtan (barre d'état, barre d'accueil, icône).
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |

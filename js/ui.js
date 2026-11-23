@@ -100,3 +100,8 @@ export const F_HM = datef({ hour: '2-digit', minute: '2-digit' }), F_WDLONG = da
 export const F_DNUM = datef({}), F_DMY = datef({ day: 'numeric', month: 'short', year: 'numeric' }), F_WDLONG_MSHORT = datef({ weekday: 'long', day: 'numeric', month: 'short' });
 export const F_DSHORT_UTC = datef({ day: 'numeric', month: 'short', timeZone: 'UTC' }), F_MY_UTC = datef({ month: 'short', year: 'numeric', timeZone: 'UTC' });
 export const F_DLONG = datef({ day: 'numeric', month: 'long' });
+
+// Site ouvert comme application installée (écran d'accueil) : norme display-mode, ou navigator.standalone de Safari sur iPhone.
+export const installed = (w = window) => w.navigator.standalone === true || !!w.matchMedia?.('(display-mode: standalone)').matches;
+// Safari ou autre navigateur d'iPhone / iPad, hors application installée : ses données peuvent être effacées après 7 jours sans visite.
+export const iosBrowser = (w = window) => (/iPhone|iPad|iPod/.test(w.navigator.userAgent) || (/Macintosh/.test(w.navigator.userAgent) && w.navigator.maxTouchPoints > 1)) && !installed(w);

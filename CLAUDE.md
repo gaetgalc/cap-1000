@@ -37,6 +37,7 @@ Site statique sans build, servi par GitHub Pages depuis `main` (racine). Tout to
 - Claude peut pousser sur ce dépôt (app GitHub installée) mais pas modifier ses réglages (Pages).
 - L'abonnement Claude Pro n'inclut pas l'API : les cours passent soit par copier-coller dans une conversation Claude, soit par une clé API saisie dans le site (stockée en localStorage, jamais dans le dépôt).
 - Pas de synchronisation entre appareils : analyses, cours et progression sont locaux. Transfert possible par fichier (Progrès > Plan et réglages > Sauvegarde).
+- Site installable sur l'écran d'accueil (`manifest.webmanifest`, 23/11) : sur iPhone, seule l'app installée échappe à l'effacement des données après 7 jours sans visite. Elle a son propre stockage, séparé de Safari.
 - Dépôt public : ne jamais y écrire de clé, d'e-mail ni de donnée personnelle.
 
 ## Skills et plugins Claude Code
@@ -101,6 +102,7 @@ Le test génère des parties par coups semi-aléatoires au format Chess.com, int
 
 - Aucun retour encore sur l'import avec le vrai compte `gaetcc` ; qualité des cours générés par Claude non évaluée (API simulée).
 - Interface mobile refaite le 14/11 puis le 15/11, sans retour : si elle ne convient pas, demander une capture de l'écran.
+- App installée sur l'écran d'accueil (23/11) jamais vue sur un vrai iPhone : barre d'état, barre d'accueil, icône et restauration à confirmer.
 - Cause du « ça a oublié mes 8 puzzles » non confirmée. Si cela revient : vérifier que le site est ouvert dans le même navigateur (stockages séparés entre Safari et navigateurs intégrés, navigation privée = tout effacé).
 - Rythme de lecture des suites (`film`, ~3 s par coup) : réglable depuis le 16/11 (Apparence).
 - Plan d'agrément du 16/11 (`docs/PLAN-AGREMENT.md`) testé sur parties simulées seulement : sons jamais écoutés, rendu iPhone non vu, `!` (seul coup qui tenait) de la relecture jamais observé.

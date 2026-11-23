@@ -4,7 +4,7 @@ import { Engine, evaluateGame, multiPass } from './engine.js';
 import { classify, VERSION, replay } from './classify.js';
 import * as st from './stats.js';
 import { viewStats, mountStats } from './alltime.js';
-import { $, esc, coach, txt, pl, ico, setHtml, tabs, skel, F_DNUM } from './ui.js';
+import { $, esc, coach, txt, pl, ico, setHtml, tabs, skel, F_DNUM, installed } from './ui.js';
 import { progress } from './progress.js';
 import { board, destroyBoards } from './board.js';
 import * as exo from './exercise.js';
@@ -232,7 +232,9 @@ function viewWelcome() {
     <p class="sub">Entre ton pseudo Chess.com. Tes parties sont importées, analysées dans ton navigateur, puis transformées en puzzles, en cours et en plan d’entraînement.</p>
     <form id="wf" class="row"><input type="text" id="wu" placeholder="Pseudo Chess.com" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(new URLSearchParams(location.search).get('u') || '')}" style="flex:1;min-width:180px"><button class="btn pri" ${imp && !imp.err ? 'disabled' : ''}>Importer mes parties</button></form>
     ${imp?.err ? `<p class="err">${esc(imp.err)}</p>` : imp ? '<p class="sub" id="imp">Connexion à Chess.com</p>' : ''}
-    <p class="small">Aucun compte ni mot de passe : seules tes parties publiques sont lues. Tout reste enregistré sur cet appareil.</p></div>`;
+    <p class="small">Aucun compte ni mot de passe : seules tes parties publiques sont lues. Tout reste enregistré sur cet appareil.</p>
+    <p class="small">${installed() ? 'App installée : ta progression faite dans Safari n’y est pas encore. ' : ''}Déjà une sauvegarde ? <button class="btn sm" data-act="bakimp">Restaurer un fichier</button><input type="file" id="bakfile" accept="application/json,.json" hidden></p>
+    <p class="small" id="bakmsg" role="status"></p></div>`;
 }
 
 // ---------- État de l'écran, conservé quand on quitte ou recharge la page ----------
@@ -595,6 +597,8 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
   await load();
   restoreUi();
   navigator.storage?.persist?.().catch(() => {}); // demande au navigateur de ne pas effacer les données de l'app
+  // App installée (écran d'accueil) : la page occupe tout l'écran, les marges du bas (barre d'accueil de l'iPhone) passent par env(safe-area-inset-*).
+  if (installed()) { const m = document.querySelector('meta[name="viewport"]'); if (m && !/viewport-fit/.test(m.content)) m.content += ', viewport-fit=cover'; }
   render();
   const u = new URLSearchParams(location.search).get('u');
   reclassify(); warmReplays();

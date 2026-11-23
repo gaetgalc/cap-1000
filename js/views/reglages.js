@@ -1,6 +1,6 @@
 // Plan et réglages (#plan) : objectif, cadence suivie, clé API, apparence, sauvegarde.
 import { ls } from '../store.js';
-import { $, F_DLONG, esc, tabs } from '../ui.js';
+import { $, F_DLONG, esc, tabs, iosBrowser } from '../ui.js';
 import { DAY } from '../progress.js';
 import { board } from '../board.js';
 import { MODELS, coachKey, coachModel } from '../coach.js';
@@ -17,7 +17,7 @@ import { render } from '../app.js';
 function backupCard() {
   const at = ls.get('bak', null), ago = at ? Math.floor((Date.now() - at) / DAY) : null;
   return `<div class="card"><h2>Sauvegarde</h2><p class="sub">Tes puzzles, ton journal, tes analyses et tes cours ne vivent que dans ce navigateur. Garde une copie, ou passe-les sur un autre appareil.</p>
-    <p class="small">${at ? `Dernière sauvegarde ${ago === 0 ? 'aujourd’hui' : ago === 1 ? 'hier' : `il y a ${ago} jours`}.` : 'Aucune sauvegarde depuis cet appareil.'} La clé du coach n’est jamais mise dans le fichier.</p>
+    <p class="small">${at ? `Dernière sauvegarde ${ago === 0 ? 'aujourd’hui' : ago === 1 ? 'hier' : `il y a ${ago} jours`}.` : 'Aucune sauvegarde depuis cet appareil.'} La clé du coach n’est jamais mise dans le fichier.</p>${iosBrowser() ? '\n    <p class="small">Sur iPhone, Safari peut effacer les données d’un site non ouvert pendant 7 jours. Pour les garder, ajoute Cap 1000 à l’écran d’accueil (Partager, puis « Sur l’écran d’accueil »), puis restaure ta sauvegarde dans l’app.</p>' : ''}
     <div class="row"><button class="btn ${!at || ago >= 14 ? 'pri' : ''}" data-act="bakexp">Télécharger ma sauvegarde</button><button class="btn" data-act="bakimp">Restaurer un fichier</button><input type="file" id="bakfile" accept="application/json,.json" hidden></div>
     <p class="small" id="bakmsg" role="status"></p></div>`;
 }
