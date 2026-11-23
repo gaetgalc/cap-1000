@@ -231,11 +231,13 @@ Tâches 11, 12 et 13 confiées à un seul sous-agent, dans l'ordre (mêmes fichi
 
 ### Tâche 15 : un module par écran (si décision 2 validée)
 
+**23/11 : reprise sur décision de Gaëtan, pilote fait** (JOURNAL §59) : `state.js`, `views/partie.js`, `views/echiquier.js`, `views/reponses.js`. Découpe par script (analyse des déclarations de haut niveau avec acorn, imports et exports calculés), pas par réécriture. Reste : les autres écrans, même méthode.
+
 **Fichiers :** créer `js/state.js`, `js/views/*.js` ; modifier `js/app.js`, `CLAUDE.md` / `docs/ARCHITECTURE.md`.
 
 **Produit :** `state.js` exporte `S`, `render`, `bgRender`, `touch`, `memo`, `goal`, `games`, `rapidAll`, `targetTc`, `route` ; chaque vue (`accueil.js`, `bilan.js`, `partie.js` pour la relecture `gv*`, `puzzles.js`, `ouvertures.js`, `cours.js`, `jeu.js` pour `botGame` / Gagner / Jouer / Finales / Rush, `entrainer.js`, `reglages.js` pour Plan et réglages, `plan.js` étant déjà pris par les intentions) exporte son `view`, son `mount` et ses actions ; `app.js` garde l'initialisation, la navigation, les gestionnaires globaux et la table des routes.
 
-- [ ] Pilote : extraire `state.js` et la relecture (`views/partie.js`) seulement ; vérifier tests, parcours, audit sans écart, `shots-diff` : aucun écran différent. Point d'arrêt : rapport à l'orchestrateur.
+- [x] Pilote : extraire `state.js` et la relecture (`views/partie.js`) seulement ; vérifier tests, parcours, audit sans écart, `shots-diff` : aucun écran différent. Point d'arrêt : rapport à l'orchestrateur.
 - [ ] Puis les autres écrans, un par commit, même vérification à chaque fois. Déplacement pur : aucune ligne de logique modifiée.
 - [ ] `tests/preload.test.mjs` (tâche 5) mis à jour par l'ajout des nouveaux `modulepreload`.
 

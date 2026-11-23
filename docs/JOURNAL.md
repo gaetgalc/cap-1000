@@ -661,6 +661,24 @@ Audit selon `references/signs.md` du skill unslop (Damir Sokolovsky, CC BY 4.0) 
 
 Contrôles : tests unitaires, `audit-ui.js` (6 passes, sans écart), `parcours.js`, `perf.js`.
 
+## 59. Questions d'architecture, chiffrage et pilote du découpage de app.js (23/11)
+
+> reprends les prompts que j'ai envoyé et dis moi quel question d'architecture serait bon que je connaisse/comprennes pour la suite
+
+Réponse (conversation, non versionnée) : huit questions jamais posées, dont « où vivent mes données », « qu'est-ce qui est vérifié sur mes vraies parties », « d'où vient chaque phrase du coach » et « quel est le coût de ne PAS découper `app.js` ».
+
+> creuse la 5, chiffre le découpage de app.js · go
+
+Chiffrage : `app.js` = 261 Ko (~79 000 jetons), touché par 11 des 18 commits depuis le 18/11. Une retouche lit ~25 k jetons (lecture ciblée) à ~79 k (lecture complète) aujourd'hui, ~12 à 15 k après découpage. Découpage par script ~150 k : remboursé en 3 à 12 retouches. Estimations, pas des mesures de sessions passées.
+
+Pilote fait (tâche 15 de `docs/PLAN-AMELIORATION.md`) :
+- `js/state.js` : `S`, `touch`, `memo`, `DEPTH`, accès aux parties, `route`, `dkey`.
+- `js/views/partie.js` (relecture), `js/views/echiquier.js` (échiquier libre), `js/views/reponses.js` (panneau commun) ; `skel` passe dans `ui.js`.
+- `app.js` : 3 001 → 2 506 lignes. Ce qui reste dans `app.js` et sert un écran (`render`, `viewParties`…) est exporté : import circulaire, utilisé seulement dans les fonctions.
+- Méthode : `scripts/split-app.mjs` (acorn) déplace les déclarations sans réécrire une ligne et calcule imports et exports ; réutilisable pour les écrans suivants avec un plan en JSON (noms de la première et de la dernière déclaration).
+
+Contrôles : tests unitaires, `parcours.js`, `audit-ui.js` comparé pixel par pixel à l'audit d'avant (`shots-diff.js`).
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |

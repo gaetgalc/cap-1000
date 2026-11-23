@@ -28,6 +28,6 @@ jobs:
       # contient import ou export (détection automatique du type de module).
       - name: Syntaxe des modules
         run: |
-          for f in js/*.js; do
+          for f in js/*.js js/views/*.js; do
             node --input-type=module --check < "$f" || { echo "::error file=$f::Erreur de syntaxe dans $f"; exit 1; }
           done

@@ -21,7 +21,7 @@ Refonte de l'interface en cours (depuis le 15/11) : décisions, état des lieux 
 
 Site statique sans build, servi par GitHub Pages depuis `main` (racine). Tout tourne dans le navigateur. Table complète des fichiers, routes et fonctionnement des écrans : `docs/ARCHITECTURE.md` (à lire avant de toucher un écran ou un module).
 
-- Coquille et vues : `index.html`, `css/app.css` (jetons de `:root`), `js/app.js` (état `S`, routage par hash, vues), `nav.js` (sections et onglets), `ui.js`, `charts.js`, `toast.js`, `look.js`, `sound.js`.
+- Coquille et vues : `index.html`, `css/app.css` (jetons de `:root`), `js/app.js` (routage par hash, vues pas encore découpées, événements), `js/state.js` (état `S`, `touch`, `memo`, accès aux parties), `js/views/` (un module par écran : `partie.js` relecture, `echiquier.js`, `reponses.js` ; découpage en cours, PLAN-AMELIORATION tâche 15), `nav.js` (sections et onglets), `ui.js`, `charts.js`, `toast.js`, `look.js`, `sound.js`.
 - Échiquier et exercice : `board.js` (chessground), `exercise.js` (écran commun des six écrans à échiquier), `review.js` (dont la qualité de chaque coup), `book.js` (théorie, base Lichess CC0), `replies.js` (réponses aux coups adverses, relecture et échiquier libre `#echiquier`).
 - Analyse : `engine.js` (Stockfish), `classify.js` (classement pur, `VERSION`), `stats.js`, `insights.js`, `alltime.js`, `debrief.js`, `portrait.js`, `recap.js` (bilan après un import).
 - Explications : `explain.js`, `geom.js`, `plan.js`, `theory.js`.
