@@ -30,7 +30,7 @@ function lookCard() {
     return `<button type="button" class="${on ? 'on' : ''}" aria-pressed="${on}" data-act="look" data-k="${k}" data-v="${v}">${t}</button>`;
   }).join('')}</div></div>`;
   return `<div class="card look"><h2>Apparence</h2><div class="lookgrid"><div class="board mini lookb" id="lookb" aria-label="Aperçu de l’échiquier"></div><div class="stack">
-    ${seg('pal', 'Échiquier', look.PALETTES)}${seg('pc', 'Pièces', look.PIECES)}${seg('coords', 'Coordonnées', [[true, 'Oui'], [false, 'Non']])}${seg('speed', 'Lecture des suites', look.SPEEDS)}${seg('glass', 'Barres en verre (essai)', [[false, 'Non'], [true, 'Oui']])}
+    ${seg('pal', 'Échiquier', look.PALETTES)}${seg('pc', 'Pièces', look.PIECES)}${seg('coords', 'Coordonnées', [[true, 'Oui'], [false, 'Non']])}${seg('speed', 'Lecture des suites', look.SPEEDS)}${seg('glass', 'Barres en verre', [[true, 'Oui'], [false, 'Non']])}
     <p class="small">Sur ordinateur, glisse le coin bas droit de l’échiquier d’un exercice pour le redimensionner.${l.size ? ` Taille choisie : ${l.size} px. <a href="#" data-act="look" data-k="size" data-v="">Revenir à la taille automatique</a>` : ''}</p></div></div></div>`;
 }
 function weekKey() { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return dkey(d); }

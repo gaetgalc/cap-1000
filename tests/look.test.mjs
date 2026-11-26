@@ -8,15 +8,15 @@ test('apparence : valeurs par défaut, et toute valeur inconnue ou abîmée revi
   assert.deepEqual(normalize(undefined), DEFAULT);
   assert.deepEqual(normalize('n’importe quoi'), DEFAULT);
   assert.deepEqual(normalize({ pal: 'rose', pc: 'xkcd', coords: 'oui', speed: 'turbo', size: 'grand' }), DEFAULT);
-  assert.deepEqual(normalize({ pal: 'bois', pc: 'merida', coords: false, speed: 'lent', size: 600 }), { pal: 'bois', pc: 'merida', coords: false, speed: 'lent', size: 600, glass: false });
+  assert.deepEqual(normalize({ pal: 'bois', pc: 'merida', coords: false, speed: 'lent', size: 600 }), { pal: 'bois', pc: 'merida', coords: false, speed: 'lent', size: 600, glass: true });
   assert.equal(DEFAULT.pal, 'vert'); assert.equal(DEFAULT.pc, 'maestro'); // Maestro par défaut depuis le 17/11 assert.equal(DEFAULT.coords, true); assert.equal(DEFAULT.speed, 'normal'); assert.equal(DEFAULT.size, null);
   assert.equal(PALETTES.length, 3); assert.ok(PIECES.length >= 1); assert.equal(SPEEDS.length, 3);
 });
 
 test('apparence : une classe par réglage qui s’écarte de chessground (pièces cburnett, palette verte, coordonnées)', () => {
-  assert.deepEqual(classesOf(DEFAULT), ['pc-maestro']);
-  assert.deepEqual(classesOf({ ...DEFAULT, pc: 'cburnett' }), []);
-  assert.deepEqual(classesOf({ ...DEFAULT, pal: 'bleu', pc: 'chessnut', coords: false }).sort(), ['nocoords', 'pal-bleu', 'pc-chessnut']);
+  assert.deepEqual(classesOf(DEFAULT), ['pc-maestro', 'glass']);
+  assert.deepEqual(classesOf({ ...DEFAULT, pc: 'cburnett', glass: false }), []);
+  assert.deepEqual(classesOf({ ...DEFAULT, pal: 'bleu', pc: 'chessnut', coords: false, glass: false }).sort(), ['nocoords', 'pal-bleu', 'pc-chessnut']);
 });
 
 test('vitesse de lecture : lente plus longue, rapide plus courte', () => {
@@ -35,10 +35,10 @@ test('la sauvegarde emporte les réglages d’apparence', () => {
   assert.deepEqual(b.ls.look, { pal: 'bois' });
 });
 
-test('verre (essai Liquid Glass du 26/11) : désactivé par défaut, une classe quand il est choisi', () => {
-  assert.equal(DEFAULT.glass, false);
-  assert.equal(normalize({ glass: 'oui' }).glass, false);
-  assert.equal(normalize({ glass: true }).glass, true);
-  assert.ok(!classesOf(DEFAULT).includes('glass'));
-  assert.ok(classesOf({ ...DEFAULT, glass: true }).includes('glass'));
+test('verre (Liquid Glass, 26/11) : activé par défaut, désactivable, une classe quand il est choisi', () => {
+  assert.equal(DEFAULT.glass, true);
+  assert.equal(normalize({ glass: 'oui' }).glass, true);
+  assert.equal(normalize({ glass: false }).glass, false);
+  assert.ok(classesOf(DEFAULT).includes('glass'));
+  assert.ok(!classesOf({ ...DEFAULT, glass: false }).includes('glass'));
 });

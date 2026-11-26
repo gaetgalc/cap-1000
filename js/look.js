@@ -8,8 +8,8 @@ export const PALETTES = [['vert', 'Vert'], ['bois', 'Bois'], ['bleu', 'Bleu-gris
 // Maestro par défaut (17/11, demande de Gaëtan : le plus proche des pièces de Chess.com parmi les jeux libres).
 export const PIECES = [['cburnett', 'Classiques'], ['maestro', 'Maestro'], ['cardinal', 'Cardinal'], ['merida', 'Merida'], ['chessnut', 'Chessnut']];
 export const SPEEDS = [['lent', 'Lente', 1.6], ['normal', 'Normale', 1], ['rapide', 'Rapide', 0.6]];
-export const DEFAULT = Object.freeze({ pal: 'vert', pc: 'maestro', coords: true, speed: 'normal', size: null, glass: false });
-// Verre (essai du 26/11) : barres flottantes translucides façon Liquid Glass d'Apple (classe glass sur <html>, règles en fin de css/app.css).
+export const DEFAULT = Object.freeze({ pal: 'vert', pc: 'maestro', coords: true, speed: 'normal', size: null, glass: true });
+// Verre (essai du 26/11, par défaut depuis le 26/11 à la demande de Gaëtan) : barres flottantes translucides façon Liquid Glass d'Apple (classe glass sur <html>, règles en fin de css/app.css).
 const MIN = 320, MAX = 1000; // taille de l'échiquier réglée à la poignée, en pixels
 
 const has = (list, v) => list.some(([k]) => k === v);
@@ -22,7 +22,7 @@ export function normalize(o) {
     coords: typeof x.coords === 'boolean' ? x.coords : DEFAULT.coords,
     speed: has(SPEEDS, x.speed) ? x.speed : DEFAULT.speed,
     size: clampSize(x.size),
-    glass: x.glass === true,
+    glass: typeof x.glass === 'boolean' ? x.glass : DEFAULT.glass,
   };
 }
 export const classesOf = (l) => [l.pal !== 'vert' && 'pal-' + l.pal, l.pc !== 'cburnett' && 'pc-' + l.pc, !l.coords && 'nocoords', l.glass && 'glass'].filter(Boolean);

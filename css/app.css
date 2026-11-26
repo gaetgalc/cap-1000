@@ -997,7 +997,7 @@ button.gvqn { color: var(--ink); cursor: pointer; }
   [data-act="refresh"][aria-busy="true"] .ic { animation: none; opacity: .5; }
 }
 
-/* ===== Verre (essai du 26/11, Apparence > Barres en verre) =====
+/* ===== Verre (26/11, par défaut ; désactivable dans Apparence > Barres en verre) =====
    Esprit Liquid Glass d'Apple : seules les barres qui flottent au-dessus du contenu (onglets, barre d'actions, en-tête du téléphone,
    volets, messages) deviennent translucides et floutées ; les cartes et l'échiquier restent pleins. Sur téléphone, onglets et
    barre d'actions deviennent des capsules détachées des bords. Retour au plein si le système demande moins de transparence ou plus de contraste. */
