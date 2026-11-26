@@ -8,7 +8,8 @@ export const PALETTES = [['vert', 'Vert'], ['bois', 'Bois'], ['bleu', 'Bleu-gris
 // Maestro par défaut (17/11, demande de Gaëtan : le plus proche des pièces de Chess.com parmi les jeux libres).
 export const PIECES = [['cburnett', 'Classiques'], ['maestro', 'Maestro'], ['cardinal', 'Cardinal'], ['merida', 'Merida'], ['chessnut', 'Chessnut']];
 export const SPEEDS = [['lent', 'Lente', 1.6], ['normal', 'Normale', 1], ['rapide', 'Rapide', 0.6]];
-export const DEFAULT = Object.freeze({ pal: 'vert', pc: 'maestro', coords: true, speed: 'normal', size: null });
+export const DEFAULT = Object.freeze({ pal: 'vert', pc: 'maestro', coords: true, speed: 'normal', size: null, glass: false });
+// Verre (essai du 26/11) : barres flottantes translucides façon Liquid Glass d'Apple (classe glass sur <html>, règles en fin de css/app.css).
 const MIN = 320, MAX = 1000; // taille de l'échiquier réglée à la poignée, en pixels
 
 const has = (list, v) => list.some(([k]) => k === v);
@@ -21,12 +22,13 @@ export function normalize(o) {
     coords: typeof x.coords === 'boolean' ? x.coords : DEFAULT.coords,
     speed: has(SPEEDS, x.speed) ? x.speed : DEFAULT.speed,
     size: clampSize(x.size),
+    glass: x.glass === true,
   };
 }
-export const classesOf = (l) => [l.pal !== 'vert' && 'pal-' + l.pal, l.pc !== 'cburnett' && 'pc-' + l.pc, !l.coords && 'nocoords'].filter(Boolean);
+export const classesOf = (l) => [l.pal !== 'vert' && 'pal-' + l.pal, l.pc !== 'cburnett' && 'pc-' + l.pc, !l.coords && 'nocoords', l.glass && 'glass'].filter(Boolean);
 export const speedOf = (s) => (SPEEDS.find(([k]) => k === s) || [0, 0, 1])[2];
 
-const ALL = [...PALETTES.map(([k]) => 'pal-' + k), ...PIECES.map(([k]) => 'pc-' + k), 'nocoords'];
+const ALL = [...PALETTES.map(([k]) => 'pal-' + k), ...PIECES.map(([k]) => 'pc-' + k), 'nocoords', 'glass'];
 export const look = () => normalize(ls.get('look', null));
 // Pose les classes et la taille sur la page ; à rappeler après chaque changement (ou une restauration).
 export function apply(l = look()) {

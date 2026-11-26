@@ -518,7 +518,7 @@ document.addEventListener('click', (ev) => {
   else if (act === 'opgrp') { S.opGrp = el.dataset.g; render(true); }
   else if (act === 'optab') { S.opTab = el.dataset.tab; render(true); }
   else if (act === 'bakimp') $('#bakfile')?.click();
-  else if (act === 'look') { const k = el.dataset.k, v = el.dataset.v; look.setLook({ [k]: k === 'coords' ? v === 'true' : k === 'size' ? null : v }); render(true); }
+  else if (act === 'look') { const k = el.dataset.k, v = el.dataset.v; look.setLook({ [k]: k === 'coords' || k === 'glass' ? v === 'true' : k === 'size' ? null : v }); render(true); }
   else if (act === 'reset') {
     if (el.dataset.sure) { const u = S.user; ls.clear(['key', 'model', 'goal', 'hours', 'look']); dbDel('data:' + u); dbDel('an:' + u); dbDel('ai:' + u); S.ai = {}; S.li = null; S.liKeep = null; S.dr = null; S.cv = null; S.gen = null; S.cl = null; LINES.clear(); S.job.stop = true; S.user = null; S.data = null; S.an = {}; touch(); S.pz = null; location.hash = '#accueil'; render(); }
     else { el.dataset.sure = '1'; el.textContent = 'Confirmer : effacer parties, analyses et progression (réglages et clé du coach conservés)'; }

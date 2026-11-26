@@ -697,6 +697,23 @@ Sujet retenu : la survie des données sur iPhone. Safari peut effacer ce qu'un s
 
 Contrôles : `tests/install.test.mjs` (manifeste, icônes, réglages, détection), captures de l'accueil (Safari, app) et de la carte Sauvegarde, sauvegarde téléchargée dans un navigateur puis restaurée dans une app vide (12 parties sur 12), `parcours.js`, audit ciblé. Non vérifié : rendu réel sur l'iPhone de Gaëtan (barre d'état, barre d'accueil, icône).
 
+## 61. Audit Emil Kowalski et Vercel, essai Liquid Glass (26/11)
+
+Demande : passer le site aux skills d'Emil Kowalski (`emilkowalski/skills`, revue des animations) et à la liste de Vercel (`vercel-labs/web-interface-guidelines`), relevées dans un fil X sur les skills « anti AI slop » ; essayer Liquid Glass.
+
+Animations (revue d'Emil) : conformes pour l'essentiel. Courbe forte unique (`--ease`), durées de 90 à 200 ms, transitions sur `transform` et `opacity`, survol réservé à la souris, mouvement réduit respecté, pas d'animation sur les flèches du clavier de la relecture. Écarts mineurs, non corrigés :
+- mouvement réduit = tout coupé (`* { animation: none }`) : Emil garde les fondus (pastille du coup, messages) et ne retire que les déplacements ;
+- `markin` part de `scale(.4)` avec dépassement à 1.12, `dotpop` à 1.3 : assumé pour un retour de réussite, mais plus sobre à partir de `scale(.9)` ;
+- `.btn.pulse` anime une ombre (`box-shadow`, 1,1 s, `ease-in-out`, 3 fois) : peinture à chaque image, plus lent que les 300 ms conseillées.
+
+Liste de Vercel : focus visible, zoom autorisé, chiffres tabulaires, titres équilibrés, `…`, messages lus par les lecteurs d'écran, zones sûres : en place. Écarts :
+1. Champs sous 16 px sur téléphone, qui font zoomer Safari au toucher (la page bouge sur un écran d'échiquier) : sélecteurs de `#inedits` (`.pzhead select`, 14 px, 34 px de haut), zone de collage des cours (`textarea`, 13 px), FEN/PGN de l'échiquier libre (`.fbload textarea`, 14 px).
+2. Pas de `touch-action: manipulation` : deux appuis rapides (Indice puis Solution, coups de la relecture) peuvent zoomer la page sur iPhone.
+3. Lignes de tableau cliquables (`tr.click` : ouvertures, explorateur, chantier) inatteignables au clavier.
+4. `-webkit-tap-highlight-color` non réglé : reflet gris d'iOS au toucher, en plus de l'état appuyé.
+
+Essai Liquid Glass : réglage « Barres en verre (essai) » dans Apparence (`look.glass`, classe `glass` sur `<html>`, désactivé par défaut, emporté par la sauvegarde). Seules les barres qui flottent au-dessus du contenu deviennent translucides et floutées (onglets, barre d'actions, en-tête du téléphone, volets, messages) ; sur téléphone, onglets et barre d'actions deviennent des capsules détachées des bords, sans changer leur encombrement. Retour au plein si le système demande moins de transparence ou plus de contraste, ou sans `backdrop-filter`. Piège rencontré : un `backdrop-filter` sur `.top` en fait le repère des éléments `fixed` qu'il contient, et la barre d'onglets (enfant de `.top` sur téléphone) remontait en haut : le flou de l'en-tête est porté par `.top::before`. `GLASS=1 node tests/audit-ui.js` audite avec le verre (6 passes sans écart).
+
 ## Décisions à retenir
 
 | Sujet | Décision | Raison |
@@ -724,3 +741,4 @@ Contrôles : `tests/install.test.mjs` (manifeste, icônes, réglages, détection
 - Explorateur Lichess (`explorer.js`) et finales contre le moteur jamais essayés sur le site en ligne ; Elo estimé non comparé à celui de Chess.com.
 - Rendu du site en ligne (inaccessible depuis l'environnement de Claude).
 - Rythme de l'animation des suites (environ 3 secondes par coup) et lisibilité des points de déplacement sur le téléphone de Gaëtan.
+- Barres en verre (essai du 26/11, §61) jamais vues sur un vrai iPhone : flou, lisibilité des onglets sur fond clair (échiquier), capsule au-dessus de la barre d'accueil.

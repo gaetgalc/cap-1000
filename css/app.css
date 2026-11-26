@@ -997,6 +997,39 @@ button.gvqn { color: var(--ink); cursor: pointer; }
   [data-act="refresh"][aria-busy="true"] .ic { animation: none; opacity: .5; }
 }
 
+/* ===== Verre (essai du 26/11, Apparence > Barres en verre) =====
+   Esprit Liquid Glass d'Apple : seules les barres qui flottent au-dessus du contenu (onglets, barre d'actions, en-tête du téléphone,
+   volets, messages) deviennent translucides et floutées ; les cartes et l'échiquier restent pleins. Sur téléphone, onglets et
+   barre d'actions deviennent des capsules détachées des bords. Retour au plein si le système demande moins de transparence ou plus de contraste. */
+:root {
+  --glass: color-mix(in srgb, var(--surface) 58%, transparent);
+  --glass-line: color-mix(in srgb, var(--white) 13%, transparent);
+  --glass-on: color-mix(in srgb, var(--white) 11%, transparent);
+  --glass-fx: blur(20px) saturate(1.7);
+  --glass-shadow: inset 0 1px 0 color-mix(in srgb, var(--white) 16%, transparent), 0 10px 30px color-mix(in srgb, var(--black) 45%, transparent);
+  --pill: 28px;
+}
+.glass .actbar, .glass .fly, .glass .toast { background: var(--glass); -webkit-backdrop-filter: var(--glass-fx); backdrop-filter: var(--glass-fx); border: 1px solid var(--glass-line); box-shadow: var(--glass-shadow); }
+.glass .toast { color: var(--ink); border-radius: var(--pill); padding: 10px var(--s-4); }
+.glass .actbar { border-radius: var(--pill); }
+@media (max-width: 859px) {
+  /* En-tête : flou porté par un calque (un filtre sur .top ferait de lui le repère de la barre d'onglets, qui en est enfant) */
+  .glass .top { background: none; border-bottom-color: var(--glass-line); }
+  .glass .top::before { content: ''; position: absolute; inset: 0; z-index: -1; background: var(--glass); -webkit-backdrop-filter: var(--glass-fx); backdrop-filter: var(--glass-fx); pointer-events: none; }
+  /* Capsule d'onglets : même encombrement en hauteur que la barre pleine (la page d'un échiquier ne doit pas défiler) */
+  .glass .nav { background: var(--glass); -webkit-backdrop-filter: var(--glass-fx); backdrop-filter: var(--glass-fx); border: 1px solid var(--glass-line); box-shadow: var(--glass-shadow); left: 10px; right: 10px; bottom: max(6px, env(safe-area-inset-bottom)); padding: 4px; border-radius: var(--pill); }
+  .glass .nav a { border-top: 0; border-radius: calc(var(--pill) - 4px); padding: 4px 2px; }
+  .glass .nav a.on { background: var(--glass-on); }
+  .glass .actbar { left: 8px; right: 8px; bottom: max(6px, env(safe-area-inset-bottom)); padding: 6px; border: 1px solid var(--glass-line); border-radius: var(--pill); box-shadow: var(--glass-shadow); }
+  .glass .actbar .btn { border-radius: calc(var(--pill) - 6px); }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass .nav, .glass .actbar, .glass .fly, .glass .toast, .glass .top::before { background: var(--surface); }
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .glass .nav, .glass .actbar, .glass .fly, .glass .toast, .glass .top::before { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; border-color: var(--line); }
+}
+
 /* ===== Survol (demande du 16/11) : tout élément cliquable s'éclaire sous la souris, jamais au toucher ===== */
 .btn, .seg2 button, .seg2 a, .mrow, a.revue, .oprow, .gl, .opdue, .fmini, .check, .gnum, .pzprog, .lgpos, a.card, .nav a, .nav a > svg, .brand, .moves button, .gvm .mv, .gvnote, .reprow, button.gvqn {
   transition: background-color var(--m-in) var(--ease), border-color var(--m-in) var(--ease), color var(--m-in) var(--ease), filter var(--m-in) var(--ease), transform var(--m-press) var(--ease);

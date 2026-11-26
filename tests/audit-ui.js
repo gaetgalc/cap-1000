@@ -217,6 +217,7 @@ function measure([touch, hc, zoom]) {
 async function visit(ctx, size, report) {
   const page = await ctx.newPage(), errs = [];
   // Captures reproductibles : les positions tirées au hasard (échauffements, Rush) viennent d'un générateur à graine fixe.
+  if (process.env.GLASS) await page.addInitScript(() => { const k = 'cap1000:look', l = JSON.parse(localStorage.getItem(k) || '{}'); if (!l.glass) localStorage.setItem(k, JSON.stringify({ ...l, glass: true })); }); // essai des barres en verre
   await page.addInitScript(() => { let a = 12345; Math.random = () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; });
   if (size.hc) await page.emulateMedia({ contrast: 'more' });
   page.on('pageerror', (e) => errs.push(e.message));
